@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["encinorm"]
+
+[project]
+name = "encinorm"
+version = "0.1.0"
+description = "Librería asíncrona de interfaz unificada para SQLite, MySQL y PostgreSQL"
+requires-python = ">=3.10"
+license = "MIT"
+readme = "README.md"
+authors = [
+    { name = "Hector", email = "valles.hector@gmail.com" },
+]
+dependencies = [
+    "aiomysql>=0.3.2",
+    "aiosqlite",
+    "asyncpg>=0.31.0",
+    "pydantic>=2.13.4",
+]
+
+[project.optional-dependencies]
+security = ["fastapi>=0.110", "PyJWT>=2.8"]
+http = ["fastapi>=0.110"]
+graphql = ["strawberry-graphql>=0.200"]
+
+[project.urls]
+Repository = "https://github.com/hvalles/encinorm"
+
+[project.scripts]
+encinorm = "encinorm.cli:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "httpx>=0.27",
+]

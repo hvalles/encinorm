@@ -1,0 +1,37 @@
+import pytest
+
+from encinorm.observability import QueryTracer, current_trace_id, trace_id
+
+
+class TestTraceId:
+    def test_default_none(self):
+        assert current_trace_id() is None
+
+    def test_context_manager(self):
+        with trace_id("req-123"):
+            assert current_trace_id() == "req-123"
+        assert current_trace_id() is None
+
+
+class TestQueryTracer:
+    def test_record_and_stats(self):
+        t = QueryTracer(collect_metrics=True)
+        t.record("sqlite", "fetch_all", "SELECT 1", [], 0.01)
+        t.record("sqlite", "fetch_all", "SELECT 2", [], 0.02, error=ValueError("x"))
+        assert t.stats == {"queries": 2, "errors": 1, "rows": 0}
+
+    def test_rows_metric(self):
+        t = QueryTracer(collect_metrics=True)
+        t.record("sqlite", "fetch_all", "SELECT 1", [], 0.01, rows=5)
+        assert t.stats["rows"] == 5
+
+    def test_no_metrics(self):
+        t = QueryTracer(collect_metrics=False)
+        t.record("sqlite", "fetch_all", "SELECT 1", [], 0.01)
+        assert t.stats == {"queries": 0, "errors": 0, "rows": 0}
+
+    def test_reset(self):
+        t = QueryTracer(collect_metrics=True)
+        t.record("sqlite", "fetch_all", "SELECT 1", [], 0.01)
+        t.reset()
+        assert t.stats == {"queries": 0, "errors": 0, "rows": 0}
