@@ -5,7 +5,7 @@ from .sqlite import SqliteDb
 from .mysql import MysqlDb
 from .postgresql import PostgresDb
 from .pool import PoolDb, create_db, session
-from .observability import QueryTracer, current_trace_id, trace_id
+from .observability import OtelQueryTracer, QueryTracer, current_trace_id, trace_id
 from .migration import (
     Migration,
     apply_migration,
@@ -36,6 +36,7 @@ __all__ = [
     "bind",
     "resolve_db",
     "QueryTracer",
+    "OtelQueryTracer",
     "trace_id",
     "current_trace_id",
     "Migration",

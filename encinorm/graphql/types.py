@@ -43,7 +43,7 @@ def build_type(model, module_name: str):
             Annotated[child.__name__, strawberry.lazy(module_name)]
         ]
         namespace[name] = strawberry.field(
-            resolver=_ref_resolver(name, child, module_name))
+            resolver=_ref_resolver(model, name, child, module_name))
 
     for name, spec in model._has_many_def.items():
         child = spec["model"]
@@ -51,7 +51,7 @@ def build_type(model, module_name: str):
             list[Annotated[child.__name__, strawberry.lazy(module_name)]]
         ]
         namespace[name] = strawberry.field(
-            resolver=_has_many_resolver(name, child, module_name))
+            resolver=_has_many_resolver(model, name, child, module_name))
 
     cls = type(model.__name__ or model._table, (), namespace)
     return strawberry.type(cls)

@@ -49,7 +49,8 @@ result = await schema.execute(
 - **Queries**: `{tabla}` (lista), `{tabla}_count`, `{singular}` (por clave
   primaria) con filtro `filter`, `limit` y `page`.
 - **Mutations**: `{singular}_create`, `{singular}_update`, `{singular}_delete`.
-- Las relaciones se resuelven de forma perezosa (`region { name }`).
+- Las relaciones se resuelven con **DataLoader** (carga por lotes), evitando el
+  N+1 al resolver `region { name }` sobre listas de padres.
 
 ## 3. Seguridad (RBAC + JWT)
 
@@ -117,7 +118,7 @@ y se emiten automáticamente (`_primary_key`, `name="..."`).
 ## 5. Observabilidad
 
 ```python
-from encinorm import trace_id, QueryTracer
+from encinorm import trace_id, QueryTracer, OtelQueryTracer
 
 with trace_id("req-abc"):
     await User(db).search()      # los logs SQL incluyen trace_id=...
@@ -125,7 +126,14 @@ with trace_id("req-abc"):
 tracer = QueryTracer(collect_metrics=True)
 tracer.record("sqlite", "fetch_all", "SELECT ...", [], 0.012, rows=10)
 print(tracer.stats)              # {"queries": 1, "errors": 0, "rows": 10}
+print(tracer.latency_stats)      # {"count": 1, "min": ..., "p50": ..., "p99": ...}
 ```
+
+- `QueryTracer` además de contadores expone `latency_stats` (histograma con
+  percentiles p50/p90/p99).
+- `OtelQueryTracer` crea un **span de OpenTelemetry** por consulta (opt-in;
+  requiere `opentelemetry-api`, que no es dependencia de encinorm). El
+  `TracerProvider`/exportador lo configura la aplicación.
 
 El logging estructurado de los motores usa `logging.getLogger("encinorm")` a
 nivel `DEBUG`.

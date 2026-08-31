@@ -235,3 +235,59 @@ class TestRelationships:
         agente = result.data["agentes"][0]
         assert agente["agente"] == "Héctor"
         assert agente["region"]["region"] == "Norte"
+
+
+class CountingDb(SqliteDb):
+    def __init__(self):
+        super().__init__()
+        self.fetch_count = 0
+
+    async def fetch_all(self, qry):
+        self.fetch_count += 1
+        return await super().fetch_all(qry)
+
+
+class TestDataLoaderBatching:
+    @pytest.mark.asyncio
+    async def test_has_many_batched(self):
+        db = CountingDb()
+        await db.connect(database=":memory:")
+        await Region(db).create_table()
+        await Agente(db).create_table()
+        for i in range(5):
+            rid = await Region(db, region=f"r{i}").insert()
+            await Agente(db, agente=f"a{i}", region_id=rid).insert()
+
+        schema = build_schema([Region, Agente])
+        db.fetch_count = 0
+        result = await schema.execute(
+            "{ regiones { region agentes { agente } } }", context_value={"db": db}
+        )
+        await db.close()
+
+        assert result.errors is None
+        assert len(result.data["regiones"]) == 5
+        # 1 consulta de lista + 1 batch de has_many (sin N+1)
+        assert db.fetch_count == 2
+
+    @pytest.mark.asyncio
+    async def test_reference_batched(self):
+        db = CountingDb()
+        await db.connect(database=":memory:")
+        await Region(db).create_table()
+        await Agente(db).create_table()
+        for i in range(5):
+            rid = await Region(db, region=f"r{i}").insert()
+            await Agente(db, agente=f"a{i}", region_id=rid).insert()
+
+        schema = build_schema([Region, Agente])
+        db.fetch_count = 0
+        result = await schema.execute(
+            "{ agentes { agente region { region } } }", context_value={"db": db}
+        )
+        await db.close()
+
+        assert result.errors is None
+        assert len(result.data["agentes"]) == 5
+        # 1 consulta de lista + 1 batch de referencia (sin N+1)
+        assert db.fetch_count == 2
