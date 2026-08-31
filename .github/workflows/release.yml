@@ -1,0 +1,46 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write          # para trusted publishing (OIDC) si se usa
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build
+        run: uv build
+
+      # Publica a PyPI usando un token (secret PYPI_API_TOKEN).
+      # Alternativa sin token: Trusted Publishing (OIDC):
+      #   1. En PyPI > Settings > Publishing, añade el repo hvalles/encinorm
+      #      con el workflow "release.yml".
+      #   2. Sustituye este paso por: run: uv publish --trusted-publishing always
+      #      y elimina el env con el token.
+      - name: Publish to PyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish
+
+      # Para probar contra TestPyPI de forma manual:
+      #   gh workflow run "Publish to PyPI" -f ... (o usa el botón "Run workflow")
+      # y comenta el paso anterior, descomentando:
+      # - name: Publish to TestPyPI
+      #   env:
+      #     UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      #   run: uv publish --publish-url https://test.pypi.org/legacy/
