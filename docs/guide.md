@@ -350,15 +350,25 @@ migs = migrations_from_dir("./migrations")
 ## 12. Soft-delete y multi-tenant
 
 - `search`, `count` y `paginate` ocultan `enabled=False` por defecto; usa
-  `include_deleted=True` para verlos. `load` no filtra (auditoría).
-- El filtro de alcance por fila se establece con `scope`:
+  `include_deleted=True` para verlos. `load` no filtra el soft-delete
+  (auditoría), pero **sí respeta el `scope`** activo.
+- El filtro de alcance por fila (`scope`) se aplica a `search`, `count`,
+  `paginate`, **`load`, `update` y `delete`**, de modo que un tenant no puede
+  leer, modificar ni borrar filas ajenas por clave primaria:
 
 ```python
 from encinorm.model import scope, Filter
 
 with scope(Filter.eq("tenant_id", 7)):
-    rows = await Membership(db).search()   # restringido al tenant 7
+    rows = await Membership(db).search()      # solo tenant 7
+    doc = await Membership(db, id=123).load() # _exists=False si es de otro tenant
+    await doc.update()                        # lanza FailOnUpdate si está fuera de scope
+    await Membership(db, id=123).delete()     # no-op (False) si está fuera de scope
 ```
+
+> Nota: `load` devuelve también filas soft-deleteadas **dentro** del tenant
+> (auditoría); `update`/`delete` verifican el `scope` antes de escribir para
+> evitar fugas entre tenants.
 
 ## 13. Observabilidad
 

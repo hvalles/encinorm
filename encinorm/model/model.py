@@ -74,6 +74,16 @@ def _set_private(obj, name, value):
     object.__setattr__(obj, name, value)
 
 
+_PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
+
+
+def _shift_placeholders(sql: str, offset: int) -> str:
+    """Reindexa los placeholders ``{n}`` sumándoles `offset`."""
+    return _PLACEHOLDER_RE.sub(
+        lambda m: "{" + str(int(m.group(1)) + offset) + "}", sql
+    )
+
+
 class Model(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -539,6 +549,14 @@ class Model(BaseModel):
             col = self._col(k)
             clauses.append(f"{col} = {{{len(params)}}}")
             params.append(_serialize(getattr(self, k)))
+
+        s = current_scope()
+        if s is not None:
+            frag, s_params = s.map_fields(self._column_map()).to_sql()
+            frag = _shift_placeholders(frag, len(params))
+            clauses.append(f"({frag})")
+            params.extend(s_params)
+
         sql = f"SELECT * FROM {self._table} WHERE {' AND '.join(clauses)}"
         row = await self._get_db().fetch_one(Query(sql, params))
 
@@ -556,6 +574,12 @@ class Model(BaseModel):
 
     async def update(self, keys=None, data=None) -> int:
         keys = self._normalize_keys(keys, type(self)._pk_fields())
+        if current_scope() is not None:
+            existing = await self.load(keys=keys)
+            if not existing._exists:
+                raise FailOnUpdate(
+                    f"update en '{self._table}' no afectó ningún registro"
+                )
         if data is None:
             data = list(self.__dict__.get("__dirties", []) or [])
         else:
@@ -593,6 +617,10 @@ class Model(BaseModel):
 
     async def delete(self, keys=None, physical: bool = False) -> bool:
         keys = self._normalize_keys(keys, type(self)._pk_fields())
+        if current_scope() is not None:
+            existing = await self.load(keys=keys)
+            if not existing._exists:
+                return False
         key_dict = {}
         for k in keys:
             val = getattr(self, k)
