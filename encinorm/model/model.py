@@ -65,8 +65,12 @@ def _types_compatible(model_dt: str, db_dt: str, engine: str) -> bool:
         return True
     if {model_dt, db_dt} == {"bool", "int"}:
         return True          # bool se almacena como int/tinyint en todos los motores
+    if {model_dt, db_dt} == {"decimal", "numeric"}:
+        return True          # DECIMAL/NUMERIC exacto se introspecciona como "numeric"
     if engine == "sqlite" and model_dt in ("datetime", "date") and db_dt == "str":
         return True          # SQLite guarda datetime/date como TEXT
+    if engine == "sqlite" and model_dt == "decimal" and db_dt == "str":
+        return True          # SQLite guarda Decimal como TEXT
     return False
 
 

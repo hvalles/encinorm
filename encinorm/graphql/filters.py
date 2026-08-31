@@ -84,7 +84,7 @@ def _filter_type_for(dt: str, field: str):
         return IdFilter
     if dt == "int":
         return IntFilter
-    if dt in ("numeric", "float"):
+    if dt in ("numeric", "decimal", "float"):
         return FloatFilter
     if dt in ("bool", "tinyint"):
         return BoolFilter

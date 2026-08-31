@@ -10,6 +10,7 @@ DATATYPE_TO_TYPE = {
     "bool": bool,
     "tinyint": bool,
     "numeric": float,
+    "decimal": float,
     "float": float,
     "datetime": datetime,
     "date": date,

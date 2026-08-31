@@ -38,7 +38,7 @@ BOOL = make_constraint(bool)
 DATE = make_constraint(date)
 DATETIME = make_constraint(datetime, validators=(_coerce_datetime,))
 BLOB = make_constraint(bytes)                     # datatype "blob"
-DECIMAL = make_constraint(Decimal)                # datatype "numeric" (dinero exacto)
+DECIMAL = make_constraint(Decimal)                # datatype "decimal" (dinero exacto)
 JSON = make_constraint(dict, datatype="json")     # dict | None -> columna JSON
 
 __all__ = [

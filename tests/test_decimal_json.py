@@ -26,7 +26,7 @@ async def db():
 
 class TestPresets:
     def test_decimal_datatype(self):
-        assert DECIMAL().__metadata__[0].datatype == "numeric"
+        assert DECIMAL().__metadata__[0].datatype == "decimal"
 
     def test_json_datatype(self):
         assert JSON().__metadata__[0].datatype == "json"
@@ -39,7 +39,7 @@ class TestPresets:
 class TestDdl:
     def test_sqlite(self):
         ddl = to_ddl(Doc, "sqlite")
-        assert "total REAL" in ddl
+        assert "total TEXT" in ddl
         assert "payload TEXT" in ddl
         assert "items TEXT" in ddl
 
@@ -85,3 +85,23 @@ class TestRoundTrip:
         assert loaded.total == Decimal("1.00")
         assert loaded.payload is None
         assert loaded.items is None
+
+    @pytest.mark.asyncio
+    async def test_high_precision_roundtrip(self, db):
+        value = Decimal("0.123456789012345678901234567890")
+        await Doc(db, total=value).insert()
+
+        loaded = await Doc(db, id=1).load()
+        assert loaded.total == value
+        assert isinstance(loaded.total, Decimal)
+
+        rows = await Doc(db).search()
+        assert rows[0].total == value
+
+
+class TestSchema:
+    @pytest.mark.asyncio
+    async def test_diff_schema_decimal_not_flagged(self, db):
+        diff = await Doc(db).diff_schema()
+        changed_fields = {c["field"] for c in diff["changed"]}
+        assert "total" not in changed_fields
