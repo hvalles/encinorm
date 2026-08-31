@@ -125,3 +125,37 @@ class TestReferenceWithRequiredField:
 
         labels = {(await m["tenant"]).label for m in loaded}
         assert labels == {"Propietario", "Invitado"}
+
+
+class TestCursor:
+    @pytest.mark.asyncio
+    async def test_cursor_load_search_count(self, db):
+        await Client(db, name="Acme").insert()
+        await Client(db, name="Beta").insert()
+
+        loaded = await Client.cursor(db, id=1).load()
+        assert loaded.name == "Acme"
+
+        names = {r.name for r in await Client.cursor(db).search()}
+        assert names == {"Acme", "Beta"}
+
+        assert await Client.cursor(db).count() == 2
+
+    @pytest.mark.asyncio
+    async def test_cursor_create_table(self, connected_db):
+        class Fresh(Model):
+            _table = "fresh"
+            label: STR_100(required=True)
+
+        await Fresh.cursor(connected_db).create_table()
+        await Fresh(connected_db, label="x").insert()
+
+        rows = await Fresh.cursor(connected_db).search()
+        assert rows[0].label == "x"
+
+    @pytest.mark.asyncio
+    async def test_normal_constructor_still_validates(self):
+        from pydantic import ValidationError as PydanticValidationError
+
+        with pytest.raises(PydanticValidationError):
+            Client(db=None)

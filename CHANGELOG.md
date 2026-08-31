@@ -6,6 +6,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 proyecto usa [Versionado Semántico](https://semver.org/lang/es/). Mientras esté
 en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
+## [Unreleased]
+
+### Añadido
+
+- `Model.cursor(db=None, **values)`: instancia de consulta sin validación de
+  pydantic, para operaciones de lectura (`load`/`search`/`count`/`paginate`) y
+  de esquema (`create_table`) sobre modelos con campos `required=True`, sin
+  recurrir a `model_construct()` manual.
+
+### Corregido
+
+- Ejemplos de `README.md` y `docs/getting-started.md` que requerían definir un
+  helper `_cursor()` manual: ahora usan el classmethod `cursor()`.
+
 ## [0.1.0] - 2026-08-30
 
 ### Añadido

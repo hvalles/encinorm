@@ -12,14 +12,6 @@ OPS = ("read", "create", "update", "delete", "remove")
 PUBLIC_USER_ID = "public"
 
 
-def _cursor(db, model_cls):
-    """Instancia sin validación (los modelos tienen campos requeridos) para
-    invocar métodos de consulta como `search`."""
-    obj = model_cls.model_construct()
-    object.__setattr__(obj, "_db", db)
-    return obj
-
-
 class PermissionSet:
     """Permisos efectivos de un usuario, resueltos una vez por request."""
 
@@ -42,7 +34,7 @@ class PermissionSet:
         if user_id is None:
             user_id = PUBLIC_USER_ID        # rol Público para anónimos (str)
         # 1) roles del usuario, ordenados por `orden` asc
-        roles = await _cursor(db, RolUsuario).search(
+        roles = await RolUsuario.cursor(db).search(
             Filter.eq("user_id", user_id) & Filter.eq("enabled", True),
             columns=["rol_id", "orden"],
         )
@@ -51,7 +43,7 @@ class PermissionSet:
         if not rol_ids:
             return cls(user_id, {})
         # 2) permisos por modelo, en orden de rol
-        dets = await _cursor(db, Roldet).search(Filter.in_("rol_id", rol_ids))
+        dets = await Roldet.cursor(db).search(Filter.in_("rol_id", rol_ids))
         order = {rid: i for i, rid in enumerate(rol_ids)}
         ordered = sorted(dets, key=lambda d: order.get(d.rol_id, 0))
         rules: dict[str, dict[str, bool]] = {}

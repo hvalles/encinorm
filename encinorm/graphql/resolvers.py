@@ -20,9 +20,7 @@ async def db_session(info):
 
 def cursor(model, conn, **fields):
     """Instancia sin validación para invocar `load()`/`search()`/`count()`."""
-    obj = model.model_construct(**fields)
-    object.__setattr__(obj, "_db", conn)
-    return obj
+    return model.cursor(conn, **fields)
 
 
 def _dataloader(info, key: str, load_fn):

@@ -42,13 +42,11 @@ async def create_tables(db, engine: str | None = None) -> None:
     """Crea las tablas de seguridad (`Rol`, `Roldet`, `RolUsuario`).
 
     `create_table()` es un método de instancia; como `Rol.rol`, `Roldet.modelo` y
-    `RolUsuario.user_id` son obligatorios, se construye una instancia sin
-    validación (`model_construct`) solo para invocar el DDL.
+    `RolUsuario.user_id` son obligatorios, se usa `cursor()` (instancia sin
+    validación) para invocar el DDL.
     """
     for model in (Rol, Roldet, RolUsuario):
-        obj = model.model_construct()
-        object.__setattr__(obj, "_db", db)
-        await obj.create_table(engine)
+        await model.cursor(db).create_table(engine)
 
 
 async def seed_roles(db) -> list[int]:
@@ -56,9 +54,7 @@ async def seed_roles(db) -> list[int]:
 
     Devuelve los `id` asignados (1, 2, 3 en una tabla recién creada).
     """
-    probe = Rol.model_construct()
-    object.__setattr__(probe, "_db", db)
-    if await probe.count() > 0:
+    if await Rol.cursor(db).count() > 0:
         return []
     ids = []
     for nombre in SEED_ROLES:

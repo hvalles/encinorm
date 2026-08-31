@@ -56,27 +56,22 @@ class User(Model):
 
 Como `name` es `required=True`, las operaciones que solo necesitan el esquema o
 una clave (DDL, `load`, `search`, `delete`) se hacen sobre un cursor construido
-sin validación con `model_construct()`:
+sin validación con el classmethod `cursor()`:
 
 ```python
-def _cursor(db, cls, **kwargs):
-    obj = cls.model_construct(**kwargs)
-    object.__setattr__(obj, "_db", db)
-    return obj
-
-await _cursor(db, User).create_table()           # DDL + aplicación (idempotente)
+await User.cursor(db).create_table()              # DDL + aplicación (idempotente)
 
 u = User(db, name="Ana", age=30)
 await u.insert()                          # INSERT
 
-got = await _cursor(db, User, id=u.id).load()    # SELECT por id
+got = await User.cursor(db, id=u.id).load()       # SELECT por id
 print(got.name, got.age)
 
 got.age = 31
 await got.update()                        # UPDATE (solo campos modificados)
 
-rows = await _cursor(db, User).search()          # SELECT *
-await _cursor(db, User, id=u.id).delete()        # soft-delete (enabled=False)
+rows = await User.cursor(db).search()             # SELECT *
+await User.cursor(db, id=u.id).delete()           # soft-delete (enabled=False)
 ```
 
 ## 5. Conexión implícita (opcional)

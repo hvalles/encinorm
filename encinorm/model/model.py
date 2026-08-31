@@ -78,6 +78,31 @@ def _set_private(obj, name, value):
     object.__setattr__(obj, name, value)
 
 
+def _init_state(obj: "Model", db: Db, values: dict) -> "Model":
+    """Inicializa el estado interno de una instancia (sin validación).
+
+    Compartido por el constructor normal (`__init__`) y por `cursor()`. Asigna
+    la conexión, los flags de existencia/carga, las claves modificadas y registra
+    las relaciones declaradas (1:1 y 1:N).
+    """
+    _set_private(obj, "_db", db)
+    _set_private(obj, "__exists", False)
+    _set_private(obj, "__loading", False)
+    _set_private(obj, "_references", {})
+    _set_private(obj, "_has_many", {})
+    fields = type(obj).model_fields
+    _set_private(
+        obj,
+        "__dirties",
+        [k for k in values if k in fields and not k.startswith("_")],
+    )
+    for name, spec in type(obj)._references_def.items():
+        obj.add_reference(name, spec["model"], spec["match_keys"], spec.get("on_delete"))
+    for name, spec in type(obj)._has_many_def.items():
+        obj.add_has_many(name, spec["model"], spec["foreign_key"])
+    return obj
+
+
 _PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
 
 
@@ -123,23 +148,21 @@ class Model(BaseModel):
 
     def __init__(self, db: Db = None, **kwargs):
         super().__init__(**kwargs)
-        _set_private(self, "_db", db)
-        _set_private(self, "__exists", False)
-        _set_private(self, "__loading", False)
-        _set_private(self, "_references", {})
-        _set_private(self, "_has_many", {})
-        fields = type(self).model_fields
-        _set_private(
-            self,
-            "__dirties",
-            [k for k in kwargs if k in fields and not k.startswith("_")],
-        )
-        for name, spec in type(self)._references_def.items():
-            self.add_reference(
-                name, spec["model"], spec["match_keys"], spec.get("on_delete")
-            )
-        for name, spec in type(self)._has_many_def.items():
-            self.add_has_many(name, spec["model"], spec["foreign_key"])
+        _init_state(self, db, kwargs)
+
+    @classmethod
+    def cursor(cls, db: Db = None, **values) -> "Model":
+        """Crea una instancia de consulta sin validación de pydantic.
+
+        Útil para operaciones de lectura (``load``, ``search``, ``count``,
+        ``paginate``) y de esquema (``create_table``) sobre modelos que declaran
+        campos ``required=True``, donde el constructor normal (``Model(db, ...)``)
+        exigiría todos los campos obligatorios. Los ``values`` se asignan tal cual
+        (sin coerción ni validación); la validación sigue aplicándose en
+        ``insert``/``update``/``save``.
+        """
+        obj = cls.model_construct(**values)
+        return _init_state(obj, db, values)
 
     def __setattr__(self, name, value):
         loading = bool(self.__dict__.get("__loading", False))

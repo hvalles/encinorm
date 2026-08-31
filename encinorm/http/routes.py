@@ -9,9 +9,7 @@ from .parsing import filter_from_str, sort_from_str
 def _cursor(model: type[Model], db, **fields) -> Model:
     """Instancia sin validación para invocar `load()`/`paginate()` sobre modelos
     con campos requeridos (que no se pueden construir vacíos)."""
-    obj = model.model_construct(**fields)
-    object.__setattr__(obj, "_db", db)
-    return obj
+    return model.cursor(db, **fields)
 
 
 def _path_type(model, field):
