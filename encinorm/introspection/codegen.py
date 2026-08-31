@@ -31,7 +31,7 @@ _DOMAIN_IMPORT = (
     "from encinorm.model.domain import (\n"
     "    STR_10, STR_15, STR_20, STR_30, STR_50, STR_100, STR_255, STR_500,\n"
     "    TEXT, INT, INT_POS, CURRENCY, FLOAT, FLOAT_POS, BOOL, DATE, DATETIME,\n"
-    "    BLOB,\n"
+    "    BLOB, JSON,\n"
     ")"
 )
 

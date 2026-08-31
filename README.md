@@ -80,15 +80,20 @@ class User(Model):
 async def main():
     db = await create_db("sqlite", database=":memory:")
 
-    await User(db).create_table()            # genera el DDL y lo aplica
+    def cursor(db, cls, **kwargs):
+        obj = cls.model_construct(**kwargs)
+        object.__setattr__(obj, "_db", db)
+        return obj
+
+    await cursor(db, User).create_table()      # genera el DDL y lo aplica
 
     u = User(db, name="Ana", age=30)
     await u.insert()                          # INSERT (id auto-incremental)
 
-    found = await User(db, id=u.id).load()    # SELECT por clave primaria
+    found = await cursor(db, User, id=u.id).load()   # SELECT por clave primaria
     assert found.name == "Ana"
 
-    adults = await User(db).search(Filter.ge("age", 18))  # SELECT ... WHERE age >= 18
+    adults = await cursor(db, User).search(Filter.ge("age", 18))  # SELECT ... WHERE age >= 18
     assert len(adults) == 1
 
     await db.close()

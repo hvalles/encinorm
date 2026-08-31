@@ -50,7 +50,7 @@ class TestDdl:
         assert "items JSON" in ddl
 
     def test_postgres(self):
-        ddl = to_ddl(Doc, "postgres")
+        ddl = to_ddl(Doc, "postgresql")
         assert "total NUMERIC" in ddl
         assert "payload JSONB" in ddl
         assert "items JSONB" in ddl

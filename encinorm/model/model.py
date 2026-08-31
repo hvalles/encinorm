@@ -36,7 +36,7 @@ def _serialize(value):
             value = value.astimezone(timezone.utc).replace(tzinfo=None)
         return value.isoformat(sep=" ")
     if isinstance(value, date):
-        return value.isoformat(sep=" ")
+        return value.isoformat()
     if isinstance(value, bool):
         return int(value)
     if isinstance(value, Decimal):
@@ -265,6 +265,8 @@ class Model(BaseModel):
             return bool(value)
         if base is Decimal and not isinstance(value, Decimal):
             return Decimal(str(value))
+        if base is float and isinstance(value, Decimal):
+            return float(value)
         if base in (dict, list) and isinstance(value, str):
             return json.loads(value)
         return value
@@ -317,7 +319,8 @@ class Model(BaseModel):
         if ref._cached is not None and ref._cached_keys == key_vals:
             return ref._cached
         remote_kwargs = {remote: key_vals[remote] for remote in ref.match_keys}
-        obj = ref.model_class(db=self._get_db(), **remote_kwargs)
+        obj = ref.model_class.model_construct(**remote_kwargs)
+        _set_private(obj, "_db", self._get_db())
         obj = await obj.load(keys=list(ref.match_keys.keys()))
         ref._cached = obj
         ref._cached_keys = key_vals
@@ -890,9 +893,9 @@ class Model(BaseModel):
             key_vals.discard(None)
             if not key_vals:
                 return
-            rows = await ref.model_class(db=models[0]._get_db()).search(
-                Filter.in_(remote_field, list(key_vals))
-            )
+            cursor = ref.model_class.model_construct()
+            _set_private(cursor, "_db", models[0]._get_db())
+            rows = await cursor.search(Filter.in_(remote_field, list(key_vals)))
             remote_index = {getattr(r, remote_field): r for r in rows}
             for m in models:
                 val = getattr(m, local_field)
@@ -918,7 +921,9 @@ class Model(BaseModel):
                 sub = eq if sub is None else sub & eq
             cond = sub if cond is None else cond | sub
 
-        rows = await ref.model_class(db=models[0]._get_db()).search(cond)
+        cursor = ref.model_class.model_construct()
+        _set_private(cursor, "_db", models[0]._get_db())
+        rows = await cursor.search(cond)
         remote_index = {tuple(getattr(r, rf) for rf in remote_fields): r for r in rows}
         for m in models:
             key = tuple(getattr(m, lf) for lf in local_fields)

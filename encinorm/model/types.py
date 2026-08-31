@@ -65,7 +65,7 @@ DDL_MAP = {
         "blob": "BLOB",
         "json": "JSON",
     },
-    "postgres": {
+    "postgresql": {
         "pk": "SERIAL PRIMARY KEY",
         "str": "TEXT",
         "int": "INTEGER",

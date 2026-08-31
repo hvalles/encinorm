@@ -3,7 +3,7 @@ from typing import Annotated
 import pytest
 from pydantic import Field
 
-from encinorm.model import Column, Model, to_ddl
+from encinorm.model import Column, Model, ddl_type, to_ddl
 
 
 class Agente(Model):
@@ -38,7 +38,7 @@ def test_to_ddl_mysql():
 
 
 def test_to_ddl_postgres():
-    ddl = to_ddl(Agente, "postgres")
+    ddl = to_ddl(Agente, "postgresql")
     assert "id SERIAL PRIMARY KEY" in ddl
     assert "nombre TEXT" in ddl
     assert "monto NUMERIC" in ddl
@@ -56,3 +56,9 @@ def test_to_ddl_respects_disabled_and_alias():
 def test_ddl_type_unknown_engine():
     with pytest.raises(ValueError):
         to_ddl(Agente, "oracle")
+
+
+def test_ddl_type_postgresql():
+    assert ddl_type("str", "postgresql") == "TEXT"
+    assert ddl_type("json", "postgresql") == "JSONB"
+    assert ddl_type("bool", "postgresql") == "BOOLEAN"

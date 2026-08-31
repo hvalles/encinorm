@@ -29,6 +29,7 @@ _FLOAT_TYPES = {"real", "float", "double", "double precision"}
 _DATETIME_TYPES = {"datetime", "timestamp", "timestamptz", "timestamp with time zone"}
 _DATE_TYPES = {"date"}
 _BLOB_TYPES = {"blob", "bytea", "binary", "varbinary"}
+_JSON_TYPES = {"json", "jsonb"}
 
 
 def _normalize(raw_type: str) -> tuple[str, int | None, bool]:
@@ -56,6 +57,8 @@ def _normalize(raw_type: str) -> tuple[str, int | None, bool]:
         return "date", None, unsigned
     if base in _BLOB_TYPES:
         return "blob", None, unsigned
+    if base in _JSON_TYPES:
+        return "json", None, unsigned
     return "str", max_length, unsigned          # fallback conservador
 
 
@@ -79,6 +82,7 @@ _PRESET = {
     ("datetime", None): "DATETIME",
     ("date", None): "DATE",
     ("blob", None): "BLOB",
+    ("json", None): "JSON",
 }
 
 
@@ -114,6 +118,8 @@ def _make_constraint_expr(col: ColumnSpec) -> str:
         return "make_constraint(date)"
     if dt == "blob":
         return "make_constraint(bytes)"
+    if dt == "json":
+        return "make_constraint(dict)"
     return "make_constraint(str)"
 
 

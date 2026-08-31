@@ -71,6 +71,10 @@ class TestNormalize:
     def test_datetime(self):
         assert _normalize("DATETIME") == ("datetime", None, False)
 
+    def test_json_types(self):
+        assert _normalize("JSON") == ("json", None, False)
+        assert _normalize("JSONB") == ("json", None, False)
+
     def test_float_types(self):
         assert _normalize("FLOAT") == ("float", None, False)
         assert _normalize("REAL") == ("float", None, False)
@@ -118,6 +122,9 @@ class TestResolveFieldType:
 
     def test_preset_datetime(self):
         assert resolve_field_type(self._col("datetime")) == "DATETIME"
+
+    def test_preset_json(self):
+        assert resolve_field_type(self._col("json")) == "JSON"
 
     def test_fallback_bool(self):
         assert resolve_field_type(self._col("bool")) == "BOOL"
@@ -188,6 +195,19 @@ class TestGenerateModel:
         assert rows[0].agente == "Héctor"
         assert rows[0].rfc == "ABC123"
         assert rows[0].monto == 10.5
+
+    @pytest.mark.asyncio
+    async def test_json_column(self, db, tmp_path):
+        await db.execute(Query(
+            "CREATE TABLE docs (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "payload JSON, extra JSONB)", []
+        ))
+        path = await generate_model(db, "docs", folder=str(tmp_path))
+
+        text = path.read_text(encoding="utf-8")
+        assert "payload: JSON()" in text
+        assert "extra: JSON()" in text
+        assert "JSON" in text.split("from encinorm.model.domain import")[1].split(")")[0]
 
     @pytest.mark.asyncio
     async def test_custom_class_name_and_reserved_column(self, db, tmp_path):
