@@ -4,6 +4,8 @@ import random
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 
+from .query import Query
+
 logger = logging.getLogger("encinorm")
 
 
@@ -82,25 +84,45 @@ class Db(ABC):
     def update(self, tabla: str, keys: dict, values: dict): ...
 
     @abstractmethod
-    async def execute(self, qry): ...
+    async def execute(self, qry: Query): ...
 
     @abstractmethod
-    async def fetch_all(self, qry): ...
+    async def fetch_all(self, qry: Query): ...
 
     @abstractmethod
-    async def fetch_one(self, qry): ...
+    async def fetch_one(self, qry: Query): ...
 
     @abstractmethod
-    async def fetch_many(self, qry, limit: int, page: int): ...
+    async def fetch_many(self, qry: Query, limit: int, page: int): ...
 
     @abstractmethod
-    async def exists(self, qry): ...
+    async def exists(self, qry: Query): ...
 
     @abstractmethod
     async def last_id(self): ...
 
     @abstractmethod
-    async def migrate(self, name: str, qry): ...
+    async def migrate(self, name: str, qry: Query): ...
 
     @abstractmethod
     async def migrate_status(self): ...
+
+    async def paginate(self, qry: Query, limit: int, page: int = 1):
+        """Devuelve un `Records` con la página y el total de un `Query` raw.
+
+        El total se calcula envolviendo el SQL en
+        ``SELECT COUNT(*) AS n FROM (...)``, por lo que solo es fiable para
+        SELECT simples (sin ``;`` final, sin su propio ``LIMIT``/``OFFSET`` y sin
+        cláusulas no re-embebibles como ``FOR UPDATE``). Conviene incluir
+        ``ORDER BY`` en el SQL para una paginación estable.
+        """
+        from .model.records import Records
+
+        rows = await self.fetch_many(qry, limit, page)
+        sql = qry.sql_template.strip().rstrip(";")
+        count_qry = Query(
+            f"SELECT COUNT(*) AS n FROM ({sql}) _encinorm_count", list(qry.fields)
+        )
+        row = await self.fetch_one(count_qry)
+        total = row["n"] if row else 0
+        return Records(rows=rows, total=total, limit=limit, page=page)

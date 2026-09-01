@@ -272,3 +272,25 @@ class TestSqliteBuildersAndQueries:
         assert [r["nombre"] for r in page1] == ["a", "b"]
         assert [r["nombre"] for r in page2] == ["c", "d"]
         assert [r["nombre"] for r in page3] == ["e"]
+
+    @pytest.mark.asyncio
+    async def test_paginate_raw(self, connected_db):
+        await connected_db.execute(
+            Query("CREATE TABLE pr (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", [])
+        )
+        for nombre in ["a", "b", "c", "d", "e"]:
+            await connected_db.execute(connected_db.insert("pr", {"nombre": nombre}))
+
+        rec = await connected_db.paginate(
+            Query("SELECT * FROM pr WHERE nombre < {0} ORDER BY id", ["e"]),
+            limit=2,
+            page=2,
+        )
+
+        assert [r["nombre"] for r in rec.rows] == ["c", "d"]
+        assert rec.total == 4
+        assert rec.limit == 2
+        assert rec.page == 2
+        assert rec.total_pages == 2
+        assert rec.has_next is False
+        assert rec.has_prev is True

@@ -16,14 +16,14 @@ authors = [
     { name = "Hector", email = "valles.hector@gmail.com" },
 ]
 dependencies = [
-    "aiomysql>=0.3.2",
+    "aiomysql>=0.2,<0.3.2",
     "aiosqlite",
     "asyncpg>=0.31.0",
     "pydantic>=2.13.4",
 ]
 
 [project.optional-dependencies]
-security = ["fastapi>=0.110", "PyJWT>=2.8"]
+security = ["fastapi>=0.110", "PyJWT>=2.8,<2.13"]
 http = ["fastapi>=0.110"]
 graphql = ["strawberry-graphql>=0.200"]
 

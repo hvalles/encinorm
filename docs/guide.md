@@ -124,6 +124,48 @@ rec = await User(db).paginate(limit=10, page=1)  # {rows, total, limit, page}
 await User.insert_many(db, [{"name": "a"}, {"name": "b"}], chunk=500)
 ```
 
+### SQL directo (raw)
+
+Cuando el ORM no cubre el SQL que necesitas (CTEs, `UNION`, ventanas, sintaxis
+específica del motor), ejecuta `Query` directamente sobre la conexión. Los
+placeholders son `{0}...{n}` y los valores se pasan como lista, en el mismo orden:
+
+```python
+from encinorm import Query
+
+rows = await db.fetch_all(Query("select * from agents where id={0}", [123]))
+row  = await db.fetch_one(Query("select * from agents where id={0}", [123]))
+await db.execute(Query("update agents set enabled={0} where id={1}", [False, 123]))
+```
+
+`Db` expone `fetch_all`, `fetch_one`, `fetch_many`, `execute` y `exists`; todos
+reciben un `Query`.
+
+Para paginar un SQL directo (página + total en un `Records`), usa
+`db.paginate(Query(...), limit, page)`. El total se calcula envolviendo el SQL en
+`SELECT COUNT(*) AS n FROM (...)`, por lo que solo es fiable para SELECT simples:
+
+```python
+rec = await db.paginate(
+    Query("select * from agents where enabled={0} order by id", [True]),
+    limit=10, page=2,
+)
+rec.rows           # lista de dicts de la página
+rec.total          # total de filas del filtro
+rec.total_pages    # páginas calculadas
+```
+
+- La numeración es **contigua desde 0** (`{0}`, `{1}`, …).
+- Los valores se pasan **sin serializar**: fechas, `Decimal` y `bool` debes
+  convertirlos tú (aquí el ORM no aplica `_serialize`).
+- Para fragmentos crudos dentro de un filtro tipado, usa `Filter.raw(...)`:
+
+```python
+from encinorm.model import Filter
+
+await Agent(db).search(Filter.raw("LOWER(name) = {0}", ["ana"]))
+```
+
 ## 4. Filtros (`Filter`)
 
 ```python
