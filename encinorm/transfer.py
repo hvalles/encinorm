@@ -8,6 +8,7 @@ import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
+from .engine import Engine, engine_of
 from .query import Query
 
 
@@ -66,19 +67,19 @@ def _serialize_for_target(value, datatype: str, dialect: str):
     if value is None:
         return None
     if datatype == "bool":
-        return int(value) if dialect in ("sqlite", "mysql") else bool(value)
+        return int(value) if dialect in (Engine.SQLITE, Engine.MYSQL) else bool(value)
     if datatype in ("numeric", "decimal"):
-        return str(value) if dialect == "sqlite" else value
+        return str(value) if dialect == Engine.SQLITE else value
     if datatype == "date":
-        return value.isoformat() if dialect == "sqlite" else value
+        return value.isoformat() if dialect == Engine.SQLITE else value
     if datatype == "datetime":
-        if dialect == "sqlite":
+        if dialect == Engine.SQLITE:
             return _as_naive_utc(value).isoformat(sep=" ")
-        if dialect == "mysql":
+        if dialect == Engine.MYSQL:
             return _as_naive_utc(value)
         return value
     if datatype == "json":
-        if dialect == "postgresql":
+        if dialect == Engine.POSTGRESQL:
             return value
         return json.dumps(value, default=str) if isinstance(value, (dict, list)) else value
     return value
@@ -107,12 +108,12 @@ def build_ddl(table: str, columns, dialect: str) -> str:
 
 async def _set_fk(db, enabled: bool):
     """Desactiva/restaura la verificación de FK en el destino (best-effort)."""
-    dialect = getattr(db, "dialect", "sqlite")
-    if dialect == "sqlite":
+    engine = engine_of(db)
+    if engine is Engine.SQLITE:
         await db.execute(Query(f"PRAGMA foreign_keys={'ON' if enabled else 'OFF'}", []))
-    elif dialect == "mysql":
+    elif engine is Engine.MYSQL:
         await db.execute(Query(f"SET FOREIGN_KEY_CHECKS={'1' if enabled else '0'}", []))
-    elif dialect == "postgresql":
+    elif engine is Engine.POSTGRESQL:
         try:
             await db.execute(Query(
                 f"SET session_replication_role = {'origin' if enabled else 'replica'}", []

@@ -7,6 +7,7 @@ import aiomysql
 
 from .base import Db, logger
 from .exceptions import ConnectionError
+from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
 from .query import Query
 
@@ -100,6 +101,28 @@ class MysqlDb(Db):
 
     def _prepare(self, qry: Query) -> tuple[str, list]:
         return _to_mysql(qry.query[0], qry.query[1])
+
+    # --- introspección ---
+    def _tables_sql(self) -> str:
+        return (
+            "SELECT table_name AS name FROM information_schema.tables "
+            "WHERE table_schema = DATABASE()"
+        )
+
+    async def columns_of(self, table: str) -> list[ColumnSpec]:
+        rows = await self.fetch_all(Query(f"SHOW COLUMNS FROM {table}", []))
+        return [
+            ColumnSpec(
+                name=r["Field"],
+                raw_type=r["Type"],
+                datatype=_normalize(r["Type"])[0],
+                nullable=(r["Null"] == "YES"),
+                primary_key=(r["Key"] == "PRI"),
+                max_length=_normalize(r["Type"])[1],
+                unsigned=_normalize(r["Type"])[2],
+            )
+            for r in rows
+        ]
 
     async def _execute_raw(self, sql: str):
         self._ensure_connected()

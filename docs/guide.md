@@ -166,6 +166,58 @@ from encinorm.model import Filter
 await Agent(db).search(Filter.raw("LOWER(name) = {0}", ["ana"]))
 ```
 
+### Conocer el motor
+
+Para adaptar SQL crudo al motor de forma segura, usa `engine_of` (o los
+predicados `is_sqlite`/`is_mysql`/`is_postgres`):
+
+```python
+from encinorm import Engine, engine_of
+
+engine = engine_of(db)              # Engine.SQLITE | Engine.MYSQL | Engine.POSTGRESQL
+if engine is Engine.POSTGRESQL:
+    sql = "select * from agents where name ilike {0}"
+else:
+    sql = "select * from agents where name like {0}"
+```
+
+`create_db` y `PoolDb` aceptan indistintamente `str` o `Engine`
+(`create_db(Engine.SQLITE, ...)` ≡ `create_db("sqlite", ...)`).
+
+### Funciones SQL portables (`db.fn`)
+
+`db.fn` traduce funciones comunes al dialecto del motor. Devuelve un **fragmento
+SQL** (texto de confianza) para incrustar, no un valor a enlazar:
+
+```python
+from encinorm import Query, Weekday
+
+rows = await db.fetch_all(Query(
+    f"select * from agents where created_at > {db.fn.now()}", []
+))
+rows = await db.fetch_all(Query(
+    f"select * from agents where expires_at < {db.fn.date_add('created_at', 30, 'day')}", []
+))
+# día de la semana (Weekday: 0=lunes … 6=domingo)
+rows = await db.fetch_all(Query(
+    f"select * from events where {db.fn.weekday('fecha')} < {Weekday.SATURDAY}", []
+))
+```
+
+| Familia | Funciones |
+|---|---|
+| temporales | `now()`, `date_add(col, n, unit)`, `date_sub(col, n, unit)` |
+| partes de fecha | `year`, `month`, `day`, `hour`, `minute`, `second`, `weekday` (`Weekday`, 0=lunes) |
+| string | `length`, `substring(col, inicio[, largo])`, `concat(...)` |
+| otros | `random()`, `uuid()` (no en SQLite), `date_format(col, patrón)` |
+
+`unit` ∈ `{"second", "minute", "hour", "day", "week", "month", "year"}`. Los
+fragmentos también sirven dentro de `Filter.raw`:
+
+```python
+await Agent(db).search(Filter.raw(f"created_at > {db.fn.now()}", []))
+```
+
 ## 4. Filtros (`Filter`)
 
 ```python

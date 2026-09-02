@@ -11,6 +11,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from encinorm.base import Db
 from encinorm.context import resolve_db
+from encinorm.engine import Engine, engine_of
 from encinorm.query import Query
 
 from .exceptions import (
@@ -67,9 +68,9 @@ def _types_compatible(model_dt: str, db_dt: str, engine: str) -> bool:
         return True          # bool se almacena como int/tinyint en todos los motores
     if {model_dt, db_dt} == {"decimal", "numeric"}:
         return True          # DECIMAL/NUMERIC exacto se introspecciona como "numeric"
-    if engine == "sqlite" and model_dt in ("datetime", "date") and db_dt == "str":
+    if engine == Engine.SQLITE and model_dt in ("datetime", "date") and db_dt == "str":
         return True          # SQLite guarda datetime/date como TEXT
-    if engine == "sqlite" and model_dt == "decimal" and db_dt == "str":
+    if engine == Engine.SQLITE and model_dt == "decimal" and db_dt == "str":
         return True          # SQLite guarda Decimal como TEXT
     return False
 
@@ -531,13 +532,13 @@ class Model(BaseModel):
         insert_vals = list(data.values())
         conflict_cols = [self._col(c) for c in conflict]
 
-        dialect = getattr(self._get_db(), "dialect", "sqlite") or "sqlite"
+        dialect = engine_of(self._get_db())
 
         if values is None:
             created_col = col_map.get("created_at")
             update_cols = [c for c in cols if c not in conflict_cols and c != created_col]
             params = insert_vals
-            if dialect == "mysql":
+            if dialect is Engine.MYSQL:
                 set_sql = ", ".join(f"{c} = VALUES({c})" for c in update_cols)
             else:
                 set_sql = ", ".join(f"{c} = excluded.{c}" for c in update_cols)
@@ -551,7 +552,7 @@ class Model(BaseModel):
             )
 
         placeholders = ",".join(f"{{{i}}}" for i in range(len(cols)))
-        if dialect == "mysql":
+        if dialect is Engine.MYSQL:
             sql = (
                 f"INSERT INTO {self._table} ({','.join(cols)}) VALUES ({placeholders}) "
                 f"ON DUPLICATE KEY UPDATE {set_sql}"
@@ -796,7 +797,7 @@ class Model(BaseModel):
         from .types import _field_datatype, ddl_type
 
         engine = engine or getattr(self._get_db(), "dialect", "sqlite") or "sqlite"
-        existing = await self._existing_columns_info(engine)
+        existing = await self._existing_columns_info()
         model_cols = self._column_map()
 
         added = []
@@ -823,11 +824,11 @@ class Model(BaseModel):
             for c in (await self.diff_schema(engine))["changed"]:
                 col = c["column"]
                 ddl = ddl_type(c["model"], engine)
-                if engine == "postgresql":
+                if engine == Engine.POSTGRESQL:
                     await self._get_db().execute(
                         Query(f"ALTER TABLE {self._table} ALTER COLUMN {col} TYPE {ddl}", [])
                     )
-                elif engine == "mysql":
+                elif engine == Engine.MYSQL:
                     await self._get_db().execute(
                         Query(f"ALTER TABLE {self._table} MODIFY COLUMN {col} {ddl}", [])
                     )
@@ -850,7 +851,7 @@ class Model(BaseModel):
         from .types import _field_datatype
 
         engine = engine or getattr(self._get_db(), "dialect", "sqlite") or "sqlite"
-        existing = await self._existing_columns_info(engine)
+        existing = await self._existing_columns_info()
         model_cols = self._column_map()
 
         added = []
@@ -869,27 +870,10 @@ class Model(BaseModel):
 
         return {"added": added, "dropped": dropped, "changed": changed}
 
-    async def _existing_columns_info(self, engine: str) -> dict:
+    async def _existing_columns_info(self) -> dict:
         """Devuelve ``{nombre_columna: tipo_crudo}`` de la tabla en la BD."""
-        if engine == "sqlite":
-            rows = await self._get_db().fetch_all(Query(f"PRAGMA table_info({self._table})", []))
-            return {r["name"]: (r["type"] or "") for r in rows}
-        if engine == "mysql":
-            rows = await self._get_db().fetch_all(Query(f"SHOW COLUMNS FROM {self._table}", []))
-            return {r["Field"]: r["Type"] for r in rows}
-        if engine == "postgresql":
-            rows = await self._get_db().fetch_all(
-                Query(
-                    "SELECT column_name, data_type FROM information_schema.columns "
-                    "WHERE table_name = {0}",
-                    [self._table],
-                )
-            )
-            return {r["column_name"]: r["data_type"] for r in rows}
-        raise NotImplementedError(f"diff_schema no soporta el motor {engine!r}")
-
-    async def _existing_columns(self, engine: str) -> set:
-        return set((await self._existing_columns_info(engine)).keys())
+        cols = await self._get_db().columns_of(self._table)
+        return {c.name: c.raw_type for c in cols}
 
     @classmethod
     async def batch_reference(cls, models, name: str):

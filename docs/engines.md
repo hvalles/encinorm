@@ -9,14 +9,15 @@ más tres puntos de registro (pool, DDL e introspección).
 
 ```
 encinorm/
-├── base.py            # Db (ABC): contrato abstracto + transaction/retry
+├── base.py            # Db (ABC): contrato + list_tables/paginate + transaction/retry
+├── engine.py          # Engine (enum) + engine_of/is_* + funciones portables db.fn
 ├── query.py           # Query: SQL + parámetros (formato intermedio)
 ├── pool.py            # PoolDb + registro _ENGINES
-├── sqlite.py          # implementación de referencia (la más simple)
+├── sqlite.py          # motor SQLite (SQL nativo: placeholders, catálogo, columnas)
 ├── mysql.py
 ├── postgresql.py
 └── model/types.py     # DDL_MAP (datatype lógico -> DDL por motor)
-└── introspection/tables.py  # consultas de catálogo por motor
+└── introspection/types.py  # ColumnSpec + _normalize (agnóstico del motor)
 ```
 
 ### El protocolo `Query`
@@ -79,6 +80,24 @@ class MiMotorDb(Db):
 sobreescribir `transaction()` si tu driver expone un contexto transaccional
 propio (como hace `asyncpg`).
 
+Además, para soportar **introspección** (codegen, `diff_schema`, `transfer`),
+implementa **opcionalmente** (si no, lanzan `NotImplementedError`):
+
+```python
+from encinorm.introspection.types import ColumnSpec, _normalize
+
+    # Introspección (opcional)
+    def _tables_sql(self) -> str:
+        return "SELECT ... AS name FROM <catálogo> ..."
+
+    async def columns_of(self, table: str) -> list[ColumnSpec]:
+        rows = await self.fetch_all(Query(f"... {table} ...", []))
+        return [ColumnSpec(name=..., raw_type=..., datatype=_normalize(...)[0], ...) for ...]
+```
+
+`list_tables()` (filtro por nombre + paginación + `Records`) **ya está
+implementado** en `Db` y usa `_tables_sql()`.
+
 ## Paso a paso
 
 ### 1. Crea el módulo del motor
@@ -120,7 +139,7 @@ class MimotorDb(Db):
 Copia `_ensure_migrations_table`/`migrate`/`migrate_status` de un motor existente
 adaptando el DDL de la tabla `_encinorm_migrations` a tu motor.
 
-### 4. Registra el motor en el pool
+### 4. Registra el motor
 
 ```python
 # encinorm/pool.py
@@ -132,6 +151,15 @@ _ENGINES = {
     "postgresql": PostgresDb,
     "mimotor": MimotorDb,     # <-- añade aquí
 }
+```
+
+```python
+# encinorm/engine.py
+class Engine(str, Enum):
+    SQLITE = "sqlite"
+    MYSQL = "mysql"
+    POSTGRESQL = "postgresql"
+    MIMOTOR = "mimotor"        # <-- habilita create_db(Engine.MIMOTOR, ...) y el CLI
 ```
 
 ### 5. Añade el mapeo DDL
@@ -152,32 +180,41 @@ DDL_MAP["mimotor"] = {
 }
 ```
 
-### 6. Añade las consultas de introspección
+### 6. Implementa la introspección (en tu motor)
 
 ```python
-# encinorm/introspection/tables.py
-def _tables_query(dialect):
-    ...
-    if dialect == "mimotor":
-        return "...lista de tablas..."
+# encinorm/mimotor.py
+from .introspection.types import ColumnSpec, _normalize
 
-# y en columns_of(...):
-    if dialect == "mimotor":
-        rows = await db.fetch_all(Query("...", []))
-        return [ColumnSpec(...)]
+class MimotorDb(Db):
+    # ...
+
+    def _tables_sql(self) -> str:
+        return "SELECT name FROM <catálogo> WHERE ..."
+
+    async def columns_of(self, table: str) -> list[ColumnSpec]:
+        rows = await self.fetch_all(Query(f"... FROM {table}", []))
+        return [
+            ColumnSpec(
+                name=..., raw_type=..., datatype=_normalize(...)[0],
+                nullable=..., primary_key=..., max_length=_normalize(...)[1],
+                unsigned=_normalize(...)[2],
+            )
+            for ...
+        ]
 ```
 
-### 7. Actualiza el CLI y las exportaciones
+`list_tables()` (filtro + paginación) ya lo provee `Db` sobre `_tables_sql()`.
 
-```python
-# encinorm/cli.py
-models.add_argument("engine", choices=["sqlite", "mysql", "postgresql", "mimotor"])
-```
+### 7. Exporta el motor
 
 ```python
 # encinorm/__init__.py
 from .mimotor import MimotorDb
 ```
+
+El CLI ya lista los motores desde `Engine` (`_ENGINE_CHOICES = [e.value for e in Engine]`),
+así que al añadir `MIMOTOR` al enum queda disponible automáticamente.
 
 ### 8. Escribe pruebas
 
@@ -192,7 +229,8 @@ el motor real.
 - [ ] `insert`/`update`/`delete` respetan los flags `ignore_duplicated`/`replace`.
 - [ ] `last_id()` correcto y `is_lock_error()` (si aplica).
 - [ ] Migraciones con tabla `_encinorm_migrations` idempotente.
-- [ ] Registro en `_ENGINES`, `DDL_MAP`, `introspection/tables.py` y `cli.py`.
+- [ ] `_tables_sql()` y `columns_of()` (introspección, opcional) para codegen/diff/transfer.
+- [ ] Registro en `Engine` (enum), `_ENGINES` y `DDL_MAP`.
 - [ ] Exportación en `encinorm/__init__.py`.
 - [ ] Pruebas de integración que se omiten si no hay servidor.
 

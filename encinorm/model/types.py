@@ -6,6 +6,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Union, get_args, get_origin
 
+from ..engine import Engine
+
 
 def _base_type(annotation):
     if hasattr(annotation, "__metadata__"):  # Annotated[...]
@@ -165,7 +167,7 @@ def indexes_ddl(model_class, engine: str = "sqlite") -> list[tuple[str, str]]:
     ``(nombre, "ASC" | "DESC")``. Los nombres se resuelven contra ``_column_map()``.
     """
     col_map = model_class._column_map()
-    if_not_exists = "" if engine == "mysql" else "IF NOT EXISTS "
+    if_not_exists = "" if engine == Engine.MYSQL else "IF NOT EXISTS "
     result = []
     for idx in getattr(model_class, "_indexes", []):
         rendered = []

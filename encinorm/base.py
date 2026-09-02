@@ -16,6 +16,13 @@ class Db(ABC):
 
     dialect: str = ""
 
+    @property
+    def fn(self):
+        """Namespace de funciones SQL portables (`db.fn.now()`, `db.fn.date_add(...)`)."""
+        from .sql import SqlFunctions
+
+        return SqlFunctions(self.dialect)
+
     @abstractmethod
     async def connect(self, **kwargs): ...
 
@@ -106,6 +113,33 @@ class Db(ABC):
 
     @abstractmethod
     async def migrate_status(self): ...
+
+    def _tables_sql(self) -> str:
+        """SQL base que lista las tablas del catálogo (por motor).
+
+        Opcional: los motores que no lo implementen no soportan `list_tables`.
+        """
+        raise NotImplementedError("introspección no soportada para este motor")
+
+    async def columns_of(self, table: str) -> list:
+        """Devuelve la especificación de columnas de una tabla (por motor).
+
+        Opcional: los motores que no lo implementen no soportan `columns_of`.
+        """
+        raise NotImplementedError("introspección no soportada para este motor")
+
+    async def list_tables(self, *, name: str = "", limit: int = 50, page: int = 1):
+        """Lista las tablas del catálogo con filtro por nombre y paginación."""
+        from .model.records import Records
+
+        sql = self._tables_sql()
+        params = []
+        if name:
+            sql += " AND name LIKE {0}"
+            params.append(f"%{name}%")
+        total = (await self.fetch_one(Query(f"SELECT COUNT(*) FROM ({sql})", params)))["COUNT(*)"]
+        rows = await self.fetch_many(Query(sql, params), limit, page)
+        return Records(rows=rows, total=total, limit=limit, page=page)
 
     async def paginate(self, qry: Query, limit: int, page: int = 1):
         """Devuelve un `Records` con la página y el total de un `Query` raw.

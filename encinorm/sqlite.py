@@ -5,6 +5,7 @@ import aiosqlite
 
 from .base import Db, logger
 from .exceptions import ConnectionError
+from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
 from .query import Query
 
@@ -93,6 +94,28 @@ class SqliteDb(Db):
 
     def _prepare(self, qry: Query) -> tuple[str, list]:
         return _to_positional(qry.query[0], qry.query[1])
+
+    # --- introspección ---
+    def _tables_sql(self) -> str:
+        return (
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_encinorm_migrations'"
+        )
+
+    async def columns_of(self, table: str) -> list[ColumnSpec]:
+        rows = await self.fetch_all(Query(f"PRAGMA table_info({table})", []))
+        return [
+            ColumnSpec(
+                name=r["name"],
+                raw_type=r["type"] or "",
+                datatype=_normalize(r["type"])[0],
+                nullable=not bool(r["notnull"]),
+                primary_key=bool(r["pk"]),
+                max_length=_normalize(r["type"])[1],
+                unsigned=_normalize(r["type"])[2],
+            )
+            for r in rows
+        ]
 
     # --- Builders (construyen Query, no ejecutan) ---
 

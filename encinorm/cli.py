@@ -8,6 +8,10 @@ import argparse
 import asyncio
 import sys
 
+from .engine import Engine
+
+_ENGINE_CHOICES = [e.value for e in Engine]
+
 
 def _add_conn_args(parser, prefix: str, label: str):
     def flag(name):
@@ -31,14 +35,14 @@ def _build_parser() -> argparse.ArgumentParser:
     gen_sub = gen.add_subparsers(dest="subcommand")
 
     models = gen_sub.add_parser("models", help="genera modelos desde tablas existentes")
-    models.add_argument("engine", choices=["sqlite", "mysql", "postgresql"])
+    models.add_argument("engine", choices=_ENGINE_CHOICES)
     models.add_argument("tables", nargs="*", help="tablas a generar (default: todas)")
     models.add_argument("--folder", default="models", help="carpeta de salida (default: models)")
     _add_conn_args(models, "", "")
 
     copy = sub.add_parser("copy", help="copia tablas/BD completa entre bases de datos")
-    copy.add_argument("src_engine", choices=["sqlite", "mysql", "postgresql"])
-    copy.add_argument("dst_engine", choices=["sqlite", "mysql", "postgresql"])
+    copy.add_argument("src_engine", choices=_ENGINE_CHOICES)
+    copy.add_argument("dst_engine", choices=_ENGINE_CHOICES)
     copy.add_argument("tables", nargs="*", help="tablas a copiar (default: todas)")
     copy.add_argument("--create", action="store_true", help="crea las tablas en destino")
     copy.add_argument("--truncate", action="store_true", help="vacía cada tabla destino antes de copiar")
@@ -63,7 +67,7 @@ def _conn_kwargs_prefixed(args, engine_attr: str, prefix: str) -> dict:
         full = f"{prefix}_{name}" if prefix else name
         return getattr(args, full, None)
 
-    if engine == "sqlite":
+    if engine == Engine.SQLITE:
         return {"database": get("database") or ":memory:"}
     kw = {}
     if get("host"):
@@ -75,7 +79,7 @@ def _conn_kwargs_prefixed(args, engine_attr: str, prefix: str) -> dict:
     if get("password"):
         kw["password"] = get("password")
     if get("database"):
-        kw["db" if engine == "mysql" else "database"] = get("database")
+        kw["db" if engine == Engine.MYSQL else "database"] = get("database")
     return kw
 
 

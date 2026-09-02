@@ -1,6 +1,8 @@
 from .base import Db
 from .context import bind, get_default_db, resolve_db, set_default_db
+from .engine import Engine, engine_of, is_mysql, is_postgres, is_sqlite
 from .query import Query
+from .sql import SqlFunctions, Weekday
 from .sqlite import SqliteDb
 from .mysql import MysqlDb
 from .postgresql import PostgresDb
@@ -25,6 +27,13 @@ from .exceptions import (
 __all__ = [
     "Db",
     "Query",
+    "Engine",
+    "engine_of",
+    "is_sqlite",
+    "is_mysql",
+    "is_postgres",
+    "SqlFunctions",
+    "Weekday",
     "SqliteDb",
     "MysqlDb",
     "PostgresDb",

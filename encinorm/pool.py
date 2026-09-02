@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from .base import Db
 from .context import bind
+from .engine import Engine
 from .exceptions import ConnectionError, PoolExhaustedError, UnsupportedEngineError
 from .mysql import MysqlDb
 from .postgresql import PostgresDb
@@ -22,8 +23,9 @@ _ENGINES = {
 _current_connection = contextvars.ContextVar("encinorm_pool_connection", default=None)
 
 
-def _get_engine_cls(engine: str):
-    cls = _ENGINES.get(engine)
+def _get_engine_cls(engine):
+    key = engine.value if isinstance(engine, Engine) else engine
+    cls = _ENGINES.get(key)
     if cls is None:
         raise UnsupportedEngineError(engine)
     return cls
@@ -37,8 +39,10 @@ class PoolDb(Db):
     operaciones se ejecutan sobre la conexión mantenida (vía contextvar).
     """
 
-    def __init__(self, engine: str, min_size: int = 2, max_size: int = 10,
+    def __init__(self, engine: str | Engine, min_size: int = 2, max_size: int = 10,
                  idle_timeout: float | None = 60, **conn_kwargs):
+        if isinstance(engine, Engine):
+            engine = engine.value
         self._engine = engine
         self._engine_cls = _get_engine_cls(engine)
         self._min_size = min_size
@@ -170,6 +174,13 @@ class PoolDb(Db):
     def update(self, tabla: str, keys: dict, values: dict):
         return self._template.update(tabla, keys, values)
 
+    # --- introspección ---
+    def _tables_sql(self) -> str:
+        return self._template._tables_sql()
+
+    async def columns_of(self, table: str):
+        return await self._run("columns_of", table)
+
     # --- Delegación ---
     async def _run(self, method: str, *args):
         db = _current_connection.get()
@@ -249,8 +260,8 @@ class PoolDb(Db):
         return await self._run("migrate_status")
 
 
-async def create_db(engine: str, **kwargs) -> Db:
-    """Factory asíncrona. ``engine`` ∈ {'sqlite', 'mysql', 'postgresql'}."""
+async def create_db(engine: str | Engine, **kwargs) -> Db:
+    """Factory asíncrona. ``engine`` ∈ {'sqlite', 'mysql', 'postgresql'} (o `Engine`)."""
     db = _get_engine_cls(engine)()
     await db.connect(**kwargs)
     return db

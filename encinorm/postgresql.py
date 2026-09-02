@@ -6,6 +6,7 @@ import asyncpg
 
 from .base import Db, logger
 from .exceptions import ConnectionError
+from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
 from .query import Query
 
@@ -109,6 +110,34 @@ class PostgresDb(Db):
 
     def _prepare(self, qry: Query) -> tuple[str, list]:
         return _to_postgres(qry.query[0], qry.query[1])
+
+    # --- introspección ---
+    def _tables_sql(self) -> str:
+        return (
+            "SELECT tablename AS name FROM pg_catalog.pg_tables "
+            "WHERE schemaname NOT IN ('pg_catalog', 'information_schema')"
+        )
+
+    async def columns_of(self, table: str) -> list[ColumnSpec]:
+        rows = await self.fetch_all(Query(
+            "SELECT column_name, data_type, is_nullable, "
+            "CASE WHEN column_default LIKE 'nextval%' THEN TRUE ELSE FALSE END AS is_pk "
+            "FROM information_schema.columns WHERE table_name = {0} "
+            "ORDER BY ordinal_position",
+            [table],
+        ))
+        return [
+            ColumnSpec(
+                name=r["column_name"],
+                raw_type=r["data_type"],
+                datatype=_normalize(r["data_type"])[0],
+                nullable=(r["is_nullable"] == "YES"),
+                primary_key=bool(r["is_pk"]),
+                max_length=_normalize(r["data_type"])[1],
+                unsigned=_normalize(r["data_type"])[2],
+            )
+            for r in rows
+        ]
 
     # --- Builders (construyen Query, no ejecutan) ---
 
