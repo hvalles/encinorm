@@ -80,7 +80,7 @@ Para no pasar `db` en cada instancia, registra una conexión por defecto o usa e
 ámbito de request:
 
 ```python
-from encinorm import set_default_db, session, bind
+from encinorm import set_default_db, session
 
 set_default_db(db)                        # singleton de proceso
 u = User(name="Bob")                      # sin `db`
