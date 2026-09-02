@@ -6,8 +6,8 @@ del `Model`, resolviendo la barrera de adopción "`db` por constructor" (analisy
 §2.3). El patrón se apoya en `contextvars` (mismo mecanismo que `scope()` y el
 pool) y es la base que facilita B.3 (multi-tenant en `load`) y B.4 (DataLoader).
 
-> Complementa `docs/design_model.md`, `docs/design_crud.md` y
-> `docs/design_pk.md`. Es **aditivo**: `Model(db, ...)` sigue funcionando como hoy.
+> Complementa `docs/design/1-model.md`, `docs/design/4-crud.md` y
+> `docs/design/8-pk.md`. Es **aditivo**: `Model(db, ...)` sigue funcionando como hoy.
 
 ---
 

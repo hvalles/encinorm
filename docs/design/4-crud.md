@@ -5,8 +5,8 @@ Helper opcional para **FastAPI** que genera rutas CRUD **tipadas por modelo**
 Reutiliza el ORM (`Model`, `Filter`, `Records`) y corrige la semántica HTTP
 respecto al prompt original.
 
-> Complementa `docs/design_model.md` (ORM), `docs/design_graphql.md` (GraphQL)
-> y `docs/design_constraint.md`. No modifica `Db` ni `QueryBuilder`; añade un
+> Complementa `docs/design/1-model.md` (ORM), `docs/design/3-graphql.md` (GraphQL)
+> y `docs/design/2-constraint.md`. No modifica `Db` ni `QueryBuilder`; añade un
 > parámetro opcional `sort_by` a `Model.search`/`Model.paginate` (aditivo).
 
 ---
@@ -55,7 +55,7 @@ encinorm/
 │       ├── parsing.py          # filter/sort_by desde query params
 │       └── errors.py           # install_error_handlers (mapeo a HTTPException)
 └── docs/
-    └── design_crud.md          # este documento
+    └── 4-crud.md          # este documento
 ```
 
 - `encinorm.http` importa de `encinorm.model` y `encinorm.pool.session`; nunca al revés.

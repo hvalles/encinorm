@@ -6,8 +6,8 @@ detalla el diseño de una **clave primaria configurable** (simple, natural o
 coherente en `load`, `search`, `update`, `delete`, `save`, `upsert`, relaciones
 y las capas REST/GraphQL.
 
-> Complementa `docs/design_model.md`, `docs/design_crud.md` y
-> `docs/design_missing.md`. Es **aditivo**: el comportamiento por defecto
+> Complementa `docs/design/1-model.md`, `docs/design/4-crud.md` y
+> `docs/design/7-missing.md`. Es **aditivo**: el comportamiento por defecto
 > (clave `id` auto-incremental) no cambia.
 
 ---

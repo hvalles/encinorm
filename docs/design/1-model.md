@@ -1,6 +1,6 @@
 # Documento de Diseño — EncinoModel
 
-Módulo de capa de modelos ORM asíncrono construido sobre **encinorm** (la librería de interfaz unificada de base de datos descrita en `docs/design.md`). Los modelos heredan de `pydantic` y se vinculan a una tabla de la base de datos mediante el atributo `_table`.
+Módulo de capa de modelos ORM asíncrono construido sobre **encinorm** (la librería de interfaz unificada de base de datos descrita en `docs/design/0-design.md`). Los modelos heredan de `pydantic` y se vinculan a una tabla de la base de datos mediante el atributo `_table`.
 
 > **Nota de nomenclatura:** en el prompt original se hace referencia a la librería como *"encinoorm"*. En este repositorio el paquete se llama **`encinorm`** (ver `pyproject.toml`). El presente módulo se denominará **`EncinoModel`** y vivirá como subpaquete `encinorm.model`.
 
@@ -634,8 +634,8 @@ encinorm/
 │   ├── test_hooks.py
 │   └── test_query_builder.py
 ├── docs/
-│   ├── design.md              # encinorm (capa Db)
-│   └── design_model.md        # este documento
+│   ├── 0-design.md              # encinorm (capa Db)
+│   └── 1-model.md        # este documento
 └── pyproject.toml             # agregar pydantic y cliente de caché
 ```
 

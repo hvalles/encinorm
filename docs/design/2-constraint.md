@@ -1,6 +1,6 @@
 # Documento de Diseño — Constraint (declaración declarativa de columnas)
 
-Propuesta para añadir una clase **`Constraint`** que permita declarar, de forma reutilizable, el tipo de dato y las restricciones de una columna, y que se traduzcan automáticamente a `pydantic.Field` y a `Column` (para el DDL). Complementa —no reemplaza— el diseño de `docs/design_model.md` (secciones 3.1 y 3.2.7).
+Propuesta para añadir una clase **`Constraint`** que permita declarar, de forma reutilizable, el tipo de dato y las restricciones de una columna, y que se traduzcan automáticamente a `pydantic.Field` y a `Column` (para el DDL). Complementa —no reemplaza— el diseño de `docs/design/1-model.md` (secciones 3.1 y 3.2.7).
 
 ---
 
@@ -258,7 +258,7 @@ class Contribuyente(Model):
 | 1 | `max` en `str` vs `int` | Para `str`, `max`/`min` son **longitud** (alias de `max_length`/`min_length`); para `int`/`numeric`, los límites de valor usan `ge/gt/le/lt`. Se recomienda `max_length`/`min_length` como nombre canónico en `str`. |
 | 2 | "INT_POS entero positivo" vs `ge=0` | `ge=0` = no negativo; "positivo estricto" sería `gt=0`. Se debe documentar el significado de cada restricción nombrada. |
 | 3 | `required=False` | Traduce a tipo `T | None` con default `None`; no a "valor con default". |
-| 4 | `not_valid` vs `validate` | El prompt usa `not_valid`; en `design_model.md` el nombre canónico es `validate()`. |
+| 4 | `not_valid` vs `validate` | El prompt usa `not_valid`; en `1-model.md` el nombre canónico es `validate()`. |
 | 5 | Doble validación | `Constraint` **no** valida por sí solo; solo traduce a `Field`. `validate()` delega en pydantic para evitar divergencia. |
 | 6 | `STR_100` como función | `STR_100` es una **función** (`make_constraint`) que devuelve el `Annotated`; debe invocarse (`STR_100(...)`), no usarse como objeto en `Annotated`. |
 | 7 | `datatype` inferido | `make_constraint(py_type, ...)` infiere `datatype` desde `PY_TYPE_TO_DATATYPE`; se conserva `datatype=` como override solo para casos ambiguos (`float`→`"numeric"`/`"float"`, `Decimal`). |

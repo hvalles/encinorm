@@ -5,8 +5,8 @@ Permite exponer los modelos como tipos GraphQL con queries y mutations, sin
 escribir resolvers manuales. Usa **Strawberry GraphQL** (integración nativa con
 pydantic v2 + async).
 
-> Complementa —no reemplaza— `docs/design.md` (capa `Db`), `docs/design_model.md`
-> (ORM) y `docs/design_constraint.md`. No modifica la interfaz `Db` ni `Query`.
+> Complementa —no reemplaza— `docs/design/0-design.md` (capa `Db`), `docs/design/1-model.md`
+> (ORM) y `docs/design/2-constraint.md`. No modifica la interfaz `Db` ni `Query`.
 
 ---
 
@@ -45,7 +45,7 @@ encinorm/
 │       ├── resolvers.py        # resolvers de relaciones (DataLoader)
 │       └── schema.py           # Strawberry Schema + registro de modelos
 └── docs/
-    └── design_graphql.md       # este documento
+    └── 3-graphql.md       # este documento
 ```
 
 - `encinorm.graphql` importa de `encinorm.model` y de `encinorm.pool.session`; **nunca al revés**.

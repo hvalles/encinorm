@@ -6,7 +6,7 @@ de `prompts/analisys-10.md`: un motor de agregación y presentación que consume
 un **árbol canónico de datos** desacoplado del destino, con renderers opcionales
 a HTML, Excel, CSV, PDF y texto.
 
-> Complementa `docs/design_model.md` (sección `QueryBuilder`) y es **aditivo**:
+> Complementa `docs/design/1-model.md` (sección `QueryBuilder`) y es **aditivo**:
 > no modifica `Db`, `Query` ni `QueryBuilder`. Se diseña como **proyecto
 > separado** (`encinorm-report`, módulo `encinorm_report`), con integración
 > opcional con `encinorm` (véase §10).

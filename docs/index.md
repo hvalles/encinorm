@@ -17,16 +17,18 @@ unificada para SQLite, MySQL y PostgreSQL.
 - **[Agregar un motor](engines.md)** — cómo extender encinorm con un nuevo motor
   de base de datos (contrato `Db`, placeholders, DDL e introspección).
 - **[Créditos](credits.md)** — herramientas y tecnologías utilizadas.
-- **Documentos de diseño** (`design_*.md`) — arquitectura interna:
-  - `design_model.md` — el núcleo `Model`.
-  - `design_constraint.md` — restricciones y tipos de dato.
-  - `design_crud.md` — operaciones CRUD.
-  - `design_security.md` — RBAC y JWT.
-  - `design_graphql.md` — capa GraphQL.
-  - `design_from_db.md` — introspección y codegen.
-  - `design_missing.md` — migraciones, bulk, scope, observabilidad, CLI.
-  - `design_pk.md` — claves primarias (simples/compuestas) y foráneas.
-  - `design_singleton.md` — conexión por defecto / ambiente.
+- **Documentos de diseño** (`docs/design/`) — arquitectura interna:
+  - [`design/0-design.md`](design/0-design.md) — capa `Db` y arquitectura base.
+  - [`design/1-model.md`](design/1-model.md) — el núcleo `Model`.
+  - [`design/2-constraint.md`](design/2-constraint.md) — restricciones y tipos de dato.
+  - [`design/3-graphql.md`](design/3-graphql.md) — capa GraphQL.
+  - [`design/4-crud.md`](design/4-crud.md) — operaciones CRUD.
+  - [`design/5-security.md`](design/5-security.md) — RBAC y JWT.
+  - [`design/6-from_db.md`](design/6-from_db.md) — introspección y codegen.
+  - [`design/7-missing.md`](design/7-missing.md) — migraciones, bulk, scope, observabilidad, CLI.
+  - [`design/8-pk.md`](design/8-pk.md) — claves primarias (simples/compuestas) y foráneas.
+  - [`design/9-singleton.md`](design/9-singleton.md) — conexión por defecto / ambiente.
+  - [`design/10-report.md`](design/10-report.md) — reporteador financiero (`encinorm-report`).
 
 ## Convenciones
 

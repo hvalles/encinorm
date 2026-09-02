@@ -8,7 +8,7 @@ central es el **mapeo inverso de tipos**: si el tipo de la columna coincide con 
 preset del vocabulario se usa ese preset; si **no** está en el conjunto, el modelo
 aplica un `make_constraint(...)` directo al campo.
 
-> Complementa `docs/design_model.md` (ORM), `docs/design_constraint.md`
+> Complementa `docs/design/1-model.md` (ORM), `docs/design/2-constraint.md`
 > (`Constraint`/`make_constraint`). Se apoya en `prompts/analisys-05.md`. No
 > modifica `Db` ni `Constraint`; es la **contraparte inversa** de `to_ddl()`.
 
@@ -60,7 +60,7 @@ encinorm/
 │       ├── types.py                  # mapa inverso + resolve_field_type
 │       └── codegen.py                # generate_model (emite el archivo .py)
 └── docs/
-    └── design_from_db.md             # este documento
+    └── 6-from_db.md             # este documento
 ```
 
 - `encinorm.model.domain` solo importa de `encinorm.model.constraint`; **nunca al

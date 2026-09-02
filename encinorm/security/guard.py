@@ -12,7 +12,7 @@ from .permissions import PermissionSet
 
 # Configuración global que la aplicación sobreescribe en su arranque:
 SECRET: str | None = None      # p. ej. os.environ["SECRET_KEY"]
-GET_DB = None                  # dependency de conexión (session(pool) de design_crud.md)
+GET_DB = None                  # dependency de conexión (session(pool) de docs/design/4-crud.md)
 
 
 @dataclass

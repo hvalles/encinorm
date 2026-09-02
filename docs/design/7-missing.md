@@ -5,10 +5,10 @@ actual, identificadas y ponderadas en `prompts/analisys-06.md`. Cubre: migracion
 de esquema, operaciones masivas/upsert, tipos `Decimal` y `JSON`, relaciones
 `has_many`, alcance por fila (multi-tenant), observabilidad, CLI de codegen,
 agregados `avg`/`min`/`max` y borrado lógico automático. La capa **GraphQL** se
-documenta por separado en `docs/design_graphql.md` (se referencia en §12).
+documenta por separado en `docs/design/3-graphql.md` (se referencia en §12).
 
-> Complementa `docs/design_model.md`, `docs/design_constraint.md`,
-> `docs/design_security.md`, `docs/design_crud.md` y `docs/design_from_db.md`.
+> Complementa `docs/design/1-model.md`, `docs/design/2-constraint.md`,
+> `docs/design/5-security.md`, `docs/design/4-crud.md` y `docs/design/6-from_db.md`.
 > No modifica la interfaz pública de `Db` (solo extiende `Model`/`QueryBuilder`
 > con métodos aditivos y añade módulos nuevos).
 
@@ -45,9 +45,9 @@ encinorm/
 │   │   ├── domain.py           # + DECIMAL, JSON
 │   │   ├── query_builder.py    # + avg/min/max
 │   │   └── references.py       # + has_many (colecciones inversas)
-│   └── graphql/                # (ver docs/design_graphql.md, no se repite aquí)
+│   └── graphql/                # (ver docs/design/3-graphql.md, no se repite aquí)
 └── docs/
-    └── design_missing.md       # este documento
+    └── 7-missing.md       # este documento
 ```
 
 - Todo lo nuevo es **aditivo** (no cambia firmas existentes) o **módulos nuevos**.
@@ -309,7 +309,7 @@ class Model:
 
 ## 12. Capa GraphQL
 
-Diseño completo en `docs/design_graphql.md` (Strawberry + `build_schema`,
+Diseño completo en `docs/design/3-graphql.md` (Strawberry + `build_schema`,
 `FilterInput`, queries `list/get/count`, mutations, DataLoader para relaciones).
 Se incluye en el alcance de este plan como la pieza de mayor valor (§ analisys-06
 #1), sin repetir su diseño aquí.
@@ -334,7 +334,7 @@ Se incluye en el alcance de este plan como la pieza de mayor valor (§ analisys-
 ## 14. Dependencias
 
 - Sin dependencias nuevas en el núcleo (stdlib para `cli`/`migration`/`json`).
-- `graphql = ["strawberry-graphql>=0.200"]` (ya prevista en `design_graphql.md`).
+- `graphql = ["strawberry-graphql>=0.200"]` (ya prevista en `3-graphql.md`).
 
 ---
 
@@ -364,7 +364,7 @@ Se incluye en el alcance de este plan como la pieza de mayor valor (§ analisys-
 | 5 | `scope`/multi-tenant + soft-delete. |
 | 6 | Observabilidad (tracer) + agregados `avg`/`min`/`max`. |
 | 7 | CLI de codegen. |
-| 8 | GraphQL (implementar `docs/design_graphql.md`). |
+| 8 | GraphQL (implementar `docs/design/3-graphql.md`). |
 
 ---
 

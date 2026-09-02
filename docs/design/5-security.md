@@ -5,8 +5,8 @@ sobre encinorm: (A) **autorización RBAC** por roles sobre los modelos y (B)
 **autenticación JWT** con refresh, expuestas como dependencies de FastAPI para
 habilitar los CRUD (`http`) y las operaciones GraphQL sin esquemas repetitivos.
 
-> Complementa `docs/design_model.md` (ORM), `docs/design_crud.md` (CRUD REST) y
-> `docs/design_graphql.md` (GraphQL). No modifica `Db`, `Model`, `Query` ni
+> Complementa `docs/design/1-model.md` (ORM), `docs/design/4-crud.md` (CRUD REST) y
+> `docs/design/3-graphql.md` (GraphQL). No modifica `Db`, `Model`, `Query` ni
 > `PoolDb`. Se apoya en el análisis `prompts/analisys-04.md`.
 
 ---
@@ -59,7 +59,7 @@ encinorm/
 │       ├── jwt.py              # emit_token / verify_token / refresh (envuelve PyJWT)
 │       └── exceptions.py       # AuthenticationError, AuthorizationError
 └── docs/
-    └── design_security.md      # este documento
+    └── 5-security.md      # este documento
 ```
 
 - `encinorm.security` importa de `encinorm.model`, `encinorm.pool.session` y (perezosamente) de `fastapi`/`jwt`; **nunca al revés**.
@@ -200,7 +200,7 @@ class PermissionSet:
 ### 5.4. Caché (opcional)
 
 El `PermissionSet` puede cachearse por `user_id` reutilizando `CacheBackend`
-(sección de caché de `design_model.md`) e invalidarse con un hook `after_commit`
+(sección de caché de `1-model.md`) e invalidarse con un hook `after_commit`
 en `RolUsuario`/`Roldet`. En apps pequeñas se omite.
 
 ---
@@ -284,7 +284,7 @@ class CurrentUser:
 
 - **401**: token ausente/inválido/caducado.
 - **403**: identidad válida pero sin permiso (`AuthorizationError`).
-- `get_db` es la dependency de conexión (`session(pool)`) de `design_crud.md`.
+- `get_db` es la dependency de conexión (`session(pool)`) de `4-crud.md`.
 
 ### 7.1. `HTTPBearer` y OpenAPI
 
@@ -295,7 +295,7 @@ protegidos quedan documentados automáticamente.
 
 ## 8. Integración con las capas existentes
 
-### 8.1. `http` (`design_crud.md`)
+### 8.1. `http` (`4-crud.md`)
 
 `register_crud` acepta un parámetro `guard` que inyecta la dependency por operación:
 
@@ -309,7 +309,7 @@ register_crud(
 )
 ```
 
-### 8.2. `graphql` (`design_graphql.md`)
+### 8.2. `graphql` (`3-graphql.md`)
 
 El contexto del request (`info.context`) lleva `db` y `permissions`; los resolvers
 de mutations llaman `permissions.require(modelo, op)` antes de ejecutar.
