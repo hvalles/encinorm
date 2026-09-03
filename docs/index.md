@@ -28,7 +28,6 @@ unificada para SQLite, MySQL y PostgreSQL.
   - [`design/7-missing.md`](design/7-missing.md) — migraciones, bulk, scope, observabilidad, CLI.
   - [`design/8-pk.md`](design/8-pk.md) — claves primarias (simples/compuestas) y foráneas.
   - [`design/9-singleton.md`](design/9-singleton.md) — conexión por defecto / ambiente.
-  - [`design/10-report.md`](design/10-report.md) — reporteador financiero (`encinorm-report`).
 
 ## Convenciones
 
