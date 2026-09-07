@@ -2,14 +2,14 @@ import os
 
 import pytest
 
-from encinorm import MysqlDb, Query
+from encino_orm import MysqlDb, Query
 
 MYSQL_CONFIG = {
-    "host": os.getenv("ENCINORM_MYSQL_HOST", "127.0.0.1"),
-    "port": int(os.getenv("ENCINORM_MYSQL_PORT", "3306")),
-    "user": os.getenv("ENCINORM_MYSQL_USER", "root"),
-    "password": os.getenv("ENCINORM_MYSQL_PASSWORD", "admin"),
-    "db": os.getenv("ENCINORM_MYSQL_DB", "encinorm_test"),
+    "host": os.getenv("ENCINO_ORM_MYSQL_HOST", "127.0.0.1"),
+    "port": int(os.getenv("ENCINO_ORM_MYSQL_PORT", "3306")),
+    "user": os.getenv("ENCINO_ORM_MYSQL_USER", "root"),
+    "password": os.getenv("ENCINO_ORM_MYSQL_PASSWORD", "admin"),
+    "db": os.getenv("ENCINO_ORM_MYSQL_DB", "encino_orm_test"),
 }
 
 
@@ -213,7 +213,7 @@ class TestMysqlMigrations:
     async def test_migrate_applies_and_records(self, mysql_connected_db):
         db = mysql_connected_db
         await db.execute(Query("DROP TABLE IF EXISTS usuarios", []))
-        await db.execute(Query("DROP TABLE IF EXISTS _encinorm_migrations", []))
+        await db.execute(Query("DROP TABLE IF EXISTS _encino_orm_migrations", []))
 
         await db.migrate(
             "v1_crear_usuarios",
@@ -230,7 +230,7 @@ class TestMysqlMigrations:
     async def test_migrate_is_idempotent(self, mysql_connected_db):
         db = mysql_connected_db
         await db.execute(Query("DROP TABLE IF EXISTS t1", []))
-        await db.execute(Query("DROP TABLE IF EXISTS _encinorm_migrations", []))
+        await db.execute(Query("DROP TABLE IF EXISTS _encino_orm_migrations", []))
 
         await db.migrate("v1", Query("CREATE TABLE t1 (id INT PRIMARY KEY)", []))
         await db.migrate("v1", Query("CREATE TABLE t1 (id INT PRIMARY KEY)", []))
@@ -244,7 +244,7 @@ class TestMysqlMigrations:
 
         await db.execute(Query("DROP TABLE IF EXISTS a", []))
         await db.execute(Query("DROP TABLE IF EXISTS b", []))
-        await db.execute(Query("DROP TABLE IF EXISTS _encinorm_migrations", []))
+        await db.execute(Query("DROP TABLE IF EXISTS _encino_orm_migrations", []))
         await db.migrate("v1", Query("CREATE TABLE a (id INT PRIMARY KEY)", []))
         await db.migrate("v2", Query("CREATE TABLE b (id INT PRIMARY KEY)", []))
 

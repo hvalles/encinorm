@@ -1,36 +1,45 @@
 # Getting started
 
-Guía rápida para instalar encinorm y crear tu primer modelo funcional.
+Guía rápida para instalar encino_orm y crear tu primer modelo funcional.
 
 ## 1. Instalación
 
 ```bash
 pip install -e .                 # núcleo
-pip install -e ".[http,security,graphql]"   # con todas las capas opcionales
+pip install -e ".[http,security,graphql]"   # capas opcionales (REST, GraphQL, seguridad)
+pip install -e ".[mssql,oracle]" # motores SQL Server y Oracle
+pip install -e ".[all-db]"       # o todos los motores opcionales de golpe
 ```
 
 Requisitos: **Python 3.10+**. Dependencias del núcleo: `pydantic`, `aiosqlite`,
 `aiomysql` y `asyncpg`.
 
+> El proyecto usa `uv` (hay `uv.lock`): puedes sustituir `pip install -e ...` por
+> `uv pip install -e ...` y ejecutar las pruebas con `uv run pytest`.
+
 ## 2. Conectar a una base de datos
 
 ```python
-from encinorm import create_db
+from encino_orm import create_db
 
 # SQLite (archivo o :memory:)
 db = await create_db("sqlite", database=":memory:")
 
-# MySQL
+# MySQL (el driver usa `db`)
 db = await create_db("mysql", host="localhost", user="root", password="...", db="app")
 
-# PostgreSQL
+# PostgreSQL (el driver usa `database`)
 db = await create_db("postgresql", host="localhost", user="postgres", password="...", database="app")
 ```
+
+> El nombre del parámetro de la base depende del motor: `database=` para SQLite y
+> PostgreSQL, `db=` para MySQL/MariaDB/SQL Server, y `service_name=` (o `db=`) para
+> Oracle. `create_db` reenvía los `**kwargs` tal cual al `connect()` del motor.
 
 Para aplicaciones concurrentes usa el pool:
 
 ```python
-from encinorm import PoolDb
+from encino_orm import PoolDb
 
 pool = PoolDb("sqlite", min_size=2, max_size=10, database="app.db")
 await pool.connect()
@@ -39,7 +48,7 @@ await pool.connect()
 ## 3. Definir un modelo
 
 ```python
-from encinorm.model import Model, STR_100, INT_POS, DATETIME
+from encino_orm.model import Model, STR_100, INT_POS, DATETIME
 
 class User(Model):
     _table = "users"          # nombre de tabla (obligatorio)
@@ -80,7 +89,7 @@ Para no pasar `db` en cada instancia, registra una conexión por defecto o usa e
 ámbito de request:
 
 ```python
-from encinorm import set_default_db, session
+from encino_orm import set_default_db, session
 
 set_default_db(db)                        # singleton de proceso
 u = User(name="Bob")                      # sin `db`

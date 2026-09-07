@@ -2,7 +2,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from encinorm.http import (
+from encino_orm.http import (
     Registry,
     create_crud,
     filter_from_str,
@@ -11,8 +11,8 @@ from encinorm.http import (
     register_introspection,
     sort_from_str,
 )
-from encinorm.model import Filter, Model, make_constraint
-from encinorm.sqlite import SqliteDb
+from encino_orm.model import Filter, Model, make_constraint
+from encino_orm.sqlite import SqliteDb
 
 STR_50 = make_constraint(str, max_length=50)
 

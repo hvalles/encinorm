@@ -1,4 +1,4 @@
-# Documento de Diseño — encinorm
+# Documento de Diseño — encino_orm
 
 Librería asíncrona de interfaz unificada para múltiples motores de base de datos (SQLite, MySQL, PostgreSQL) orientada a desarrolladores Python que trabajan con `asyncio`.
 
@@ -6,7 +6,7 @@ Librería asíncrona de interfaz unificada para múltiples motores de base de da
 
 ## 1. Introducción y Objetivos
 
-**encinorm** es una capa de abstracción sobre `aiosqlite`, `aiomysql` y `asyncpg` que expone una interfaz común (`Db`) para ejecutar operaciones DML, DDL y consultas sin preocuparse por el motor subyacente. El desarrollador escribe el mismo código, y el backend de conexión se encarga de traducirlo al dialecto correspondiente.
+**encino_orm** es una capa de abstracción sobre `aiosqlite`, `aiomysql` y `asyncpg` que expone una interfaz común (`Db`) para ejecutar operaciones DML, DDL y consultas sin preocuparse por el motor subyacente. El desarrollador escribe el mismo código, y el backend de conexión se encarga de traducirlo al dialecto correspondiente.
 
 ### Objetivos
 
@@ -189,10 +189,10 @@ Cada implementación resuelve:
 
 ### 2.4. Sistema de Migraciones
 
-Cada implementación mantiene una tabla interna `_encinorm_migrations` que registra las migraciones aplicadas, permitiendo reproducibilidad y auditoría.
+Cada implementación mantiene una tabla interna `_encino_orm_migrations` que registra las migraciones aplicadas, permitiendo reproducibilidad y auditoría.
 
 ```sql
-CREATE TABLE IF NOT EXISTS _encinorm_migrations (
+CREATE TABLE IF NOT EXISTS _encino_orm_migrations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,  -- varía por motor
     name TEXT NOT NULL UNIQUE,
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -203,7 +203,7 @@ CREATE TABLE IF NOT EXISTS _encinorm_migrations (
 **Flujo:**
 
 1. El usuario invoca `await db.migrate("crear_tabla_usuarios", Query(sql, []))`.
-2. El método verifica si el `name` ya existe en `_encinorm_migrations`.
+2. El método verifica si el `name` ya existe en `_encino_orm_migrations`.
 3. Si no existe, ejecuta el SQL, lo registra en la tabla y hace commit.
 4. Si ya existe, no hace nada (idempotente).
 5. `migrate_status()` devuelve el historial completo de migraciones aplicadas.
@@ -323,12 +323,12 @@ async def create_db(engine: str, **kwargs) -> Db:
 ### 2.8. Excepciones
 
 ```python
-class EncinormError(Exception): ...
-class ConnectionError(EncinormError): ...
-class QueryError(EncinormError): ...
-class UnsupportedEngineError(EncinormError): ...
-class MigrationError(EncinormError): ...
-class PoolExhaustedError(EncinormError): ...
+class EncinoOrmError(Exception): ...
+class ConnectionError(EncinoOrmError): ...
+class QueryError(EncinoOrmError): ...
+class UnsupportedEngineError(EncinoOrmError): ...
+class MigrationError(EncinoOrmError): ...
+class PoolExhaustedError(EncinoOrmError): ...
 ```
 
 ---
@@ -336,8 +336,8 @@ class PoolExhaustedError(EncinormError): ...
 ## 3. Estructura de Carpetas
 
 ```
-encinorm/
-├── encinorm/
+encino_orm/
+├── encino_orm/
 │   ├── __init__.py          # expone create_db, PoolDb, Db, Query, excepciones
 │   ├── base.py              # clase abstracta Db
 │   ├── query.py             # clase Query
@@ -368,7 +368,7 @@ encinorm/
 
 ```python
 import asyncio
-from encinorm import create_db, Query, PoolDb
+from encino_orm import create_db, Query, PoolDb
 
 async def ejemplo_basico():
     db = await create_db("sqlite", database=":memory:")

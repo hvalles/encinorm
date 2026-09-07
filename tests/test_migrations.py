@@ -1,15 +1,15 @@
 import pytest
 
-from encinorm.migration import (
+from encino_orm.migration import (
     Migration,
     apply_migration,
     apply_migrations,
     migrations_from_dir,
     rollback_migration,
 )
-from encinorm.model import Model
-from encinorm.query import Query
-from encinorm.sqlite import SqliteDb
+from encino_orm.model import Model
+from encino_orm.query import Query
+from encino_orm.sqlite import SqliteDb
 
 
 @pytest.fixture
@@ -71,12 +71,12 @@ class TestMigrationRunner:
 class TestMigrationsFromDir:
     def test_loads_in_order(self, tmp_path):
         (tmp_path / "001_a.py").write_text(
-            "from encinorm.migration import Migration\n"
+            "from encino_orm.migration import Migration\n"
             "MIGRATION = Migration('001_a', 'SELECT 1')\n",
             encoding="utf-8",
         )
         (tmp_path / "002_b.py").write_text(
-            "from encinorm.migration import Migration\n"
+            "from encino_orm.migration import Migration\n"
             "MIGRATION = Migration('002_b', 'SELECT 1')\n",
             encoding="utf-8",
         )

@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import Field
 
-from encinorm import Query
-from encinorm.model import Filter, Model
+from encino_orm import Query
+from encino_orm.model import Filter, Model
 
 
 class Evento(Model):

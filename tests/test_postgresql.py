@@ -2,15 +2,15 @@ import os
 
 import pytest
 
-from encinorm import PostgresDb, Query
-from encinorm.postgresql import _rowcount, _to_postgres
+from encino_orm import PostgresDb, Query
+from encino_orm.postgresql import _rowcount, _to_postgres
 
 POSTGRES_CONFIG = {
-    "host": os.getenv("ENCINORM_POSTGRES_HOST", "127.0.0.1"),
-    "port": int(os.getenv("ENCINORM_POSTGRES_PORT", "5432")),
-    "user": os.getenv("ENCINORM_POSTGRES_USER", "postgres"),
-    "password": os.getenv("ENCINORM_POSTGRES_PASSWORD", "admin"),
-    "database": os.getenv("ENCINORM_POSTGRES_DB", "encinorm_test"),
+    "host": os.getenv("ENCINO_ORM_POSTGRES_HOST", "127.0.0.1"),
+    "port": int(os.getenv("ENCINO_ORM_POSTGRES_PORT", "5432")),
+    "user": os.getenv("ENCINO_ORM_POSTGRES_USER", "postgres"),
+    "password": os.getenv("ENCINO_ORM_POSTGRES_PASSWORD", "admin"),
+    "database": os.getenv("ENCINO_ORM_POSTGRES_DB", "encino_orm_test"),
 }
 
 
@@ -230,7 +230,7 @@ class TestPostgresMigrations:
     async def test_migrate_applies_and_records(self, pg_connected_db):
         db = pg_connected_db
         await db.execute(Query("DROP TABLE IF EXISTS usuarios", []))
-        await db.execute(Query("DROP TABLE IF EXISTS _encinorm_migrations", []))
+        await db.execute(Query("DROP TABLE IF EXISTS _encino_orm_migrations", []))
 
         await db.migrate(
             "v1_crear_usuarios",
@@ -247,7 +247,7 @@ class TestPostgresMigrations:
     async def test_migrate_is_idempotent(self, pg_connected_db):
         db = pg_connected_db
         await db.execute(Query("DROP TABLE IF EXISTS t1", []))
-        await db.execute(Query("DROP TABLE IF EXISTS _encinorm_migrations", []))
+        await db.execute(Query("DROP TABLE IF EXISTS _encino_orm_migrations", []))
 
         await db.migrate("v1", Query("CREATE TABLE t1 (id INT PRIMARY KEY)", []))
         await db.migrate("v1", Query("CREATE TABLE t1 (id INT PRIMARY KEY)", []))

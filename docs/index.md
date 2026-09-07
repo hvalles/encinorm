@@ -1,7 +1,7 @@
-# Documentación de encinorm
+# Documentación de encino_orm
 
-Bienvenido a la documentación de **encinorm**, el ORM asíncrono de interfaz
-unificada para SQLite, MySQL y PostgreSQL.
+Bienvenido a la documentación de **encino_orm**, el ORM asíncrono de interfaz
+unificada para SQLite, MySQL, MariaDB, PostgreSQL, SQL Server y Oracle.
 
 ## Primeros pasos
 
@@ -14,8 +14,10 @@ unificada para SQLite, MySQL y PostgreSQL.
 
 ## Para desarrolladores
 
-- **[Agregar un motor](engines.md)** — cómo extender encinorm con un nuevo motor
+- **[Agregar un motor](engines.md)** — cómo extender encino_orm con un nuevo motor
   de base de datos (contrato `Db`, placeholders, DDL e introspección).
+- **[Docker](docker.md)** — imágenes y configuración (usuarios/contraseñas) para
+  ejecutar las pruebas de integración.
 - **[Créditos](credits.md)** — herramientas y tecnologías utilizadas.
 - **Documentos de diseño** (`docs/design/`) — arquitectura interna:
   - [`design/0-design.md`](design/0-design.md) — capa `Db` y arquitectura base.
@@ -28,6 +30,7 @@ unificada para SQLite, MySQL y PostgreSQL.
   - [`design/7-missing.md`](design/7-missing.md) — migraciones, bulk, scope, observabilidad, CLI.
   - [`design/8-pk.md`](design/8-pk.md) — claves primarias (simples/compuestas) y foráneas.
   - [`design/9-singleton.md`](design/9-singleton.md) — conexión por defecto / ambiente.
+  - [`design/a-xpress.md`](design/a-xpress.md) — motores MariaDB, SQL Server Express y Oracle XE.
 
 ## Convenciones
 

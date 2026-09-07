@@ -1,7 +1,7 @@
 import pytest
 
-from encinorm.query import Query
-from encinorm.model import (
+from encino_orm.query import Query
+from encino_orm.model import (
     Model,
     after_commit,
     after_transaction_fail,

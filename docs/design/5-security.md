@@ -1,7 +1,7 @@
-# Documento de Diseño — encinorm.security (RBAC + autenticación JWT)
+# Documento de Diseño — encino_orm.security (RBAC + autenticación JWT)
 
 Subpaquete opcional que centraliza la **seguridad** de las aplicaciones construidas
-sobre encinorm: (A) **autorización RBAC** por roles sobre los modelos y (B)
+sobre encino_orm: (A) **autorización RBAC** por roles sobre los modelos y (B)
 **autenticación JWT** con refresh, expuestas como dependencies de FastAPI para
 habilitar los CRUD (`http`) y las operaciones GraphQL sin esquemas repetitivos.
 
@@ -41,15 +41,15 @@ Ver `prompts/analisys-04.md`. Resumen:
   de credenciales (lo gestiona la aplicación).
 - **Permiso tri-estado** (`bool | None`): condición necesaria para que convivan
   "negación por defecto" y "la primera asignación prevalece".
-- **Ubicación**: subpaquete `encinorm.security` dentro del proyecto (no aparte).
+- **Ubicación**: subpaquete `encino_orm.security` dentro del proyecto (no aparte).
 
 ---
 
 ## 3. Arquitectura y ubicación
 
 ```
-encinorm/
-├── encinorm/
+encino_orm/
+├── encino_orm/
 │   ├── ...                     # Db, pool, model (existente)
 │   └── security/               # NUEVO (subpaquete opcional)
 │       ├── __init__.py         # Rol, Roldet, RolUsuario, PermissionSet, require, get_current_user
@@ -62,14 +62,14 @@ encinorm/
     └── 5-security.md      # este documento
 ```
 
-- `encinorm.security` importa de `encinorm.model`, `encinorm.pool.session` y (perezosamente) de `fastapi`/`jwt`; **nunca al revés**.
+- `encino_orm.security` importa de `encino_orm.model`, `encino_orm.pool.session` y (perezosamente) de `fastapi`/`jwt`; **nunca al revés**.
 - `fastapi` y `PyJWT` son dependencias **opcionales**.
 
 ---
 
 ## 4. Modelo de datos de seguridad
 
-Las tres tablas son `Model` de encinorm (persistentes, validables, con `enabled`,
+Las tres tablas son `Model` de encino_orm (persistentes, validables, con `enabled`,
 `created_at`/`updated_at` heredados y borrado lógico).
 
 ### 4.1. `Rol`
@@ -120,7 +120,7 @@ class RolUsuario(Model):
 ```
 
 - `user_id` es un `str` **opaco** (hasta 50 caracteres, `STR_50`) ligado al claim
-  `sub` del JWT; la tabla de usuarios pertenece a la aplicación, no a encinorm.
+  `sub` del JWT; la tabla de usuarios pertenece a la aplicación, no a encino_orm.
 - `STR_50` = `make_constraint(str, max_length=50)`; la identidad externa puede no
   ser numérica (UUID, email, id de otro sistema), por eso se guarda como texto y
   no como `int`.
@@ -207,7 +207,7 @@ en `RolUsuario`/`Roldet`. En apps pequeñas se omite.
 
 ## 6. Autenticación JWT
 
-`encinorm/security/jwt.py` envuelve **PyJWT**. No gestiona credenciales ni hashing
+`encino_orm/security/jwt.py` envuelve **PyJWT**. No gestiona credenciales ni hashing
 (lo hace la aplicación al emitir el token en el login).
 
 ### 6.1. Funciones
@@ -240,7 +240,7 @@ def verify_refresh(token: str, secret: str) -> dict: ...
    token y recibe un par nuevo.
 3. Si el refresh también caducó → `401` definitivo y el cliente re-autentica.
 
-`/auth/refresh` es responsabilidad de la aplicación (encinorm solo expone
+`/auth/refresh` es responsabilidad de la aplicación (encino_orm solo expone
 `emit_refresh`/`verify_refresh`); se documenta el patrón.
 
 ---
@@ -251,7 +251,7 @@ def verify_refresh(token: str, secret: str) -> dict: ...
 el núcleo no dependa de FastAPI.
 
 ```python
-# encinorm/security/guard.py (concepto)
+# encino_orm/security/guard.py (concepto)
 
 def get_current_user(secret: str):
     """Dependency: resuelve la identidad desde el header Authorization."""
@@ -321,8 +321,8 @@ de mutations llaman `permissions.require(modelo, op)` antes de ejecutar.
 ### 9.1. Configuración inicial
 
 ```python
-from encinorm import PoolDb, session
-from encinorm.security import Rol, Roldet, RolUsuario, require
+from encino_orm import PoolDb, session
+from encino_orm.security import Rol, Roldet, RolUsuario, require
 
 pool = PoolDb("postgresql", min_size=2, max_size=10, ...)
 
@@ -376,8 +376,8 @@ async def borrar_fisico(id: int, db=Depends(get_db)):
 security = ["fastapi>=0.110", "PyJWT>=2.8"]
 ```
 
-`encinorm` y `encinorm.model` siguen funcionando sin `fastapi`/`jwt` (imports
-perezosos en `encinorm/security`).
+`encino_orm` y `encino_orm.model` siguen funcionando sin `fastapi`/`jwt` (imports
+perezosos en `encino_orm/security`).
 
 ---
 
@@ -418,5 +418,5 @@ perezosos en `encinorm/security`).
 | 5 | Rol Público | Se aplica a requests anónimos (sin token). |
 | 6 | `delete` vs `remove` | `delete` = lógico, `remove` = físico (`delete(physical=...)`). |
 | 7 | JWT | Envolver PyJWT; no reimplementar; access/refresh token. |
-| 8 | Hashing de credenciales | Fuera de encinorm; la app gestiona el login. |
+| 8 | Hashing de credenciales | Fuera de encino_orm; la app gestiona el login. |
 | 9 | Alcance por fila (row-level) | Fuera del MVP; hook `scope(user_id)` evolutivo. |

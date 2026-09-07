@@ -40,7 +40,7 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   `diff_schema` y `sync_schema`.
 - Conexión implícita (`set_default_db`, `bind`, `resolve_db`).
 - Capas opcionales: REST (FastAPI), GraphQL (Strawberry), seguridad (RBAC + JWT)
-  y codegen/CLI (`encinorm generate models`).
+  y codegen/CLI (`encino_orm generate models`).
 - Observabilidad (`trace_id`, `QueryTracer`) y caché (`CachedModel` +
   `CacheBackend`).
 - Documentación de usuario (`README.md` y `docs/`), guía para agregar motores y

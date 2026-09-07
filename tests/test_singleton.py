@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from encinorm import (
+from encino_orm import (
     ConnectionError,
     PoolDb,
     bind,
@@ -11,7 +11,7 @@ from encinorm import (
     session,
     set_default_db,
 )
-from encinorm.model import Model
+from encino_orm.model import Model
 
 
 @pytest.fixture(autouse=True)

@@ -1,8 +1,8 @@
 import pytest
 
-from encinorm.graphql import build_schema
-from encinorm.model import Model
-from encinorm.sqlite import SqliteDb
+from encino_orm.graphql import build_schema
+from encino_orm.model import Model
+from encino_orm.sqlite import SqliteDb
 
 
 class Agente(Model):

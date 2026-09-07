@@ -1,4 +1,4 @@
-# Documento de Diseño — funcionalidades faltantes (encinorm)
+# Documento de Diseño — funcionalidades faltantes (encino_orm)
 
 Este documento consolida el **diseño de las funcionalidades omitidas** en el alcance
 actual, identificadas y ponderadas en `prompts/analisys-06.md`. Cubre: migraciones
@@ -24,7 +24,7 @@ documenta por separado en `docs/design/3-graphql.md` (se referencia en §12).
 | 4 | Relaciones **uno-a-muchos** (`has_many`). | #7 |
 | 5 | Alcance por fila / **multi-tenancy** (`scope`). | #8 |
 | 6 | **Observabilidad**: logging estructurado + métricas de consultas. | #9 |
-| 7 | **CLI** de codegen (`encinorm generate models`). | #10 |
+| 7 | **CLI** de codegen (`encino_orm generate models`). | #10 |
 | 8 | Agregados `avg`/`min`/`max` en `QueryBuilder`. | #11 |
 | 9 | **Soft-delete** automático en consultas. | #12 |
 | 10 | Capa GraphQL (diseño existente). | #1 |
@@ -34,8 +34,8 @@ documenta por separado en `docs/design/3-graphql.md` (se referencia en §12).
 ## 2. Arquitectura y ubicación
 
 ```
-encinorm/
-├── encinorm/
+encino_orm/
+├── encino_orm/
 │   ├── migration.py            # NUEVO: Migration + runner + load_from_dir
 │   ├── cli.py                  # NUEVO: CLI (argparse) — `generate models`
 │   ├── observability.py        # NUEVO: QueryTracer + métricas (opcional)
@@ -59,13 +59,13 @@ encinorm/
 
 ### 3.1. `Migration` + runner
 
-Hoy `db.migrate(name, sql)` registra en `_encinorm_migrations` pero no hay
+Hoy `db.migrate(name, sql)` registra en `_encino_orm_migrations` pero no hay
 archivos versionados ni `down`. Se añade una abstracción mínima:
 
 ```python
-# encinorm/migration.py (concepto)
+# encino_orm/migration.py (concepto)
 from dataclasses import dataclass
-from encinorm.query import Query
+from encino_orm.query import Query
 
 @dataclass(frozen=True)
 class Migration:
@@ -91,7 +91,7 @@ def migrations_from_dir(path: str) -> list[Migration]:
 diff que detecta columnas **eliminadas** y **cambios de tipo**:
 
 ```python
-# encinorm/model/model.py (concepto)
+# encino_orm/model/model.py (concepto)
 async def diff_schema(self, engine=None) -> dict:
     """Compara modelo vs BD -> {"added": [...], "dropped": [...], "changed": [...]}"""
     ...
@@ -116,7 +116,7 @@ async def sync_schema(self, engine=None, drop_missing=False, alter_types=False) 
 ### 4.1. `insert_many` (bulk)
 
 ```python
-# encinorm/model/model.py (concepto)
+# encino_orm/model/model.py (concepto)
 @classmethod
 async def insert_many(cls, db, rows: list[dict], *, chunk: int = 500) -> int:
     """Inserta varios registros en una transacción. Devuelve el total."""
@@ -156,7 +156,7 @@ class Model:
 ### 5.1. `Decimal` (dinero exacto)
 
 ```python
-# encinorm/model/domain.py (concepto)
+# encino_orm/model/domain.py (concepto)
 from decimal import Decimal
 DECIMAL = make_constraint(Decimal)             # datatype "numeric"
 ```
@@ -169,13 +169,13 @@ DECIMAL = make_constraint(Decimal)             # datatype "numeric"
 ### 5.2. `JSON`
 
 ```python
-# encinorm/model/types.py (concepto)
+# encino_orm/model/types.py (concepto)
 PY_TYPE_TO_DATATYPE[dict] = "json"     # y list -> "json"
 DDL_MAP["sqlite"]["json"] = "TEXT"
 DDL_MAP["mysql"]["json"] = "JSON"
 DDL_MAP["postgres"]["json"] = "JSONB"
 
-# encinorm/model/domain.py (concepto)
+# encino_orm/model/domain.py (concepto)
 JSON = make_constraint(dict, datatype="json")
 ```
 
@@ -191,7 +191,7 @@ Se añade la colección **inversa** (padre → hijos), complementaria a las
 referencias 1:1 actuales (`_references_def`):
 
 ```python
-# encinorm/model/references.py (concepto)
+# encino_orm/model/references.py (concepto)
 class Region(Model):
     _table = "regiones"
     region: str | None = None
@@ -212,7 +212,7 @@ agentes = await region["agentes"]          # list[Agente] (search por FK)
 ## 7. Alcance por fila / multi-tenancy (`scope`)
 
 ```python
-# encinorm/model/model.py (concepto)
+# encino_orm/model/model.py (concepto)
 class ScopedModel(Model):
     _scope: Filter | None = None      # filtro por fila (tenant/usuario)
 
@@ -235,7 +235,7 @@ class ScopedModel(Model):
 ## 8. Observabilidad
 
 ```python
-# encinorm/observability.py (concepto)
+# encino_orm/observability.py (concepto)
 class QueryTracer:
     """Registra consultas con timing, params y contexto (trace_id)."""
     def __init__(self, logger, *, level=logging.DEBUG):
@@ -255,21 +255,21 @@ class QueryTracer:
 ## 9. CLI de codegen
 
 ```python
-# encinorm/cli.py (concepto)
+# encino_orm/cli.py (concepto)
 import argparse
 
 def main(argv=None) -> int:
     # subcomandos:
-    #   encinorm generate models <engine> --db ... [tablas] --folder out/
-    #       -> usa encinorm.introspection.generate_model
+    #   encino_orm generate models <engine> --db ... [tablas] --folder out/
+    #       -> usa encino_orm.introspection.generate_model
     ...
 
 # pyproject.toml
 # [project.scripts]
-# encinorm = "encinorm.cli:main"
+# encino_orm = "encino_orm.cli:main"
 ```
 
-- Solo stdlib (`argparse`); envuelve `encinorm.introspection`.
+- Solo stdlib (`argparse`); envuelve `encino_orm.introspection`.
 - Flujo: conectar → `list_tables` → seleccionar (o todas) → `generate_model` por tabla.
 
 ---
@@ -277,7 +277,7 @@ def main(argv=None) -> int:
 ## 10. Agregados `avg`/`min`/`max`
 
 ```python
-# encinorm/model/query_builder.py (concepto)
+# encino_orm/model/query_builder.py (concepto)
 class QueryBuilder:
     async def avg(self, column): ...   # SELECT AVG(col)
     async def min(self, column): ...   # SELECT MIN(col)
@@ -291,7 +291,7 @@ class QueryBuilder:
 ## 11. Soft-delete automático
 
 ```python
-# encinorm/model/model.py (concepto)
+# encino_orm/model/model.py (concepto)
 class Model:
     async def search(self, filter=None, ..., include_deleted: bool = False):
         if not include_deleted:

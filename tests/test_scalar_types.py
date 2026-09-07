@@ -2,9 +2,9 @@ from decimal import Decimal
 
 import pytest
 
-from encinorm import Query
-from encinorm.model import BLOB, BOOL, CURRENCY, FLOAT, INT, INT_POS, Model
-from encinorm.sqlite import SqliteDb
+from encino_orm import Query
+from encino_orm.model import BLOB, BOOL, CURRENCY, FLOAT, INT, INT_POS, Model
+from encino_orm.sqlite import SqliteDb
 
 
 class Metrics(Model):

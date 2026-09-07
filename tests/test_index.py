@@ -3,9 +3,9 @@ from typing import Annotated
 
 import pytest
 
-from encinorm import Query
-from encinorm.model import Column, Index, Model
-from encinorm.model.types import indexes_ddl
+from encino_orm import Query
+from encino_orm.model import Column, Index, Model
+from encino_orm.model.types import indexes_ddl
 
 
 class TestIndexClass:

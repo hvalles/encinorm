@@ -3,19 +3,19 @@ from datetime import datetime
 
 import pytest
 
-from encinorm.introspection import (
+from encino_orm.introspection import (
     ColumnSpec,
     columns_of,
     generate_model,
     list_tables,
     resolve_field_type,
 )
-from encinorm.introspection.types import _normalize
-from encinorm.model import Model
-from encinorm.model.domain import CURRENCY, DATETIME, STR_50
-from encinorm.model.types import to_ddl
-from encinorm.query import Query
-from encinorm.sqlite import SqliteDb
+from encino_orm.introspection.types import _normalize
+from encino_orm.model import Model
+from encino_orm.model.domain import CURRENCY, DATETIME, STR_50
+from encino_orm.model.types import to_ddl
+from encino_orm.query import Query
+from encino_orm.sqlite import SqliteDb
 
 
 @pytest.fixture
@@ -207,7 +207,7 @@ class TestGenerateModel:
         text = path.read_text(encoding="utf-8")
         assert "payload: JSON()" in text
         assert "extra: JSON()" in text
-        assert "JSON" in text.split("from encinorm.model.domain import")[1].split(")")[0]
+        assert "JSON" in text.split("from encino_orm.model.domain import")[1].split(")")[0]
 
     @pytest.mark.asyncio
     async def test_custom_class_name_and_reserved_column(self, db, tmp_path):

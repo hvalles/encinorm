@@ -2,13 +2,13 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from encinorm.graphql import build_schema
-from encinorm.http import create_crud, install_error_handlers
-from encinorm.introspection.codegen import generate_model
-from encinorm.model import Model
-from encinorm.model.types import to_ddl
-from encinorm.query import Query
-from encinorm.sqlite import SqliteDb
+from encino_orm.graphql import build_schema
+from encino_orm.http import create_crud, install_error_handlers
+from encino_orm.introspection.codegen import generate_model
+from encino_orm.model import Model
+from encino_orm.model.types import to_ddl
+from encino_orm.query import Query
+from encino_orm.sqlite import SqliteDb
 
 
 class Product(Model):

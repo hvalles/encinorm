@@ -49,8 +49,8 @@ Ver `prompts/analisys-05.md`. Resumen:
 ## 3. Arquitectura y ubicación
 
 ```
-encinorm/
-├── encinorm/
+encino_orm/
+├── encino_orm/
 │   ├── model/
 │   │   ├── ...                       # Model, Constraint, types (existente)
 │   │   └── domain.py                 # NUEVO: vocabulario de tipos genéricos
@@ -63,8 +63,8 @@ encinorm/
     └── 6-from_db.md             # este documento
 ```
 
-- `encinorm.model.domain` solo importa de `encinorm.model.constraint`; **nunca al
-  revés**. `encinorm.introspection` importa de `encinorm.model` y `encinorm.query`.
+- `encino_orm.model.domain` solo importa de `encino_orm.model.constraint`; **nunca al
+  revés**. `encino_orm.introspection` importa de `encino_orm.model` y `encino_orm.query`.
 - Sin dependencias nuevas (stdlib `pathlib`/`json` + `Query`/`Db` ya existentes).
 
 ---
@@ -75,10 +75,10 @@ Conjunto de **uso común** definido con `make_constraint`. Son el conjunto contr
 que se compara cada columna durante el codegen (sección 6):
 
 ```python
-# encinorm/model/domain.py (concepto)
+# encino_orm/model/domain.py (concepto)
 from datetime import date, datetime
 
-from encinorm.model import make_constraint
+from encino_orm.model import make_constraint
 
 
 def _coerce_datetime(v):
@@ -136,9 +136,9 @@ BLOB           = make_constraint(bytes)                     # datatype "blob"
 Lista las tablas del catálogo con **filtro por nombre** y **paginación**:
 
 ```python
-# encinorm/introspection/tables.py (concepto)
-from encinorm.model import Records
-from encinorm.query import Query
+# encino_orm/introspection/tables.py (concepto)
+from encino_orm.model import Records
+from encino_orm.query import Query
 
 async def list_tables(db, *, name: str = "", limit: int = 50, page: int = 1) -> Records:
     base, params = _tables_query(db.dialect)          # SELECT ... FROM <catálogo>
@@ -155,7 +155,7 @@ SQL de catálogo por motor (se excluyen las tablas internas):
 
 | Motor | Consulta |
 |-------|----------|
-| SQLite | `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_encinorm_migrations'` |
+| SQLite | `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_encino_orm_migrations'` |
 | MySQL | `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()` |
 | PostgreSQL | `SELECT tablename AS name FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')` |
 
@@ -202,7 +202,7 @@ Regla central: **si el tipo coincide con un preset del vocabulario se referencia
 preset; si no, se emite un `make_constraint(...)`** para ese campo:
 
 ```python
-# encinorm/introspection/types.py (concepto)
+# encino_orm/introspection/types.py (concepto)
 _PRESET = {
     ("str", 10):  "STR_10",
     ("str", 15):  "STR_15",
@@ -247,7 +247,7 @@ Casos de fallback (el tipo **no** está en el conjunto):
 ### 6.3. `generate_model` — emite el archivo `.py`
 
 ```python
-# encinorm/introspection/codegen.py (concepto)
+# encino_orm/introspection/codegen.py (concepto)
 from pathlib import Path
 
 def generate_model(db, table: str, *, folder: str, class_name: str | None = None) -> Path:
@@ -255,8 +255,8 @@ def generate_model(db, table: str, *, folder: str, class_name: str | None = None
     cols = await columns_of(db, table)
     cls = class_name or _class_name(table)      # "agentes" -> "Agentes" (editable)
     lines = [
-        "from encinorm.model import Model, make_constraint",
-        "from encinorm.model.domain import (STR_10, STR_15, STR_20, STR_30, "
+        "from encino_orm.model import Model, make_constraint",
+        "from encino_orm.model.domain import (STR_10, STR_15, STR_20, STR_30, "
         "    STR_50, STR_100, STR_255, STR_500, TEXT, INT, INT_POS, CURRENCY, "
         "    FLOAT, FLOAT_POS, BOOL, DATE, DATETIME, BLOB)",
         "",
@@ -285,8 +285,8 @@ Dada la tabla `agentes(id INTEGER PK, agente VARCHAR(50) NOT NULL, rfc VARCHAR(1
 monto DECIMAL(10,2), creado_en DATETIME)`:
 
 ```python
-from encinorm.model import Model, make_constraint
-from encinorm.model.domain import (STR_10, STR_15, STR_20, STR_30, STR_50,
+from encino_orm.model import Model, make_constraint
+from encino_orm.model.domain import (STR_10, STR_15, STR_20, STR_30, STR_50,
     STR_100, STR_255, STR_500, TEXT, INT, INT_POS, CURRENCY, FLOAT, FLOAT_POS,
     BOOL, DATE, DATETIME, BLOB)
 
@@ -336,7 +336,7 @@ subpaquete `introspection` es parte del núcleo (no opcional).
 
 | Fase | Alcance |
 |------|---------|
-| 1 | `model/domain.py`: presets + reexport desde `encinorm.model`. |
+| 1 | `model/domain.py`: presets + reexport desde `encino_orm.model`. |
 | 2 | `introspection/tables.py`: `list_tables` + `columns_of` por motor. |
 | 3 | `introspection/types.py`: normalización + `resolve_field_type` (preset/fallback). |
 | 4 | `introspection/codegen.py`: `generate_model` + sanitización de nombres. |

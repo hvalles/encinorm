@@ -1,13 +1,13 @@
-# encinorm · v0.1.0
+# encino_orm · v0.2.0
 
-ORM asíncrono de interfaz unificada para **SQLite**, **MySQL** y **PostgreSQL**,
-construido sobre `pydantic`. Proporciona un modelo de datos declarativo, CRUD
+ORM asíncrono de interfaz unificada para **SQLite**, **MySQL**, **MariaDB**,
+**PostgreSQL**, **SQL Server** y **Oracle**, construido sobre `pydantic`. Proporciona un modelo de datos declarativo, CRUD
 tipado, validación, relaciones (1:1 y 1:N), consultas con filtros y agregados,
 migraciones, y capas opcionales de producto: REST (FastAPI), GraphQL
 (Strawberry), seguridad (RBAC + JWT) y generación de código desde la base de
 datos.
 
-> **Estado: experimental (v0.1.0).** Encinnorm se encuentra en **fase
+> **Estado: experimental (v0.2.0).** encino_orm se encuentra en **fase
 > experimental**: la API pública y su comportamiento pueden cambiar **sin previo
 > aviso** en versiones posteriores, **sin garantía de compatibilidad
 > retroactiva**. El núcleo ORM está probado sobre los tres motores (más de 350
@@ -19,8 +19,9 @@ datos.
 
 ## Características
 
-- **Tres motores** con un único API: `SqliteDb`, `MysqlDb`, `PostgresDb`, y un
-  pool de conexiones `PoolDb` con transacciones atómicas por `contextvar`.
+- **Seis motores** con un único API: `SqliteDb`, `MysqlDb`, `MariadbDb`,
+  `PostgresDb`, `MssqlDb` y `OracleDb`, y un pool de conexiones `PoolDb` con
+  transacciones atómicas por `contextvar`.
 - **Modelos declarativos** basados en `pydantic`, con restricciones reutilizables
   (`STR_100`, `INT_POS`, `CURRENCY`, `DATETIME`, `DECIMAL`, `JSON`, …).
 - **CRUD completo**: `insert`, `save`, `upsert`, `load`, `update`, `delete`,
@@ -39,18 +40,21 @@ datos.
 - **Observabilidad**: `trace_id` por request y `QueryTracer` con métricas.
 - **Capas opcionales**: REST (`create_crud`), GraphQL (`build_schema`),
   seguridad (`emit_token`, `require`, RBAC tri-estado) y CLI/codegen
-  (`encinorm generate models`).
+  (`encino_orm generate models`).
 
 ---
 
 ## Instalación
 
 ```bash
-# núcleo (SQLite + MySQL + PostgreSQL)
+# núcleo (SQLite + MySQL + MariaDB + PostgreSQL)
 pip install -e .
 
 # con extras opcionales
 pip install -e ".[http,security,graphql]"
+
+# motores opcionales (SQL Server / Oracle)
+pip install -e ".[mssql,oracle]"
 ```
 
 Extras disponibles:
@@ -60,6 +64,9 @@ Extras disponibles:
 | `http`     | `fastapi` (REST CRUD)                                 |
 | `security` | `fastapi` + `PyJWT` (RBAC + JWT)                      |
 | `graphql`  | `strawberry-graphql` (GraphQL)                        |
+| `mssql`    | `aioodbc` + `pyodbc` (SQL Server, requiere ODBC Driver 18) |
+| `oracle`   | `oracledb` (Oracle, modo *thin*)                      |
+| `all-db`   | `mssql` + `oracle`                                    |
 
 Requiere **Python 3.10+**.
 
@@ -69,8 +76,8 @@ Requiere **Python 3.10+**.
 
 ```python
 import asyncio
-from encinorm import create_db
-from encinorm.model import Model, Filter, STR_100, INT_POS
+from encino_orm import create_db
+from encino_orm.model import Model, Filter, STR_100, INT_POS
 
 class User(Model):
     _table = "users"
@@ -119,8 +126,8 @@ uv run pytest              # suite completa (SQLite + MySQL + PostgreSQL)
 uv run pytest -m "not integration"   # (si los servidores no están disponibles)
 ```
 
-Las integraciones de MySQL y PostgreSQL se omiten automáticamente si el servidor
-correspondiente no está disponible.
+Las integraciones de MySQL, MariaDB, PostgreSQL, SQL Server y Oracle se omiten
+automáticamente si el servidor correspondiente no está disponible.
 
 ---
 

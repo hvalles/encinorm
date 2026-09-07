@@ -1,5 +1,5 @@
 import pytest
-from encinorm.query import Query
+from encino_orm.query import Query
 
 
 class TestSqliteLifecycle:

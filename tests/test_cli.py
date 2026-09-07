@@ -2,9 +2,9 @@ import asyncio
 
 import pytest
 
-from encinorm.cli import _build_parser, _conn_kwargs, main
-from encinorm.query import Query
-from encinorm.sqlite import SqliteDb
+from encino_orm.cli import _build_parser, _conn_kwargs, main
+from encino_orm.query import Query
+from encino_orm.sqlite import SqliteDb
 
 
 class TestConnKwargs:

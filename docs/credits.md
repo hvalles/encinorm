@@ -25,8 +25,10 @@ El proyecto se apoya en las siguientes bibliotecas de código abierto:
 |----------------------|--------------------------------------------|
 | `pydantic`           | Validación y modelos de datos.             |
 | `aiosqlite`          | Driver asíncrono de SQLite.                |
-| `aiomysql`           | Driver asíncrono de MySQL.                 |
+| `aiomysql`           | Driver asíncrono de MySQL/MariaDB.         |
 | `asyncpg`            | Driver asíncrono de PostgreSQL.            |
+| `aioodbc` + `pyodbc` | Driver SQL Server (extra `mssql`).         |
+| `oracledb`           | Driver Oracle, modo *thin* (extra `oracle`). |
 | `fastapi`            | Capa REST (extra `http`/`security`).       |
 | `PyJWT`              | Tokens JWT (extra `security`).             |
 | `strawberry-graphql` | Capa GraphQL (extra `graphql`).            |

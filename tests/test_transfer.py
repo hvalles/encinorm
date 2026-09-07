@@ -4,11 +4,11 @@ from decimal import Decimal
 
 import pytest
 
-from encinorm import Query
-from encinorm.cli import main
-from encinorm.introspection.types import ColumnSpec
-from encinorm.sqlite import SqliteDb
-from encinorm.transfer import (
+from encino_orm import Query
+from encino_orm.cli import main
+from encino_orm.introspection.types import ColumnSpec
+from encino_orm.sqlite import SqliteDb
+from encino_orm.transfer import (
     _normalize_value,
     _serialize_for_target,
     build_ddl,

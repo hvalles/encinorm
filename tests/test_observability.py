@@ -1,6 +1,6 @@
 import pytest
 
-from encinorm.observability import (
+from encino_orm.observability import (
     OtelQueryTracer,
     QueryTracer,
     current_trace_id,

@@ -3,9 +3,9 @@ from typing import Annotated
 import pytest
 from pydantic import Field
 
-from encinorm import PoolDb, Query, SqliteDb, session
-from encinorm.base import Db
-from encinorm.model import Column, Model
+from encino_orm import PoolDb, Query, SqliteDb, session
+from encino_orm.base import Db
+from encino_orm.model import Column, Model
 
 
 class Agente(Model):

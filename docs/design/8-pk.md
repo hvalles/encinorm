@@ -17,7 +17,7 @@ y las capas REST/GraphQL.
 | # | Recomendación | Análisis / decisión |
 |---|---------------|---------------------|
 | C.6 | **PK compuestas** y/o `load` por clave natural genérica. | Es la pieza de mayor valor de C. Hoy el ORM asume `id` único en ~15 puntos. Se diseña en este documento. |
-| C.7 | Observabilidad: OpenTelemetry + histogramas de latencia sobre `QueryTracer`. | Fuera del alcance de este documento; es aditivo y no interfiere con PK. Se documenta aparte (evolución de `encinorm/observability.py`). |
+| C.7 | Observabilidad: OpenTelemetry + histogramas de latencia sobre `QueryTracer`. | Fuera del alcance de este documento; es aditivo y no interfiere con PK. Se documenta aparte (evolución de `encino_orm/observability.py`). |
 | C.8 | Revisar `validate()` para evitar el re-dump. | Independiente de PK; mejora puntual en `Model.validate`. No bloquea la PK. |
 | C.9 | `Decimal` en SQLite (escalado entero o `TEXT` con coerción). | Independiente de PK; ya documentado como "Pendiente" en analisys-07 §4. |
 
@@ -352,7 +352,7 @@ Se elimina `if len(ref.match_keys) != 1: raise`. Para el caso compuesto:
   de cada instancia.
 
 ```python
-# encinorm/model/model.py (concepto)
+# encino_orm/model/model.py (concepto)
 @classmethod
 async def batch_reference(cls, models, name):
     ref = models[0]._references.get(name)
@@ -389,7 +389,7 @@ async def batch_reference(cls, models, name):
 Usan `hm.match_keys` (normalizado a `{campo_padre: campo_hijo}`):
 
 ```python
-# encinorm/model/model.py (concepto)
+# encino_orm/model/model.py (concepto)
 async def _resolve_has_many(self, name) -> list:
     hm = self._has_many[name]
     key_vals = tuple(getattr(self, p) for p in hm.match_keys)

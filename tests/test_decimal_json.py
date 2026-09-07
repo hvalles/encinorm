@@ -2,10 +2,10 @@ from decimal import Decimal
 
 import pytest
 
-from encinorm.model import Model, make_constraint
-from encinorm.model.domain import DECIMAL, JSON
-from encinorm.model.types import PY_TYPE_TO_DATATYPE, to_ddl
-from encinorm.sqlite import SqliteDb
+from encino_orm.model import Model, make_constraint
+from encino_orm.model.domain import DECIMAL, JSON
+from encino_orm.model.types import PY_TYPE_TO_DATATYPE, to_ddl
+from encino_orm.sqlite import SqliteDb
 
 
 class Doc(Model):

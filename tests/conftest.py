@@ -1,5 +1,12 @@
+import asyncio
+import sys
+
 import pytest
-from encinorm.sqlite import SqliteDb
+
+from encino_orm.sqlite import SqliteDb
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 @pytest.fixture

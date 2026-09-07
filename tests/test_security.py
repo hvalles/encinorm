@@ -4,9 +4,9 @@ import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from encinorm import session
-from encinorm.sqlite import SqliteDb
-from encinorm.security import (
+from encino_orm import session
+from encino_orm.sqlite import SqliteDb
+from encino_orm.security import (
     AuthenticationError,
     AuthorizationError,
     CurrentUser,
@@ -23,7 +23,7 @@ from encinorm.security import (
     verify_refresh,
     verify_token,
 )
-from encinorm.security.permissions import PUBLIC_USER_ID
+from encino_orm.security.permissions import PUBLIC_USER_ID
 
 SECRET = "test-secret-key-that-is-at-least-32-bytes-long!"
 

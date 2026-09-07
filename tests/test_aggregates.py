@@ -1,7 +1,7 @@
 import pytest
 
-from encinorm.model import Filter, Model
-from encinorm.sqlite import SqliteDb
+from encino_orm.model import Filter, Model
+from encino_orm.sqlite import SqliteDb
 
 
 class Venta(Model):

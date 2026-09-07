@@ -3,8 +3,8 @@ import logging
 import pytest
 from pydantic import Field
 
-from encinorm import PoolDb, PoolExhaustedError, Query
-from encinorm.model import Model
+from encino_orm import PoolDb, PoolExhaustedError, Query
+from encino_orm.model import Model
 
 
 class TestG7SyncSchema:
@@ -47,7 +47,7 @@ class TestG7SyncSchema:
 class TestG8Logging:
     @pytest.mark.asyncio
     async def test_query_is_logged(self, connected_db, caplog):
-        caplog.set_level(logging.DEBUG, logger="encinorm")
+        caplog.set_level(logging.DEBUG, logger="encino_orm")
         await connected_db.execute(Query("SELECT 1", []))
         assert any("sqlite" in r.getMessage() for r in caplog.records)
 

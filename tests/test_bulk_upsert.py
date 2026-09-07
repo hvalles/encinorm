@@ -1,8 +1,8 @@
 import pytest
 
-from encinorm.model import Model
-from encinorm.query import Query
-from encinorm.sqlite import SqliteDb
+from encino_orm.model import Model
+from encino_orm.query import Query
+from encino_orm.sqlite import SqliteDb
 
 
 class Agente(Model):

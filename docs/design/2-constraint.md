@@ -268,7 +268,7 @@ class Contribuyente(Model):
 ## 6. Ubicación en el proyecto
 
 ```
-encinorm/model/
+encino_orm/model/
 ├── column.py          # Column (dataclass, existente)
 ├── constraint.py      # NUEVO: Constraint + fábricas por tipo
 ├── types.py           # DDL_MAP (existente)

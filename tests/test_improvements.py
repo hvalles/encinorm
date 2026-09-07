@@ -3,8 +3,8 @@ from typing import Annotated
 import pytest
 from pydantic import Field
 
-from encinorm import Query, SqliteDb
-from encinorm.model import Column, Model
+from encino_orm import Query, SqliteDb
+from encino_orm.model import Column, Model
 
 
 class Agente(Model):

@@ -1,14 +1,14 @@
 # Agregar un motor de base de datos
 
-Esta guía explica cómo extender encinorm con un nuevo motor (por ejemplo,
-**MSSQL**, **Oracle** o **CockroachDB**). El diseño aísla toda la lógica
+Esta guía explica cómo extender encino_orm con un nuevo motor (por ejemplo,
+**CockroachDB**). El diseño aísla toda la lógica
 específica de un motor en **una sola clase** que implementa el contrato `Db`,
 más tres puntos de registro (pool, DDL e introspección).
 
 ## Arquitectura relevante
 
 ```
-encinorm/
+encino_orm/
 ├── base.py            # Db (ABC): contrato + list_tables/paginate + transaction/retry
 ├── engine.py          # Engine (enum) + engine_of/is_* + funciones portables db.fn
 ├── query.py           # Query: SQL + parámetros (formato intermedio)
@@ -37,14 +37,17 @@ implementa `_prepare(qry)` para traducirlos a su placeholder nativo:
 |-------------|--------------------|--------------|
 | SQLite      | `%(parameter_0000)s` | `?`         |
 | MySQL       | `%(parameter_0000)s` | `%s`        |
+| MariaDB     | `%(parameter_0000)s` | `%s`        |
 | PostgreSQL  | `%(parameter_0000)s` | `$1`, `$2`, … |
+| SQL Server  | `%(parameter_0000)s` | `?`         |
+| Oracle      | `%(parameter_0000)s` | `:name` (nombrado) |
 
 ## Contrato `Db` (métodos abstractos)
 
 Debes implementar, como mínimo:
 
 ```python
-from encinorm import Query
+from encino_orm import Query
 
 class MiMotorDb(Db):
     dialect = "mimotor"          # identificador del motor
@@ -84,7 +87,7 @@ Además, para soportar **introspección** (codegen, `diff_schema`, `transfer`),
 implementa **opcionalmente** (si no, lanzan `NotImplementedError`):
 
 ```python
-from encinorm.introspection.types import ColumnSpec, _normalize
+from encino_orm.introspection.types import ColumnSpec, _normalize
 
     # Introspección (opcional)
     def _tables_sql(self) -> str:
@@ -102,11 +105,11 @@ implementado** en `Db` y usa `_tables_sql()`.
 
 ### 1. Crea el módulo del motor
 
-Copia `encinorm/sqlite.py` como plantilla y renómbralo. Implementa los métodos
+Copia `encino_orm/sqlite.py` como plantilla y renómbralo. Implementa los métodos
 del contrato y, sobre todo, `_prepare`:
 
 ```python
-# encinorm/mimotor.py
+# encino_orm/mimotor.py
 import re
 
 _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
@@ -137,35 +140,41 @@ class MimotorDb(Db):
 ### 3. Implementa las migraciones
 
 Copia `_ensure_migrations_table`/`migrate`/`migrate_status` de un motor existente
-adaptando el DDL de la tabla `_encinorm_migrations` a tu motor.
+adaptando el DDL de la tabla `_encino_orm_migrations` a tu motor.
 
 ### 4. Registra el motor
 
 ```python
-# encinorm/pool.py
+# encino_orm/pool.py
 from .mimotor import MimotorDb
 
 _ENGINES = {
     "sqlite": SqliteDb,
     "mysql": MysqlDb,
+    "mariadb": MariadbDb,
     "postgresql": PostgresDb,
+    "mssql": MssqlDb,
+    "oracle": OracleDb,
     "mimotor": MimotorDb,     # <-- añade aquí
 }
 ```
 
 ```python
-# encinorm/engine.py
+# encino_orm/engine.py
 class Engine(str, Enum):
     SQLITE = "sqlite"
     MYSQL = "mysql"
+    MARIADB = "mariadb"
     POSTGRESQL = "postgresql"
+    MSSQL = "mssql"
+    ORACLE = "oracle"
     MIMOTOR = "mimotor"        # <-- habilita create_db(Engine.MIMOTOR, ...) y el CLI
 ```
 
 ### 5. Añade el mapeo DDL
 
 ```python
-# encinorm/model/types.py
+# encino_orm/model/types.py
 DDL_MAP["mimotor"] = {
     "pk": "...",        # clave primaria auto-incremental
     "str": "...",
@@ -183,7 +192,7 @@ DDL_MAP["mimotor"] = {
 ### 6. Implementa la introspección (en tu motor)
 
 ```python
-# encinorm/mimotor.py
+# encino_orm/mimotor.py
 from .introspection.types import ColumnSpec, _normalize
 
 class MimotorDb(Db):
@@ -209,7 +218,7 @@ class MimotorDb(Db):
 ### 7. Exporta el motor
 
 ```python
-# encinorm/__init__.py
+# encino_orm/__init__.py
 from .mimotor import MimotorDb
 ```
 
@@ -228,17 +237,17 @@ el motor real.
 - [ ] `_prepare` traduce `%(...)s` al placeholder nativo.
 - [ ] `insert`/`update`/`delete` respetan los flags `ignore_duplicated`/`replace`.
 - [ ] `last_id()` correcto y `is_lock_error()` (si aplica).
-- [ ] Migraciones con tabla `_encinorm_migrations` idempotente.
+- [ ] Migraciones con tabla `_encino_orm_migrations` idempotente.
 - [ ] `_tables_sql()` y `columns_of()` (introspección, opcional) para codegen/diff/transfer.
 - [ ] Registro en `Engine` (enum), `_ENGINES` y `DDL_MAP`.
-- [ ] Exportación en `encinorm/__init__.py`.
+- [ ] Exportación en `encino_orm/__init__.py`.
 - [ ] Pruebas de integración que se omiten si no hay servidor.
 
 ## Referencia
 
-- `encinorm/base.py` — el contrato `Db` y `transaction()`/`retry()`.
-- `encinorm/query.py` — el formato intermedio `Query`.
-- `encinorm/sqlite.py` — implementación mínima de referencia.
-- `encinorm/postgresql.py` — ejemplo con `transaction()` propio y errores de
+- `encino_orm/base.py` — el contrato `Db` y `transaction()`/`retry()`.
+- `encino_orm/query.py` — el formato intermedio `Query`.
+- `encino_orm/sqlite.py` — implementación mínima de referencia.
+- `encino_orm/postgresql.py` — ejemplo con `transaction()` propio y errores de
   bloqueo de `asyncpg`.
-- `encinorm/mysql.py` — ejemplo con `DictCursor` y `lastrowid`.
+- `encino_orm/mysql.py` — ejemplo con `DictCursor` y `lastrowid`.

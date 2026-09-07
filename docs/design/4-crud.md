@@ -1,4 +1,4 @@
-# Documento de Diseño — encinorm.http (CRUD REST por modelo)
+# Documento de Diseño — encino_orm.http (CRUD REST por modelo)
 
 Helper opcional para **FastAPI** que genera rutas CRUD **tipadas por modelo**
 (create/read/update/delete) y expone un registro para introspección de modelos.
@@ -45,8 +45,8 @@ En su lugar, se genera **una ruta tipada por modelo** (cuerpo/response = el prop
 ## 3. Arquitectura y ubicación
 
 ```
-encinorm/
-├── encinorm/
+encino_orm/
+├── encino_orm/
 │   ├── ...                     # Db, pool, model (ya existente)
 │   └── http/                   # NUEVO (subpaquete opcional)
 │       ├── __init__.py         # create_crud, register_crud, install_error_handlers
@@ -58,7 +58,7 @@ encinorm/
     └── 4-crud.md          # este documento
 ```
 
-- `encinorm.http` importa de `encinorm.model` y `encinorm.pool.session`; nunca al revés.
+- `encino_orm.http` importa de `encino_orm.model` y `encino_orm.pool.session`; nunca al revés.
 - `fastapi` es dependencia **opcional**.
 
 ---
@@ -66,7 +66,7 @@ encinorm/
 ## 4. Registro de modelos
 
 ```python
-# encinorm/http/registry.py
+# encino_orm/http/registry.py
 class Registry:
     def __init__(self):
         self._models = {}
@@ -169,8 +169,8 @@ def register_crud(router: APIRouter, model: type[Model], prefix: str,
 ### 5.1. `create_crud`: composición de alto nivel
 
 ```python
-# encinorm/http/__init__.py (concepto)
-from encinorm import session
+# encino_orm/http/__init__.py (concepto)
+from encino_orm import session
 
 def create_crud(pool, models, *, get_db=None, prefix="/api",
                 registry=None, tags=("Model",)) -> APIRouter:
@@ -222,10 +222,10 @@ es `{campo: {op: valor}}`, compuesta con `and` (lista), `or` (lista) y `not`
 | `is_null` / `not_null` | `Filter.is_null`/`not_null` | (el valor se ignora) |
 
 ```python
-# encinorm/http/parsing.py (concepto)
+# encino_orm/http/parsing.py (concepto)
 import json
 from functools import reduce
-from encinorm.model import Filter
+from encino_orm.model import Filter
 
 # Operadores simples `(campo, valor) -> Filter`.
 _OP_MAP = {
@@ -296,7 +296,7 @@ Cada elemento (`"agente"`, `"-region_id"`) lo traduce `Model.paginate` a su
 ## 7. Introspección de modelos
 
 ```python
-# encinorm/http/registry.py
+# encino_orm/http/registry.py
 def register_introspection(router: APIRouter, registry: Registry) -> None:
     @router.get("/models")
     async def models():
@@ -328,17 +328,17 @@ def register_introspection(router: APIRouter, registry: Registry) -> None:
 | Excepción no controlada | 500 | mensaje genérico |
 
 ```python
-# encinorm/http/errors.py (concepto)
+# encino_orm/http/errors.py (concepto)
 from fastapi.responses import JSONResponse
-from encinorm.exceptions import QueryError
-from encinorm.model.exceptions import FailOnUpdate, ValidationError
+from encino_orm.exceptions import QueryError
+from encino_orm.model.exceptions import FailOnUpdate, ValidationError
 
 def install_error_handlers(app) -> None:
     """Registra los handlers globales (a nivel de app) una sola vez."""
 
     @app.exception_handler(ValidationError)
     async def _validation(exc, request):
-        # encinorm.ValidationError lleva el dict en `args[0]`
+        # encino_orm.ValidationError lleva el dict en `args[0]`
         return JSONResponse(status_code=422, content={"detail": exc.args[0]})
 
     @app.exception_handler(FailOnUpdate)
@@ -359,7 +359,7 @@ def install_error_handlers(app) -> None:
 global:
 
 ```python
-from encinorm import PoolDb, session
+from encino_orm import PoolDb, session
 
 pool = PoolDb("postgresql", min_size=2, max_size=10, ...)
 
@@ -377,9 +377,9 @@ confirma/revierte y devuelve la conexión al pool al terminar el request.
 
 ```python
 from fastapi import FastAPI
-from encinorm import PoolDb
-from encinorm.http import create_crud, install_error_handlers
-from encinorm.model import Model
+from encino_orm import PoolDb
+from encino_orm.http import create_crud, install_error_handlers
+from encino_orm.model import Model
 
 class Region(Model):
     _table = "regiones"
@@ -418,7 +418,7 @@ GET  /api/models/agentes      -> JSON Schema (definición + restricciones)
 http = ["fastapi>=0.110"]
 ```
 
-`encinorm` y `encinorm.model` siguen funcionando sin FastAPI (imports perezosos en `encinorm/http`).
+`encino_orm` y `encino_orm.model` siguen funcionando sin FastAPI (imports perezosos en `encino_orm/http`).
 
 ---
 

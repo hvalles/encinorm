@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
-from encinorm.model import Constraint, Model, make_constraint
-from encinorm.model.types import to_ddl
+from encino_orm.model import Constraint, Model, make_constraint
+from encino_orm.model.types import to_ddl
 
 
 STR_100 = make_constraint(str, max_length=100)

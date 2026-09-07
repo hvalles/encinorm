@@ -9,7 +9,7 @@ Un modelo es una subclase de `Model` con un atributo de clase `_table` y campos
 declarados con anotaciones de tipo:
 
 ```python
-from encinorm.model import Model, STR_100, INT_POS
+from encino_orm.model import Model, STR_100, INT_POS
 
 class Product(Model):
     _table = "products"
@@ -42,7 +42,7 @@ class Row(Model):
 Usa `name=` en una restricción, o `Column` con `datatype` explícito:
 
 ```python
-from encinorm.model import INT
+from encino_orm.model import INT
 
 class User(Model):
     _table = "users"
@@ -51,7 +51,7 @@ class User(Model):
 
 ```python
 from typing import Annotated
-from encinorm.model import Column
+from encino_orm.model import Column
 
 class User(Model):
     _table = "users"
@@ -61,7 +61,7 @@ class User(Model):
 ## 2. Restricciones y tipos
 
 Las restricciones se crean con `make_constraint`; el vocabulario
-(`encinorm.model.domain`) ya incluye presets:
+(`encino_orm.model.domain`) ya incluye presets:
 
 | Preset     | Tipo      | Notas                          |
 |------------|-----------|--------------------------------|
@@ -70,6 +70,7 @@ Las restricciones se crean con `make_constraint`; el vocabulario
 | `INT_POS`  | `int`     | `ge=0`.                        |
 | `CURRENCY` | `float`   | `numeric`, `ge=0`.             |
 | `FLOAT`    | `float`   | Punto flotante.                |
+| `FLOAT_POS`| `float`   | `ge=0`.                        |
 | `BOOL`     | `bool`    |                                |
 | `DATE`     | `date`    |                                |
 | `DATETIME` | `datetime`| UTC, acepta ISO 8601.          |
@@ -80,7 +81,7 @@ Las restricciones se crean con `make_constraint`; el vocabulario
 Crea restricciones propias:
 
 ```python
-from encinorm.model import make_constraint
+from encino_orm.model import make_constraint
 
 EMAIL = make_constraint(str, pattern=r"[^@]+@[^@]+\.[^@]+", max_length=120)
 
@@ -131,7 +132,7 @@ específica del motor), ejecuta `Query` directamente sobre la conexión. Los
 placeholders son `{0}...{n}` y los valores se pasan como lista, en el mismo orden:
 
 ```python
-from encinorm import Query
+from encino_orm import Query
 
 rows = await db.fetch_all(Query("select * from agents where id={0}", [123]))
 row  = await db.fetch_one(Query("select * from agents where id={0}", [123]))
@@ -161,7 +162,7 @@ rec.total_pages    # páginas calculadas
 - Para fragmentos crudos dentro de un filtro tipado, usa `Filter.raw(...)`:
 
 ```python
-from encinorm.model import Filter
+from encino_orm.model import Filter
 
 await Agent(db).search(Filter.raw("LOWER(name) = {0}", ["ana"]))
 ```
@@ -172,9 +173,9 @@ Para adaptar SQL crudo al motor de forma segura, usa `engine_of` (o los
 predicados `is_sqlite`/`is_mysql`/`is_postgres`):
 
 ```python
-from encinorm import Engine, engine_of
+from encino_orm import Engine, engine_of
 
-engine = engine_of(db)              # Engine.SQLITE | Engine.MYSQL | Engine.POSTGRESQL
+engine = engine_of(db)              # Engine.SQLITE | MYSQL | MARIADB | POSTGRESQL | MSSQL | ORACLE
 if engine is Engine.POSTGRESQL:
     sql = "select * from agents where name ilike {0}"
 else:
@@ -190,7 +191,7 @@ else:
 SQL** (texto de confianza) para incrustar, no un valor a enlazar:
 
 ```python
-from encinorm import Query, Weekday
+from encino_orm import Query, Weekday
 
 rows = await db.fetch_all(Query(
     f"select * from agents where created_at > {db.fn.now()}", []
@@ -206,9 +207,11 @@ rows = await db.fetch_all(Query(
 
 | Familia | Funciones |
 |---|---|
-| temporales | `now()`, `date_add(col, n, unit)`, `date_sub(col, n, unit)` |
+| temporales | `now()`, `date_add(col, n, unit)`, `date_sub(col, n, unit)`, `date_diff(a, b, unit)` |
 | partes de fecha | `year`, `month`, `day`, `hour`, `minute`, `second`, `weekday` (`Weekday`, 0=lunes) |
-| string | `length`, `substring(col, inicio[, largo])`, `concat(...)` |
+| string | `length`, `substring(col, inicio[, largo])`, `concat(...)`, `lower`, `upper`, `ilike(col, patrón)`, `group_concat(col[, sep])` |
+| nulos | `coalesce(...)`, `nullif(a, b)` |
+| geo | `geo_distance(lat1, lon1, lat2, lon2[, unit])`, `geo_distance_col(lat_col, lon_col, lat, lon[, unit])` |
 | otros | `random()`, `uuid()` (no en SQLite), `date_format(col, patrón)` |
 
 `unit` ∈ `{"second", "minute", "hour", "day", "week", "month", "year"}`. Los
@@ -218,10 +221,31 @@ fragmentos también sirven dentro de `Filter.raw`:
 await Agent(db).search(Filter.raw(f"created_at > {db.fn.now()}", []))
 ```
 
+### Geo (distancia y "cerca de")
+
+```python
+# distancia entre dos puntos (o columna ↔ punto); unit ∈ {"m","km","mi","nmi"}
+km = await db.fetch_all(Query(
+    f"SELECT {db.fn.geo_distance('lat', 'lon', 19.43, -99.13, 'km')} AS d FROM places", []
+))
+# días desde un timestamp
+days = await db.fetch_all(Query(
+    f"SELECT {db.fn.date_diff('expires_at', db.fn.now(), 'day')} AS ttl FROM t", []
+))
+```
+
+`geo_distance` usa la función espacial nativa (metros) en MySQL/MariaDB/SQL
+Server y haversine portable en SQLite/PostgreSQL/Oracle. Para filtrar "cerca de"
+con índice, usa `Filter.geo_within` (bounding-box):
+
+```python
+await Place(db).search(Filter.geo_within("lat", "lon", 19.43, -99.13, radius_km=5))
+```
+
 ## 4. Filtros (`Filter`)
 
 ```python
-from encinorm.model import Filter
+from encino_orm.model import Filter
 
 Filter.eq("age", 30)          # age = 30
 Filter.ne("age", 30)          # age != 30
@@ -235,6 +259,7 @@ Filter.like("name", "an")     # name LIKE '%an%'
 Filter.startswith("name", "A")# name LIKE 'A%'
 Filter.is_null("email")       # email IS NULL
 Filter.raw("LOWER(name) = {0}", ["ana"])  # SQL crudo
+Filter.geo_within("lat", "lon", 19.43, -99.13, radius_km=5)  # bounding-box "cerca de"
 
 # composición
 f = Filter.ge("age", 18) & Filter.lt("age", 65)   # AND
@@ -373,7 +398,7 @@ Membership._has_many_def = {
 ## 8. Índices
 
 ```python
-from encinorm.model import Index
+from encino_orm.model import Index
 
 class User(Model):
     _table = "users"
@@ -388,7 +413,7 @@ Los índices se crean con `create_table()`.
 ## 9. Hooks
 
 ```python
-from encinorm.model import Model, before_insert, after_commit
+from encino_orm.model import Model, before_insert, after_commit
 
 class User(Model):
     _table = "users"
@@ -409,7 +434,7 @@ Hooks disponibles: `before_insert`, `before_update`, `before_delete`,
 ## 10. Caché (`CachedModel`)
 
 ```python
-from encinorm.model import CachedModel, MemoryCacheBackend
+from encino_orm.model import CachedModel, MemoryCacheBackend
 
 class User(CachedModel):
     _table = "users"
@@ -430,7 +455,7 @@ await User(db).create_table()                          # CREATE TABLE + índices
 diff = await User(db).diff_schema()                    # compara modelo vs BD
 await User(db).sync_schema(drop_missing=True)          # aplica cambios (aditivos)
 
-from encinorm import Migration, apply_migration, migrations_from_dir
+from encino_orm import Migration, apply_migration, migrations_from_dir
 
 m = Migration(
     name="001_add_email",
@@ -451,7 +476,7 @@ migs = migrations_from_dir("./migrations")
   leer, modificar ni borrar filas ajenas por clave primaria:
 
 ```python
-from encinorm.model import scope, Filter
+from encino_orm.model import scope, Filter
 
 with scope(Filter.eq("tenant_id", 7)):
     rows = await Membership(db).search()      # solo tenant 7
@@ -467,7 +492,7 @@ with scope(Filter.eq("tenant_id", 7)):
 ## 13. Observabilidad
 
 ```python
-from encinorm import trace_id, QueryTracer
+from encino_orm import trace_id, QueryTracer
 
 with trace_id("req-123"):
     await User(db).search()                 # los logs incluyen trace_id

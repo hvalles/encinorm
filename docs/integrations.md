@@ -9,7 +9,7 @@ Genera un CRUD tipado por modelo en un solo router:
 
 ```python
 from fastapi import FastAPI
-from encinorm.http import create_crud, install_error_handlers
+from encino_orm.http import create_crud, install_error_handlers
 
 app = FastAPI()
 install_error_handlers(app)
@@ -36,7 +36,7 @@ Endpoints generados por modelo (tabla `users`):
 ## 2. GraphQL (Strawberry)
 
 ```python
-from encinorm.graphql import build_schema
+from encino_orm.graphql import build_schema
 
 schema = build_schema([User, Product])
 
@@ -55,7 +55,7 @@ result = await schema.execute(
 ## 3. Seguridad (RBAC + JWT)
 
 ```python
-from encinorm.security import (
+from encino_orm.security import (
     emit_token, verify_token, get_current_user, require, create_tables, seed_roles,
 )
 
@@ -70,7 +70,7 @@ Las tablas de seguridad se crean con `create_tables(db)` y se siembran con
 con **negación por defecto** y resolución por orden de rol:
 
 ```python
-from encinorm.security import PermissionSet
+from encino_orm.security import PermissionSet
 
 perms = await PermissionSet.for_user(db, "user-1")
 perms.can("users", "read")
@@ -80,7 +80,7 @@ perms.require("users", "create")           # lanza AuthorizationError si no pued
 ### Guard en FastAPI
 
 ```python
-import encinorm.security.guard as guard
+import encino_orm.security.guard as guard
 
 guard.SECRET = "clave-super-secreta"
 guard.GET_DB = get_db                     # dependency de conexión
@@ -99,7 +99,7 @@ async def create_user(user=Depends(require("users", "create"))):
 Genera modelos desde una base de datos existente (database-first):
 
 ```python
-from encinorm.introspection import generate_model, list_tables
+from encino_orm.introspection import generate_model, list_tables
 
 tables = await list_tables(db)
 path = await generate_model(db, "users", folder="models")
@@ -108,8 +108,8 @@ path = await generate_model(db, "users", folder="models")
 Por CLI:
 
 ```bash
-encinorm generate models sqlite --database app.db --folder models
-encinorm generate models mysql --host localhost --user root --password s3cret --database app
+encino_orm generate models sqlite --database app.db --folder models
+encino_orm generate models mysql --host localhost --user root --password s3cret --database app
 ```
 
 Las claves primarias compuestas y los nombres de columna reservados se detectan
@@ -118,7 +118,7 @@ y se emiten automáticamente (`_primary_key`, `name="..."`).
 ## 5. Observabilidad
 
 ```python
-from encinorm import trace_id, QueryTracer, OtelQueryTracer
+from encino_orm import trace_id, QueryTracer, OtelQueryTracer
 
 with trace_id("req-abc"):
     await User(db).search()      # los logs SQL incluyen trace_id=...
@@ -132,8 +132,8 @@ print(tracer.latency_stats)      # {"count": 1, "min": ..., "p50": ..., "p99": .
 - `QueryTracer` además de contadores expone `latency_stats` (histograma con
   percentiles p50/p90/p99).
 - `OtelQueryTracer` crea un **span de OpenTelemetry** por consulta (opt-in;
-  requiere `opentelemetry-api`, que no es dependencia de encinorm). El
+  requiere `opentelemetry-api`, que no es dependencia de encino_orm). El
   `TracerProvider`/exportador lo configura la aplicación.
 
-El logging estructurado de los motores usa `logging.getLogger("encinorm")` a
+El logging estructurado de los motores usa `logging.getLogger("encino_orm")` a
 nivel `DEBUG`.

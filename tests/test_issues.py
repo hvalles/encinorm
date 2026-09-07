@@ -2,8 +2,8 @@ from datetime import date
 
 import pytest
 
-from encinorm import Query
-from encinorm.model import DATE, INT_POS, STR_100, Model
+from encino_orm import Query
+from encino_orm.model import DATE, INT_POS, STR_100, Model
 
 
 class Holiday(Model):

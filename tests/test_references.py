@@ -3,8 +3,8 @@ from typing import Annotated
 import pytest
 from pydantic import Field
 
-from encinorm.query import Query
-from encinorm.model import Column, DuplicateReferenceError, Model
+from encino_orm.query import Query
+from encino_orm.model import Column, DuplicateReferenceError, Model
 
 
 class Region(Model):

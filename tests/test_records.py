@@ -1,8 +1,8 @@
 import pytest
 from pydantic import Field
 
-from encinorm import Query
-from encinorm.model import Filter, Model, QueryBuilder, Records
+from encino_orm import Query
+from encino_orm.model import Filter, Model, QueryBuilder, Records
 
 
 class Item(Model):

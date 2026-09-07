@@ -1,9 +1,9 @@
 import pytest
 from pydantic import Field
 
-from encinorm import Query
-from encinorm.model import Model
-from encinorm.model.types import to_ddl
+from encino_orm import Query
+from encino_orm.model import Model
+from encino_orm.model.types import to_ddl
 
 
 class Padre(Model):

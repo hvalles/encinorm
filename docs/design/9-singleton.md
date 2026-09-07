@@ -45,12 +45,12 @@ Es decir: **la conexión ya es contextual en el pool, pero no en el `Model`**.
 
 ## 3. Diseño propuesto
 
-### 3.1. Módulo nuevo `encinorm/context.py`
+### 3.1. Módulo nuevo `encino_orm/context.py`
 
 Centraliza el estado de conexión por proceso y por contexto:
 
 ```python
-# encinorm/context.py (nuevo)
+# encino_orm/context.py (nuevo)
 import contextvars
 from contextlib import contextmanager
 
@@ -60,7 +60,7 @@ from .exceptions import ConnectionError
 _default_db = None
 
 # Conexión ambiente por tarea/contexto (bind / session).
-_ambient_db = contextvars.ContextVar("encinorm_ambient_db", default=None)
+_ambient_db = contextvars.ContextVar("encino_orm_ambient_db", default=None)
 
 
 def set_default_db(db) -> None:
@@ -189,8 +189,8 @@ async def session(db):
 ## 4. Ejemplos de uso
 
 ```python
-from encinorm import set_default_db, bind, session, create_db, PoolDb
-from encinorm.model import Model
+from encino_orm import set_default_db, bind, session, create_db, PoolDb
+from encino_orm.model import Model
 
 class User(Model):
     _table = "users"
@@ -221,10 +221,10 @@ await User(db, name="carl").insert()
 
 | Archivo | Cambio |
 |---------|--------|
-| `encinorm/context.py` | **NUEVO**: `set_default_db`, `get_default_db`, `bind`, `resolve_db`. |
-| `encinorm/__init__.py` | Exportar `set_default_db`, `bind`, `resolve_db` (y `get_default_db`). |
-| `encinorm/pool.py` | `session()` envuelve con `bind(conn)`; exponer `_current_connection` para `resolve_db` (o moverlo a `context.py`). |
-| `encinorm/model/model.py` | `_get_db()` + resolución perezosa cacheada; métodos CRUD/DDL/query usan `_get_db()`; `insert_many`/`batch_*` con `db` opcional. |
+| `encino_orm/context.py` | **NUEVO**: `set_default_db`, `get_default_db`, `bind`, `resolve_db`. |
+| `encino_orm/__init__.py` | Exportar `set_default_db`, `bind`, `resolve_db` (y `get_default_db`). |
+| `encino_orm/pool.py` | `session()` envuelve con `bind(conn)`; exponer `_current_connection` para `resolve_db` (o moverlo a `context.py`). |
+| `encino_orm/model/model.py` | `_get_db()` + resolución perezosa cacheada; métodos CRUD/DDL/query usan `_get_db()`; `insert_many`/`batch_*` con `db` opcional. |
 
 ---
 
@@ -267,7 +267,7 @@ await User(db, name="carl").insert()
 
 | Fase | Alcance |
 |------|---------|
-| 1 | `encinorm/context.py` + exports en `__init__.py`. |
+| 1 | `encino_orm/context.py` + exports en `__init__.py`. |
 | 2 | `Model._get_db()` + reemplazo de `self._db` en métodos CRUD/DDL/query. |
 | 3 | `insert_many`/`batch_*` con `db` opcional; `session` con `bind`. |
 | 4 | Documentar quick-start + tests de resolución/concurrencia. |

@@ -1,6 +1,6 @@
-# Documento de Diseño — encinorm.graphql
+# Documento de Diseño — encino_orm.graphql
 
-Capa opcional de **GraphQL** auto-generada sobre el ORM `encinorm.model`.
+Capa opcional de **GraphQL** auto-generada sobre el ORM `encino_orm.model`.
 Permite exponer los modelos como tipos GraphQL con queries y mutations, sin
 escribir resolvers manuales. Usa **Strawberry GraphQL** (integración nativa con
 pydantic v2 + async).
@@ -12,7 +12,7 @@ pydantic v2 + async).
 
 ## 1. Contexto y Objetivos
 
-El público objetivo de encinorm son desarrolladores **FastAPI**. GraphQL es un
+El público objetivo de encino_orm son desarrolladores **FastAPI**. GraphQL es un
 complemento natural para exponer el modelo de datos como API. La sinergia clave
 es que `Model` hereda de `pydantic.BaseModel`, y **Strawberry** genera tipos
 GraphQL directamente desde pydantic v2.
@@ -32,8 +32,8 @@ GraphQL directamente desde pydantic v2.
 ## 2. Arquitectura y ubicación
 
 ```
-encinorm/
-├── encinorm/
+encino_orm/
+├── encino_orm/
 │   ├── ...                     # Db, pool, model (ya existente)
 │   └── graphql/                # NUEVO (subpaquete opcional)
 │       ├── __init__.py         # build_schema, auto_register
@@ -48,7 +48,7 @@ encinorm/
     └── 3-graphql.md       # este documento
 ```
 
-- `encinorm.graphql` importa de `encinorm.model` y de `encinorm.pool.session`; **nunca al revés**.
+- `encino_orm.graphql` importa de `encino_orm.model` y de `encino_orm.pool.session`; **nunca al revés**.
 - No se tocan `base.py`, `sqlite.py`, `mysql.py`, `postgresql.py`, `pool.py` ni `model.py`.
 
 ---
@@ -80,9 +80,9 @@ El tipo se obtiene de `Column(datatype=...)` o se infiere con
 - Campos que apuntan a otro `Model` (relaciones) → campo anidado con resolver (sección 6), no columna.
 
 ```python
-# encinorm/graphql/types.py (concepto)
+# encino_orm/graphql/types.py (concepto)
 import strawberry
-from encinorm.model import Model
+from encino_orm.model import Model
 
 def build_type(model: type[Model]) -> strawberry.ObjectType:
     # strawberry.experimental.pydantic.type(model, all_fields=True, ...)
@@ -161,7 +161,7 @@ input AgenteFilter {
 - `filters.py` convierte un `FilterInput` GraphQL a un objeto `Filter` del ORM.
 
 ```python
-# encinorm/graphql/filters.py (concepto)
+# encino_orm/graphql/filters.py (concepto)
 def to_filter(input_data) -> Filter:
     condiciones = []
     for campo, valor in input_data.items():
@@ -212,7 +212,7 @@ type Mutation {
 - **Validación**: `validate()` se reutiliza; si devuelve errores, se propagan como errores GraphQL por campo (no excepción genérica).
 
 ```python
-# encinorm/graphql/mutations.py (concepto)
+# encino_orm/graphql/mutations.py (concepto)
 @strawberry.mutation
 async def agente_update(info, id: strawberry.ID, data: AgenteInput) -> Agente:
     async with session(info.context["db"]) as db:
@@ -243,7 +243,7 @@ type Agente {
 ```
 
 ```python
-# encinorm/graphql/resolvers.py (concepto)
+# encino_orm/graphql/resolvers.py (concepto)
 async def load_regions(keys):
     modelos = [Agente(db, id=k) for k in keys]
     await Agente.batch_reference(modelos, "region")
@@ -297,8 +297,8 @@ Se reutilizan las excepciones del ORM (`ValidationError`, `FailOnUpdate`,
 graphql = ["strawberry-graphql>=0.200"]
 ```
 
-Strawberry se agrega **solo** como dependencia opcional; `encinorm` y
-`encinorm.model` siguen funcionando sin él (imports perezosos en `graphql/`).
+Strawberry se agrega **solo** como dependencia opcional; `encino_orm` y
+`encino_orm.model` siguen funcionando sin él (imports perezosos en `graphql/`).
 
 ---
 
@@ -307,9 +307,9 @@ Strawberry se agrega **solo** como dependencia opcional; `encinorm` y
 ```python
 import strawberry
 from strawberry.fastapi import GraphQLRouter
-from encinorm import PoolDb
-from encinorm.graphql import build_schema
-from encinorm.model import Model
+from encino_orm import PoolDb
+from encino_orm.graphql import build_schema
+from encino_orm.model import Model
 
 class Region(Model):
     _table = "regiones"

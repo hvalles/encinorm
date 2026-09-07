@@ -3,9 +3,9 @@ from contextlib import asynccontextmanager
 import pytest
 from pydantic import Field
 
-import encinorm.pool as pool_module
-from encinorm import ConnectionError, PoolDb, PoolExhaustedError, Query, create_db
-from encinorm.model import Model
+import encino_orm.pool as pool_module
+from encino_orm import ConnectionError, PoolDb, PoolExhaustedError, Query, create_db
+from encino_orm.model import Model
 
 
 class FakeDb:
@@ -320,4 +320,4 @@ class TestCreateDbFactory:
 
     def test_unsupported_engine(self):
         with pytest.raises(Exception):
-            PoolDb("oracle")
+            PoolDb("mongodb")

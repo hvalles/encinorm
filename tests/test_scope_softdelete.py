@@ -1,8 +1,8 @@
 import pytest
 
-from encinorm.model import FailOnUpdate, Filter, Model
-from encinorm.model.scope import scope
-from encinorm.sqlite import SqliteDb
+from encino_orm.model import FailOnUpdate, Filter, Model
+from encino_orm.model.scope import scope
+from encino_orm.sqlite import SqliteDb
 
 
 class Item(Model):

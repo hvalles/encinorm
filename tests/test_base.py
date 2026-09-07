@@ -1,15 +1,15 @@
 import pytest
 
-from encinorm.base import Db
-from encinorm.exceptions import (
+from encino_orm.base import Db
+from encino_orm.exceptions import (
     ConnectionError,
-    EncinormError,
+    EncinoOrmError,
     MigrationError,
     PoolExhaustedError,
 )
-from encinorm.mysql import MysqlDb
-from encinorm.query import Query
-from encinorm.sqlite import SqliteDb
+from encino_orm.mysql import MysqlDb
+from encino_orm.query import Query
+from encino_orm.sqlite import SqliteDb
 
 
 @pytest.fixture(params=[SqliteDb, MysqlDb])
@@ -28,9 +28,9 @@ class TestDbWait:
 
 
 class TestDbExceptions:
-    def test_exceptions_subclass_encinorm(self):
+    def test_exceptions_subclass_encino_orm(self):
         for exc in (ConnectionError, MigrationError, PoolExhaustedError):
-            assert issubclass(exc, EncinormError)
+            assert issubclass(exc, EncinoOrmError)
 
 
 class TestDbWithoutConnection:

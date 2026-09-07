@@ -1,8 +1,8 @@
 import pytest
 from pydantic import Field
 
-from encinorm.query import Query
-from encinorm.model import CachedModel, MemoryCacheBackend
+from encino_orm.query import Query
+from encino_orm.model import CachedModel, MemoryCacheBackend
 
 
 class Cliente(CachedModel):

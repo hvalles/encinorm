@@ -1,14 +1,14 @@
 # Documento de Diseño — EncinoModel
 
-Módulo de capa de modelos ORM asíncrono construido sobre **encinorm** (la librería de interfaz unificada de base de datos descrita en `docs/design/0-design.md`). Los modelos heredan de `pydantic` y se vinculan a una tabla de la base de datos mediante el atributo `_table`.
+Módulo de capa de modelos ORM asíncrono construido sobre **encino_orm** (la librería de interfaz unificada de base de datos descrita en `docs/design/0-design.md`). Los modelos heredan de `pydantic` y se vinculan a una tabla de la base de datos mediante el atributo `_table`.
 
-> **Nota de nomenclatura:** en el prompt original se hace referencia a la librería como *"encinoorm"*. En este repositorio el paquete se llama **`encinorm`** (ver `pyproject.toml`). El presente módulo se denominará **`EncinoModel`** y vivirá como subpaquete `encinorm.model`.
+> **Nota de nomenclatura:** en el prompt original se hace referencia a la librería como *"encinoorm"*. En este repositorio el paquete se llama **`encino_orm`** (ver `pyproject.toml`). El presente módulo se denominará **`EncinoModel`** y vivirá como subpaquete `encino_orm.model`.
 
 ---
 
 ## 1. Introducción y Objetivos
 
-**EncinoModel** aporta una capa de mapeo objeto-relacional (ORM) sobre la interfaz `Db` de encinorm. Permite definir modelos de datos como clases `pydantic` que saben persistirse y consultarse a sí mismas, sin escribir SQL manualmente.
+**EncinoModel** aporta una capa de mapeo objeto-relacional (ORM) sobre la interfaz `Db` de encino_orm. Permite definir modelos de datos como clases `pydantic` que saben persistirse y consultarse a sí mismas, sin escribir SQL manualmente.
 
 ### Objetivos
 
@@ -45,7 +45,7 @@ Toda tabla gestionada por EncinoModel tendrá, por defecto, los siguientes campo
 
 ```python
 from datetime import datetime
-from encinorm.model import Model
+from encino_orm.model import Model
 
 class Agente(Model):
     _table = "agentes"
@@ -101,7 +101,7 @@ class Column:
 
 ```python
 from pydantic import Field
-from encinorm.model import Model, Column
+from encino_orm.model import Model, Column
 
 class Agente(Model):
     _table = "agentes"
@@ -140,7 +140,7 @@ Clase base que hereda de `pydantic.BaseModel` y aporta el comportamiento ORM.
 from datetime import datetime
 from typing import ClassVar, Any
 from pydantic import BaseModel, PrivateAttr, ConfigDict
-from encinorm import Db
+from encino_orm import Db
 
 class Model(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -478,12 +478,12 @@ await Agente(db).search(Filter.eq("enabled", 1) & Filter.like("agente", "Héct")
 
 #### 3.6.2. `QueryBuilder` con alias y `join`
 
-Se amplía la infraestructura de `encinorm` con un constructor de consultas independiente que soporte `join`, `exists` y **funciones de agregado** (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, `GROUP BY`, `HAVING`).
+Se amplía la infraestructura de `encino_orm` con un constructor de consultas independiente que soporte `join`, `exists` y **funciones de agregado** (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, `GROUP BY`, `HAVING`).
 
 **Alias:** el modelo que inicia la construcción del query recibe el alias **`mm`** (*main model*) de forma predeterminada, configurable por parámetro. Cada modelo referenciado en un `join` recibe un alias propio, de modo que los campos puedan vincularse sin ambigüedad (`mm.region_id = r.id`).
 
 ```python
-from encinorm import Db
+from encino_orm import Db
 
 class QueryBuilder:
     def __init__(self, model_class: type["Model"], alias: str = "mm"):
@@ -575,10 +575,10 @@ main.join_subquery(QueryBuilder(Agente).where(Filter.eq("enabled", 0)), alias=No
 
 ### 3.7. Excepciones
 
-Se amplía la jerarquía de `encinorm` con excepciones propias del ORM:
+Se amplía la jerarquía de `encino_orm` con excepciones propias del ORM:
 
 ```python
-class ModelError(EncinormError): ...
+class ModelError(EncinoOrmError): ...
 class FailOnUpdate(ModelError): ...          # update no completado
 class ValidationError(ModelError): ...       # fallo en reglas de validación
 class NotFoundError(ModelError): ...         # load sin resultado (opcional)
@@ -594,15 +594,15 @@ class DuplicateColumnAliasError(ModelError): ...  # alias de columna duplicado e
 
 ### 4.1. Componentes
 
-- **`Db` (encinorm):** interfaz de bajo nivel ya existente (`base.py`, `sqlite.py`, `mysql.py`). Se agrega `postgresql.py` y, opcionalmente, `pool.py`.
-- **`encinorm.model`:** capa ORM nueva que **consume** `Db` y expone `Model`, `CachedModel`, `Column`, `Filter`, hooks y `QueryBuilder`.
-- Los modelos generan objetos `Query` de encinorm; la ejecución sigue delegándose a `Db`.
+- **`Db` (encino_orm):** interfaz de bajo nivel ya existente (`base.py`, `sqlite.py`, `mysql.py`). Se agrega `postgresql.py` y, opcionalmente, `pool.py`.
+- **`encino_orm.model`:** capa ORM nueva que **consume** `Db` y expone `Model`, `CachedModel`, `Column`, `Filter`, hooks y `QueryBuilder`.
+- Los modelos generan objetos `Query` de encino_orm; la ejecución sigue delegándose a `Db`.
 
 ### 4.2. Estructura propuesta
 
 ```
-encinorm/
-├── encinorm/
+encino_orm/
+├── encino_orm/
 │   ├── __init__.py            # Db, Query, SqliteDb, MysqlDb, excepciones (ya existente)
 │   ├── base.py                # clase abstracta Db
 │   ├── query.py               # clase Query (bajo nivel)
@@ -634,7 +634,7 @@ encinorm/
 │   ├── test_hooks.py
 │   └── test_query_builder.py
 ├── docs/
-│   ├── 0-design.md              # encinorm (capa Db)
+│   ├── 0-design.md              # encino_orm (capa Db)
 │   └── 1-model.md        # este documento
 └── pyproject.toml             # agregar pydantic y cliente de caché
 ```
@@ -663,8 +663,8 @@ cache = ["redis>=5.0"]         # para CachedModel (u otro backend)
 ```python
 import asyncio
 from datetime import datetime
-from encinorm import create_db
-from encinorm.model import Model
+from encino_orm import create_db
+from encino_orm.model import Model
 
 class Agente(Model):
     _table = "agentes"

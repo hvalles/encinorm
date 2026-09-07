@@ -1,7 +1,7 @@
 import pytest
 
-from encinorm.model import DuplicateReferenceError, Model
-from encinorm.sqlite import SqliteDb
+from encino_orm.model import DuplicateReferenceError, Model
+from encino_orm.sqlite import SqliteDb
 
 
 class Agente(Model):
