@@ -8,6 +8,15 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-08
+
+### Corregido
+
+- Compatibilidad con Python 3.10: se elimina el *starred unpacking* dentro de
+  subíndices `Annotated[...]` (sintaxis PEP 646, sólo válida en Python 3.11+) en
+  `encino_orm/model/model.py` y `encino_orm/model/constraint.py`. Ahora el
+  paquete funciona realmente con `requires-python = ">=3.10"`.
+
 ## [0.2.2] - 2026-09-08
 
 ### Añadido
