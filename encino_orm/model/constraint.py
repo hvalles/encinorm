@@ -109,11 +109,8 @@ def make_constraint(py_type, *, datatype=None, required=False, name=None,
             field_kwargs=field_kwargs,
             validators=validators,
         )
-        return Annotated[
-            t,
-            constraint,
-            constraint.to_field(),
-            *(AfterValidator(v) for v in validators),
-        ]
+        return Annotated.__class_getitem__(
+            (t, constraint, constraint.to_field(), *(AfterValidator(v) for v in validators))
+        )
 
     return build

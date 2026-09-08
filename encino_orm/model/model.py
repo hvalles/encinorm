@@ -436,7 +436,10 @@ class Model(BaseModel):
         if adapter is None:
             info = cls.model_fields[field]
             metadata = getattr(info, "metadata", None) or []
-            annotation = Annotated[info.annotation, *metadata] if metadata else info.annotation
+            if metadata:
+                annotation = Annotated.__class_getitem__((info.annotation, *metadata))
+            else:
+                annotation = info.annotation
             adapter = TypeAdapter(annotation)
             per_class[field] = adapter
         return adapter
