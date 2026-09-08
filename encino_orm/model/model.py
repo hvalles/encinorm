@@ -114,6 +114,20 @@ def _shift_placeholders(sql: str, offset: int) -> str:
     )
 
 
+def _has_many_cache_key(key_vals, extra, limit=None, page=1, sort_by=None,
+                        include_deleted=False):
+    """Clave de caché para una colección `has_many`.
+
+    La carga completa (sin filtro/limite/orden) se cachea por las claves del
+    padre; cualquier variante filtrada usa una clave extendida que incluye el
+    digest del filtro y la paginación/orden, para no mezclar resultados.
+    """
+    if extra is None and limit is None and not sort_by and not include_deleted:
+        return key_vals
+    extra_d = extra.digest() if extra is not None else "-"
+    return f"{key_vals!r}|{extra_d}|{limit}|{page}|{sort_by!r}|{include_deleted}"
+
+
 class Model(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -350,24 +364,44 @@ class Model(BaseModel):
         ref._cached_keys = key_vals
         return obj
 
-    async def _resolve_has_many(self, name) -> list:
-        from .filter import Filter
-
+    async def _resolve_has_many(self, name, extra=None, limit=None, page=1,
+                                sort_by=None, include_deleted=False) -> list:
         hm = self._has_many[name]
         key_vals = tuple(getattr(self, p) for p in hm.match_keys)
-        if hm._cached is not None and hm._cached_key == key_vals:
-            return hm._cached
+
+        cache_key = _has_many_cache_key(key_vals, extra, limit, page, sort_by,
+                                        include_deleted)
+        if cache_key in hm._cache:
+            return hm._cache[cache_key]
 
         f = None
         for parent_f, child_f in hm.match_keys.items():
             eq = Filter.eq(child_f, getattr(self, parent_f))
             f = eq if f is None else f & eq
+        if extra is not None:
+            f = extra if f is None else f & extra
         cursor = hm.model_class.model_construct()
         _set_private(cursor, "_db", self._get_db())
-        children = await cursor.search(f)
-        hm._cached = children
-        hm._cached_key = key_vals
+        children = await cursor.search(f, limit=limit, page=page, sort_by=sort_by,
+                                       include_deleted=include_deleted)
+        hm._cache[cache_key] = children
         return children
+
+    async def has_many(self, name, *, filter=None, limit=None, page=1,
+                       sort_by=None, include_deleted=False) -> list:
+        """Carga la colección ``has_many`` ``name`` con un filtro previo a la consulta.
+
+        El ``filter`` se combina con la clave foránea (``&``) y, junto con
+        ``limit``/``page``/``sort_by``, se reenvía a ``search()``, de modo que la
+        base de datos sólo devuelve el subconjunto solicitado (no la colección
+        completa).
+        """
+        if name not in self._has_many:
+            raise RelationshipError(f"has_many '{name}' no registrada")
+        return await self._resolve_has_many(
+            name, extra=filter, limit=limit, page=page,
+            sort_by=sort_by, include_deleted=include_deleted,
+        )
 
     # --- hooks ---
     async def _run_hooks(self, hook_name: str, *args):
@@ -959,13 +993,14 @@ class Model(BaseModel):
                 m_ref._cached_keys = dict(zip(remote_fields, key))
 
     @classmethod
-    async def batch_has_many(cls, models, name: str):
+    async def batch_has_many(cls, models, name: str, extra=None):
         """Carga la colección `has_many` `name` para todos los `models` en UNA consulta.
 
         Evita el N+1 al resolver la misma colección sobre una lista de padres.
-        Soporta FK simple y compuesta.
+        Soporta FK simple y compuesta. ``extra`` es un ``Filter`` adicional que se
+        combina con la condición de clave foránea; el resultado se cachea por padre
+        bajo una clave que distingue la variante filtrada.
         """
-        from .filter import Filter
 
         models = list(models)
         if not models:
@@ -984,17 +1019,21 @@ class Model(BaseModel):
             if not parent_ids:
                 return
 
+            cond = Filter.in_(child_field, list(parent_ids))
+            if extra is not None:
+                cond = cond & extra
+
             cursor = hm.model_class.model_construct()
             _set_private(cursor, "_db", models[0]._get_db())
-            children = await cursor.search(Filter.in_(child_field, list(parent_ids)))
+            children = await cursor.search(cond)
 
             groups = {}
             for c in children:
                 groups.setdefault(getattr(c, child_field), []).append(c)
             for m in models:
                 key = getattr(m, parent_field)
-                m._has_many[name]._cached = groups.get(key, [])
-                m._has_many[name]._cached_key = (key,)
+                cache_key = _has_many_cache_key((key,), extra)
+                m._has_many[name]._cache[cache_key] = groups.get(key, [])
             return
 
         pairs = {
@@ -1012,6 +1051,8 @@ class Model(BaseModel):
                 eq = Filter.eq(cf, val)
                 sub = eq if sub is None else sub & eq
             cond = sub if cond is None else cond | sub
+        if extra is not None:
+            cond = cond & extra
 
         cursor = hm.model_class.model_construct()
         _set_private(cursor, "_db", models[0]._get_db())
@@ -1023,6 +1064,6 @@ class Model(BaseModel):
             groups.setdefault(key, []).append(c)
         for m in models:
             key = tuple(getattr(m, p) for p in parent_fields)
-            m._has_many[name]._cached = groups.get(key, [])
-            m._has_many[name]._cached_key = key
+            cache_key = _has_many_cache_key(key, extra)
+            m._has_many[name]._cache[cache_key] = groups.get(key, [])
 

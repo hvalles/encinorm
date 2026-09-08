@@ -257,6 +257,7 @@ Filter.in_("id", [1, 2, 3])   # id IN (...)
 Filter.between("age", 18, 65) # age BETWEEN 18 AND 65
 Filter.like("name", "an")     # name LIKE '%an%'
 Filter.startswith("name", "A")# name LIKE 'A%'
+Filter.endswith("name", "ez") # name LIKE '%ez'
 Filter.is_null("email")       # email IS NULL
 Filter.raw("LOWER(name) = {0}", ["ana"])  # SQL crudo
 Filter.geo_within("lat", "lon", 19.43, -99.13, radius_km=5)  # bounding-box "cerca de"
@@ -325,11 +326,46 @@ region = await Region(db, id=1).load()
 agents = await region["agents"]           # list[Agent] por clave foránea
 ```
 
+### Colección 1:N filtrada (antes de cargar)
+
+Para no traer a memoria la colección completa, filtra **previo** a la consulta con
+`has_many(...)`. El `filter` se combina con la clave foránea (`&`) y se reenvía a
+`search()`, junto con `limit`/`page`/`sort_by`:
+
+```python
+from encino_orm.model import Filter
+
+# sólo agentes activos de la región
+activos = await region.has_many("agents", filter=Filter.eq("enabled", True))
+
+# sólo los que empiezan por "A"
+a = await region.has_many("agents", filter=Filter.startswith("name", "A"))
+
+# pedidos de un mes concreto
+inicio = datetime(2026, 8, 1)
+fin    = datetime(2026, 8, 31, 23, 59, 59)
+agosto = await region.has_many(
+    "orders", filter=Filter.between("created_at", inicio, fin),
+)
+
+# paginados y ordenados (los 50 más recientes)
+recientes = await region.has_many(
+    "orders",
+    filter=Filter.between("created_at", inicio, fin),
+    limit=50, page=1, sort_by=["-created_at"],
+)
+```
+
+`region["agents"]` (sin filtro) sigue cargando la colección completa.
+
 ### Carga por lotes (evita N+1)
 
 ```python
 regions = await Region(db).search()
 await Region.batch_has_many(regions, "agents")   # 1 consulta IN(...)
+
+# con filtro común a todos los padres
+await Region.batch_has_many(regions, "agents", extra=Filter.eq("enabled", True))
 
 agents = await Agent(db).search()
 await Agent.batch_reference(agents, "region")     # 1 consulta IN(...)

@@ -1,0 +1,83 @@
+site_name: encino_orm
+site_description: ORM asíncrono de interfaz unificada para SQLite, MySQL, MariaDB, PostgreSQL, SQL Server y Oracle
+site_url: https://hvalles.github.io/encinorm/
+repo_url: https://github.com/hvalles/encinorm
+repo_name: hvalles/encinorm
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: es
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      toggle:
+        icon: material/brightness-7
+        name: Cambiar a modo oscuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      toggle:
+        icon: material/brightness-4
+        name: Cambiar a modo claro
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            show_source: false
+            show_symbol_type_heading: true
+            heading_level: 2
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.details
+  - toc:
+      permalink: true
+
+nav:
+  - Inicio: index.md
+  - Guía:
+      - Primeros pasos: getting-started.md
+      - Guía de uso: guide.md
+      - Integraciones: integrations.md
+  - Referencia de API:
+      - Modelo (ORM): reference/model.md
+      - Filtros (Filter): reference/filter.md
+      - Constructor de consultas: reference/query_builder.md
+      - Relaciones: reference/relations.md
+      - Conexiones y motores: reference/db.md
+      - Funciones SQL (db.fn): reference/sql.md
+      - Contexto / conexión implícita: reference/context.md
+      - Observabilidad: reference/observability.md
+      - Migraciones: reference/migration.md
+  - Desarrolladores:
+      - Agregar un motor: engines.md
+      - Docker: docker.md
+      - Créditos: credits.md
+  - Diseño:
+      - 0 · Arquitectura y capa Db: design/0-design.md
+      - 1 · Núcleo Model: design/1-model.md
+      - 2 · Restricciones y tipos: design/2-constraint.md
+      - 3 · Capa GraphQL: design/3-graphql.md
+      - 4 · Operaciones CRUD: design/4-crud.md
+      - 5 · RBAC y JWT: design/5-security.md
+      - 6 · Introspección y codegen: design/6-from_db.md
+      - 7 · Migraciones, bulk, scope, observabilidad, CLI: design/7-missing.md
+      - 8 · Claves primarias y foráneas: design/8-pk.md
+      - 9 · Conexión por defecto: design/9-singleton.md
+      - a · MariaDB, SQL Server y Oracle: design/a-xpress.md
+      - has_many filtrado: design/has_many.md

@@ -1,3 +1,4 @@
+import hashlib
 import math
 import re
 
@@ -154,6 +155,16 @@ class Filter:
         idx = [0]
         sql, params = self._build(alias, idx)
         return sql, params
+
+    def digest(self) -> str:
+        """Huella estable (sha1) del filtro, para usar como clave de caché.
+
+        Deriva de la serialización canónica ``(fragmento SQL, params)``, de modo
+        que dos filtros semánticamente iguales producen la misma huella.
+        """
+        sql, params = self.to_sql()
+        raw = f"{sql}||{repr(params)}"
+        return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
     def _build(self, alias, idx) -> tuple[str, list]:
         op = self._op

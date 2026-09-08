@@ -17,8 +17,7 @@ class HasMany:
     name: str
     model_class: type
     foreign_key: str | dict          # str -> {pk[0]: str}; dict -> {campo_padre: campo_hijo}
-    _cached: Any = field(default=None, init=False, repr=False)
-    _cached_key: Any = field(default=None, init=False, repr=False)
+    _cache: dict = field(default_factory=dict, init=False, repr=False)
 
     @property
     def match_keys(self) -> dict:

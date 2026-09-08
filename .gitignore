@@ -16,6 +16,9 @@ dist/
 .coverage
 htmlcov/
 
+# Documentación generada
+site/
+
 # Entornos / editores
 .env
 .idea/
