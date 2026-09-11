@@ -115,6 +115,17 @@ class TestModelSort:
         assert [r.region_id for r in rows] == [1, 2, 3]
 
 
+class TestColumnValidation:
+    def test_col_rejects_injection(self):
+        with pytest.raises(ValueError):
+            Agente._col("agente; DROP TABLE agentes")
+
+    @pytest.mark.asyncio
+    async def test_load_rejects_invalid_keys(self, db):
+        with pytest.raises(ValueError):
+            await Agente(db).load(keys=["id; DROP TABLE agentes"])
+
+
 class TestCrudIntegration:
     @pytest.mark.asyncio
     async def test_create_and_get(self, db):

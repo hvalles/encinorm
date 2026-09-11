@@ -2,7 +2,7 @@ from .column import Column
 from .filter import Filter, col
 from .index import Index
 from .model import Model
-from .records import Records
+from .records import DEFAULT_LIMIT, MAX_LIMIT, Records, normalize_limit_page
 from .references import HasMany, Reference
 from .scope import current_scope, scope
 from .constraint import Constraint, make_constraint
@@ -58,6 +58,9 @@ __all__ = [
     "col",
     "Index",
     "Records",
+    "DEFAULT_LIMIT",
+    "MAX_LIMIT",
+    "normalize_limit_page",
     "Reference",
     "HasMany",
     "scope",

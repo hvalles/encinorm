@@ -35,6 +35,8 @@ Endpoints generados por modelo (tabla `users`):
 - El `PUT` ignora los campos de solo lectura `id`, `enabled`, `created_at` y
   `updated_at` (no se pueden modificar por esta vía; el soft-delete se gestiona
   con `DELETE`).
+- `limit` y `page` se validan en servidor: `limit` ∈ `[1, 1000]` (por defecto
+  50) y `page` ≥ 1; valores fuera de rango devuelven `422`.
 
 ## 2. GraphQL (Strawberry)
 
@@ -54,6 +56,8 @@ result = await schema.execute(
 - **Mutations**: `{singular}_create`, `{singular}_update`, `{singular}_delete`.
 - Las relaciones se resuelven con **DataLoader** (carga por lotes), evitando el
   N+1 al resolver `region { name }` sobre listas de padres.
+- `limit` se recorta a 1000 y, si se omite, devuelve 50 por defecto (protección
+  anti-DoS); `page` se normaliza a ≥ 1.
 
 ## 3. Seguridad (RBAC + JWT)
 

@@ -21,6 +21,7 @@ from .exceptions import (
     ValidationError,
 )
 from .filter import Filter
+from .records import DEFAULT_LIMIT, normalize_limit_page
 from .references import HasMany, Reference
 from .scope import current_scope
 
@@ -243,7 +244,10 @@ class Model(BaseModel):
 
     @classmethod
     def _col(cls, field: str) -> str:
-        return cls._column_map().get(field, field)
+        col = cls._column_map().get(field, field)
+        if not _IDENTIFIER_RE.match(col):
+            raise ValueError(f"nombre de columna inválido: {col!r}")
+        return col
 
     @classmethod
     def _field_of(cls, col: str):
@@ -745,6 +749,7 @@ class Model(BaseModel):
             if c != "*" and not _IDENTIFIER_RE.match(c):
                 raise ValueError(f"columna inválida: {c!r}")
         cols_sql = ", ".join(columns)
+        limit, page = normalize_limit_page(limit, page)
         filter = self._effective_filter(filter, include_deleted)
         where = ""
         params = []
@@ -786,11 +791,14 @@ class Model(BaseModel):
         row = await self._get_db().fetch_one(Query(sql, params))
         return row["COUNT(*)"] if row else 0
 
-    async def paginate(self, filter=None, limit: int = 10, page: int = 1, columns=None,
+    async def paginate(self, filter=None, limit: int = DEFAULT_LIMIT, page: int = 1, columns=None,
                        sort_by: list | None = None, include_deleted: bool = False):
         """Devuelve un `Records` con la página y el total de registros del filtro."""
         from .records import Records
 
+        limit, page = normalize_limit_page(limit, page)
+        if limit is None:
+            limit = DEFAULT_LIMIT
         total = await self.count(filter, include_deleted=include_deleted)
         rows = await self.search(filter, columns=columns, limit=limit, page=page,
                                  sort_by=sort_by, include_deleted=include_deleted)

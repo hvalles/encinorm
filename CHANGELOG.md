@@ -8,6 +8,21 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
+### Seguridad
+
+- Límite máximo de paginación (`MAX_LIMIT=1000`) y normalización de `limit`/`page`
+  en `search`, `paginate` y `QueryBuilder.limit` para evitar DoS; el `PUT`/listado
+  de REST devuelve `422` ante valores fuera de rango y GraphQL limita a 50 por
+  defecto.
+- `transfer` (`copy_table`/`build_ddl`) valida los nombres de tabla y columna
+  antes de interpolar en SQL.
+- `db.fn.date_format` escapa las comillas del patrón (evita inyección por
+  literales).
+- `db.fn.*` valida los nombres de columna (identificadores) antes de incrustarlos
+  en los fragmentos SQL.
+- `Model._col` valida el identificador resultante, cerrando la inyección por
+  `keys`/`conflict` no confiables en `load`/`update`/`delete`/`save`/`upsert`.
+
 ## [0.2.4] - 2026-09-10
 
 ### Añadido

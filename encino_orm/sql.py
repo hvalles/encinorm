@@ -1,8 +1,11 @@
 """Registro de funciones SQL portables (`db.fn.*`) y convención de días de la semana."""
 
+import re
 from enum import IntEnum
 
 from .engine import Engine, engine_of
+
+_COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 
 class Weekday(IntEnum):
@@ -37,6 +40,13 @@ class SqlFunctions:
     def __init__(self, dialect):
         self._engine = engine_of(dialect)
 
+    @staticmethod
+    def _col(name) -> str:
+        """Valida un nombre de columna (identificador simple o calificado)."""
+        if not isinstance(name, str) or not _COLUMN_RE.match(name):
+            raise ValueError(f"nombre de columna inválido: {name!r}")
+        return name
+
     # --- temporales ---
     def now(self) -> str:
         if self._engine is Engine.SQLITE:
@@ -57,6 +67,7 @@ class SqlFunctions:
 
     def _date_arith(self, column, amount, unit, add):
         self._check_unit(unit)
+        column = self._col(column)
         if self._engine is Engine.SQLITE:
             sign = "+" if add else "-"
             return f"datetime({column}, '{sign}{amount} {unit}')"
@@ -90,6 +101,7 @@ class SqlFunctions:
 
     def weekday(self, column) -> str:
         """Día de la semana normalizado a `Weekday` (0=lunes)."""
+        column = self._col(column)
         if self._engine is Engine.SQLITE:
             return f"((CAST(strftime('%w', {column}) AS INTEGER) + 6) % 7)"
         if self._engine in (Engine.MYSQL, Engine.MARIADB):
@@ -100,6 +112,7 @@ class SqlFunctions:
         return f"EXTRACT(ISODOW FROM {column}) - 1"
 
     def _date_part(self, column, part):
+        column = self._col(column)
         fmt = {
             "year": "%Y", "month": "%m", "day": "%d",
             "hour": "%H", "minute": "%M", "second": "%S",
@@ -114,6 +127,7 @@ class SqlFunctions:
 
     # --- string ---
     def length(self, column) -> str:
+        column = self._col(column)
         if self._engine in (Engine.MYSQL, Engine.MARIADB):
             return f"CHAR_LENGTH({column})"
         if self._engine is Engine.MSSQL:
@@ -121,6 +135,7 @@ class SqlFunctions:
         return f"length({column})"
 
     def substring(self, column, start: int, length: int | None = None) -> str:
+        column = self._col(column)
         if self._engine is Engine.SQLITE:
             return f"substr({column}, {start})" if length is None else f"substr({column}, {start}, {length})"
         if self._engine in (Engine.MYSQL, Engine.MARIADB):
@@ -161,13 +176,15 @@ class SqlFunctions:
 
     def date_format(self, column, pattern) -> str:
         """Formatea una fecha con el patrón nativo del motor (`%Y-%m-%d` o `YYYY-MM-DD`)."""
+        column = self._col(column)
+        p = str(pattern).replace("'", "''")
         if self._engine is Engine.SQLITE:
-            return f"strftime('{pattern}', {column})"
+            return f"strftime('{p}', {column})"
         if self._engine in (Engine.MYSQL, Engine.MARIADB):
-            return f"DATE_FORMAT({column}, '{pattern}')"
+            return f"DATE_FORMAT({column}, '{p}')"
         if self._engine is Engine.MSSQL:
-            return f"FORMAT({column}, '{pattern}')"
-        return f"to_char({column}, '{pattern}')"
+            return f"FORMAT({column}, '{p}')"
+        return f"to_char({column}, '{p}')"
 
     # --- diferencias de fecha ---
     def date_diff(self, a, b, unit: str = "day") -> str:
@@ -213,6 +230,7 @@ class SqlFunctions:
     # --- agregación de texto ---
     def group_concat(self, column, sep: str = ",") -> str:
         """Agrega valores de texto separados por `sep` (string_agg/LISTAGG/GROUP_CONCAT)."""
+        column = self._col(column)
         s = str(sep).replace("'", "''")
         if self._engine is Engine.SQLITE:
             return f"group_concat({column}, '{s}')"
@@ -233,13 +251,14 @@ class SqlFunctions:
 
     # --- string (case) ---
     def lower(self, column) -> str:
-        return f"lower({column})"
+        return f"lower({self._col(column)})"
 
     def upper(self, column) -> str:
-        return f"upper({column})"
+        return f"upper({self._col(column)})"
 
     def ilike(self, column, pattern) -> str:
         """Comparación `LIKE` case-insensitive (`ILIKE` en PostgreSQL)."""
+        column = self._col(column)
         p = "'" + str(pattern).replace("'", "''") + "'"
         if self._engine is Engine.POSTGRESQL:
             return f"{column} ILIKE {p}"
@@ -269,7 +288,7 @@ class SqlFunctions:
 
     def geo_distance_col(self, lat_col, lon_col, lat, lon, unit: str = "m") -> str:
         """Distancia desde una columna `(lat_col, lon_col)` a un punto `(lat, lon)`."""
-        return self.geo_distance(lat_col, lon_col, lat, lon, unit)
+        return self.geo_distance(self._col(lat_col), self._col(lon_col), lat, lon, unit)
 
     def _radians(self, expr) -> str:
         if self._engine is Engine.ORACLE:

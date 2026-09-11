@@ -252,6 +252,20 @@ def test_filter_geo_within():
     assert len(params) == 4
 
 
+def test_column_validation():
+    with pytest.raises(ValueError):
+        _f("sqlite").lower("x; DROP TABLE t")
+    with pytest.raises(ValueError):
+        _f("sqlite").date_add("d; DROP", 1, "day")
+    with pytest.raises(ValueError):
+        _f("postgresql").geo_distance_col("lat; DROP", "lon", 1, 2)
+    with pytest.raises(ValueError):
+        _f("sqlite").group_concat("name) UNION SELECT 1 --", ";")
+
+    # nombres calificados (alias.columna) siguen siendo válidos
+    assert _f("sqlite").lower("t.name") == "lower(t.name)"
+
+
 async def test_geo_distance_integration_sqlite():
     db = await create_db("sqlite", database=":memory:")
     try:

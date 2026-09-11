@@ -119,6 +119,11 @@ total = await User(db).count()                   # COUNT(*)
 rec = await User(db).paginate(limit=10, page=1)  # {rows, total, limit, page}
 ```
 
+`limit` se recorta a `[1, MAX_LIMIT]` (`MAX_LIMIT=1000`; por defecto
+`DEFAULT_LIMIT=50`) y `page` a ≥ 1, tanto en `search` como en `paginate` y
+`QueryBuilder.limit`. `search(limit=None)` conserva la semántica "sin límite"
+(uso interno, p. ej. `batch_*`).
+
 ### Bulk
 
 ```python

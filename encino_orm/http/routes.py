@@ -1,6 +1,6 @@
 """Generador de rutas CRUD tipadas por modelo (`register_crud`)."""
 
-from encino_orm.model import Model, Records
+from encino_orm.model import DEFAULT_LIMIT, MAX_LIMIT, Model, Records
 from encino_orm.model.types import _base_type
 
 from .parsing import filter_from_str, sort_from_str
@@ -81,7 +81,7 @@ def register_crud(router, model: type[Model], prefix: str, *, get_db) -> None:
     de `get`/`put`/`delete` derivan sus parámetros de `model._primary_key`
     (simple o compuesta).
     """
-    from fastapi import Depends, HTTPException
+    from fastapi import Depends, HTTPException, Query
 
     @router.post(prefix + "/", response_model=model, status_code=201)
     async def create(data: model, db=Depends(get_db)) -> model:
@@ -92,7 +92,8 @@ def register_crud(router, model: type[Model], prefix: str, *, get_db) -> None:
         ).load()
 
     @router.get(prefix + "/", response_model=Records)
-    async def list_(limit: int = 50, page: int = 1, sort_by: str = "",
+    async def list_(limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+                    page: int = Query(1, ge=1), sort_by: str = "",
                     filter: str = "", db=Depends(get_db)):
         return await _cursor(model, db).paginate(
             filter=filter_from_str(filter),

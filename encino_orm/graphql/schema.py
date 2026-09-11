@@ -7,6 +7,7 @@ from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
 from encino_orm.model.exceptions import NotFoundError
+from encino_orm.model.records import DEFAULT_LIMIT, normalize_limit_page
 from encino_orm.model.types import _field_datatype
 
 from .filters import build_filter_input, filter_from_input
@@ -21,6 +22,7 @@ def _list_resolver(model, gtype, ftype):
                        page: Optional[int] = 1) -> list[gtype]:
         async with db_session(info) as conn:
             f = filter_from_input(model, filter)
+            limit, page = normalize_limit_page(limit or DEFAULT_LIMIT, page)
             return await cursor(model, conn).search(f, limit=limit, page=page)
     return resolver
 

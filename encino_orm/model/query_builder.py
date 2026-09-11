@@ -4,6 +4,7 @@ from encino_orm.query import Query
 
 from .exceptions import DuplicateAliasError, DuplicateColumnAliasError
 from .filter import Filter
+from .records import normalize_limit_page
 
 _PLACEHOLDER = re.compile(r"\{(\d+)\}")
 _COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
@@ -158,6 +159,7 @@ class QueryBuilder:
         return f"{_safe_column(name)} {direction.upper()}"
 
     def limit(self, n: int, page: int = 1) -> "QueryBuilder":
+        n, page = normalize_limit_page(n, page)
         self._limit_n = n
         self._limit_page = page
         return self
