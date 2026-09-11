@@ -15,6 +15,9 @@ MSSQL_CONFIG = {
     "password": os.getenv("ENCINO_ORM_MSSQL_PASSWORD", "Admin_123"),
     "db": os.getenv("ENCINO_ORM_MSSQL_DB", "encino_orm_test"),
     "driver": os.getenv("ENCINO_ORM_MSSQL_DRIVER", "ODBC Driver 18 for SQL Server"),
+    # El contenedor local usa certificado autofirmado; se confía solo en pruebas.
+    "trust_server_certificate": os.getenv("ENCINO_ORM_MSSQL_TRUST_CERT", "true").lower()
+    in ("1", "true", "yes"),
 }
 
 

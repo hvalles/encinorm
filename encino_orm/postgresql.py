@@ -96,12 +96,14 @@ class PostgresDb(Db):
         if self._connection is None:
             return
         if save_point:
+            save_point = self._check_identifier(save_point, "savepoint")
             await self._connection.execute(f"ROLLBACK TO SAVEPOINT {save_point}")
         else:
             await self._connection.execute("ROLLBACK")
 
     async def save_point(self, name: str):
         if self._connection is not None:
+            name = self._check_identifier(name, "savepoint")
             await self._connection.execute(f"SAVEPOINT {name}")
 
     def _ensure_connected(self):

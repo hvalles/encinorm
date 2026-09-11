@@ -7,7 +7,7 @@ packages = ["encino_orm"]
 
 [project]
 name = "encino-orm"
-version = "0.2.3"
+version = "0.2.4"
 description = "Librería asíncrona de interfaz unificada para SQLite, MySQL y PostgreSQL"
 requires-python = ">=3.10"
 license = "MIT"
@@ -26,6 +26,7 @@ dependencies = [
 security = ["fastapi>=0.110", "PyJWT>=2.8,<2.13"]
 http = ["fastapi>=0.110"]
 graphql = ["strawberry-graphql>=0.200"]
+cache = ["redis>=5.0"]
 mssql = ["aioodbc>=0.5", "pyodbc>=5.0"]
 oracle = ["oracledb>=2.0"]
 all-db = ["aioodbc>=0.5", "pyodbc>=5.0", "oracledb>=2.0"]

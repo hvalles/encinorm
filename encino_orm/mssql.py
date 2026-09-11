@@ -73,10 +73,13 @@ class MssqlDb(Db):
         user = kwargs["user"]
         password = kwargs["password"]
         database = kwargs.get("db") or kwargs.get("database") or "master"
+        encrypt = kwargs.get("encrypt", True)
+        trust_cert = kwargs.get("trust_server_certificate", False)
         conn_str = (
             f"DRIVER={{{driver}}};SERVER={host},{port};"
             f"UID={user};PWD={password};DATABASE={database};"
-            "Encrypt=no;TrustServerCertificate=yes;"
+            f"Encrypt={'yes' if encrypt else 'no'};"
+            f"TrustServerCertificate={'yes' if trust_cert else 'no'};"
         )
         self._connection = await aioodbc.connect(dsn=conn_str)
         self._connection.autocommit = False
@@ -114,6 +117,7 @@ class MssqlDb(Db):
         if self._connection is None:
             return
         if save_point:
+            save_point = self._check_identifier(save_point, "savepoint")
             await self._execute_raw(f"ROLLBACK TRANSACTION {save_point}")
         else:
             await self._connection.rollback()
@@ -121,6 +125,7 @@ class MssqlDb(Db):
 
     async def save_point(self, name: str):
         if self._connection is not None:
+            name = self._check_identifier(name, "savepoint")
             await self._execute_raw(f"SAVE TRANSACTION {name}")
 
     def _ensure_connected(self):

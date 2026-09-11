@@ -741,6 +741,9 @@ class Model(BaseModel):
     async def search(self, filter=None, columns=None, limit=None, page: int = 1,
                      sort_by: list | None = None, include_deleted: bool = False) -> list:
         columns = columns or ["*"]
+        for c in columns:
+            if c != "*" and not _IDENTIFIER_RE.match(c):
+                raise ValueError(f"columna inválida: {c!r}")
         cols_sql = ", ".join(columns)
         filter = self._effective_filter(filter, include_deleted)
         where = ""

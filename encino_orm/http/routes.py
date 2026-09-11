@@ -46,6 +46,8 @@ def _build_path_handler(model, get_db, op):
             "    if not obj._exists:\n"
             "        raise HTTPException(404, detail='no encontrado')\n"
             "    for k, v in data.model_dump(exclude_unset=True).items():\n"
+            "        if k in ('id', 'enabled', 'created_at', 'updated_at'):\n"
+            "            continue\n"
             "        setattr(obj, k, v)\n"
             "    await obj.update()\n"
             f"    return await _cursor(model, db, {kwargs}).load()\n"

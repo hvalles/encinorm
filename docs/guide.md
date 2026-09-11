@@ -484,6 +484,23 @@ await u.load(duration=300)              # cachea 300 s; invalida al actualizar/b
 Backends: `MemoryCacheBackend`, `RedisCacheBackend(url=...)`, o cualquiera que
 implemente el `Protocol` `CacheBackend`.
 
+### Caché en Redis
+
+`RedisCacheBackend` requiere la dependencia opcional `redis`
+(`pip install -e ".[cache]"`) y un Redis en ejecución:
+
+```python
+from encino_orm.model import CachedModel, RedisCacheBackend
+
+cache = RedisCacheBackend(url="redis://localhost:6379")
+u = User(db, cache=cache, id=1)
+await u.load(duration=300)              # GET/SET sobre Redis con TTL
+```
+
+La clave se deriva de un `sha1` de `tabla:[clave=valor&...]` y el valor se
+serializa a JSON (`model_dump(mode="json")`). La URL se puede configurar con la
+variable de entorno `ENCINO_ORM_REDIS_URL` en las pruebas.
+
 ## 11. Esquema y migraciones
 
 ```python

@@ -34,3 +34,7 @@ services:
     environment:
       ORACLE_PASSWORD: admin
     ports: ["1521:1521"]
+
+  redis:
+    image: redis:latest
+    ports: ["6379:6379"]

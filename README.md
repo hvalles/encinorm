@@ -1,4 +1,4 @@
-# encino_orm · v0.2.3
+# encino_orm · v0.2.4
 
 ORM asíncrono de interfaz unificada para **SQLite**, **MySQL**, **MariaDB**,
 **PostgreSQL**, **SQL Server** y **Oracle**, construido sobre `pydantic`. Proporciona un modelo de datos declarativo, CRUD
@@ -7,7 +7,7 @@ migraciones, y capas opcionales de producto: REST (FastAPI), GraphQL
 (Strawberry), seguridad (RBAC + JWT) y generación de código desde la base de
 datos.
 
-> **Estado: experimental (v0.2.3).** encino_orm se encuentra en **fase
+> **Estado: experimental (v0.2.4).** encino_orm se encuentra en **fase
 > experimental**: la API pública y su comportamiento pueden cambiar **sin previo
 > aviso** en versiones posteriores, **sin garantía de compatibilidad
 > retroactiva**. El núcleo ORM está probado sobre los tres motores (más de 350
@@ -53,6 +53,9 @@ pip install -e .
 # con extras opcionales
 pip install -e ".[http,security,graphql]"
 
+# caché en Redis (CachedModel + RedisCacheBackend)
+pip install -e ".[cache]"
+
 # motores opcionales (SQL Server / Oracle)
 pip install -e ".[mssql,oracle]"
 ```
@@ -64,6 +67,7 @@ Extras disponibles:
 | `http`     | `fastapi` (REST CRUD)                                 |
 | `security` | `fastapi` + `PyJWT` (RBAC + JWT)                      |
 | `graphql`  | `strawberry-graphql` (GraphQL)                        |
+| `cache`    | `redis` (`CachedModel` + `RedisCacheBackend`)          |
 | `mssql`    | `aioodbc` + `pyodbc` (SQL Server, requiere ODBC Driver 18) |
 | `oracle`   | `oracledb` (Oracle, modo *thin*)                      |
 | `all-db`   | `mssql` + `oracle`                                    |

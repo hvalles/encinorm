@@ -21,6 +21,7 @@ cada prueba se alimentan por variables de entorno `ENCINO_ORM_*` (ver
 | PostgreSQL | `postgres:16-alpine` | 5432 | ~111 MB | Usado en CI. |
 | SQL Server Express | `mcr.microsoft.com/mssql/server:2022-latest` | 1433 | ~596 MB | Requiere EULA + contraseña `sa` compleja + ≥ 2 GB RAM. |
 | Oracle XE | `gvenzl/oracle-xe:21-slim` | 1521 | ~720 MB | En Docker Hub (sin `docker login`). |
+| Redis | `redis:latest` | 6379 | ~30 MB | Para `RedisCacheBackend` (extra `cache`). |
 
 > Los tamaños son los **comprimidos** medidos con `docker manifest inspect`
 > (linux/amd64); el consumo en disco es mayor. Detalle completo en
@@ -120,6 +121,13 @@ docker run -d --name mssql-test -p 1433:1433 \
 
 Instalar el extra: `pip install -e ".[mssql]"`.
 
+> **TLS (por defecto seguro):** el motor conecta con `Encrypt=yes` y
+> `TrustServerCertificate=no`. El contenedor local usa un **certificado
+> autofirmado**, por lo que las pruebas activan
+> `ENCINO_ORM_MSSQL_TRUST_CERT=true` para confiar en él. En producción, usa un
+> certificado válido o pasa `trust_server_certificate=True`/`encrypt=False`
+> explícitamente a `MssqlDb.connect(...)`.
+
 ### 5.1. Instalar el driver ODBC en el host
 
 Además del extra de Python (`aioodbc`/`pyodbc`), el host necesita el
@@ -191,6 +199,19 @@ Instalar el extra: `pip install -e ".[oracle]"`.
 
 ---
 
+## 7. Redis
+
+```bash
+docker run -d --name redis-test -p 6379:6379 redis:latest
+```
+
+**Conexión para las pruebas** (`tests/test_redis_cache.py`): URL
+`redis://127.0.0.1:6379`.
+
+Instalar el extra: `pip install -e ".[cache]"`.
+
+---
+
 ## Variables de entorno
 
 Cada `tests/test_<motor>.py` lee estas variables (con los valores por defecto de
@@ -201,8 +222,9 @@ la tabla). En CI se exportan en el paso *Run tests*.
 | MySQL | `ENCINO_ORM_MYSQL_HOST/PORT/USER/PASSWORD/DB` | `127.0.0.1` / `3306` / `root` / `admin` / `encino_orm_test` |
 | MariaDB | `ENCINO_ORM_MARIADB_HOST/PORT/USER/PASSWORD/DB` | `127.0.0.1` / `3306` / `root` / `admin` / `encino_orm_test` |
 | PostgreSQL | `ENCINO_ORM_POSTGRES_HOST/PORT/USER/PASSWORD/DB` | `127.0.0.1` / `5432` / `postgres` / `admin` / `encino_orm_test` |
-| SQL Server | `ENCINO_ORM_MSSQL_HOST/PORT/USER/PASSWORD/DB/DRIVER` | `127.0.0.1` / `1433` / `sa` / `Admin_123` / `encino_orm_test` / `ODBC Driver 18 for SQL Server` |
+| SQL Server | `ENCINO_ORM_MSSQL_HOST/PORT/USER/PASSWORD/DB/DRIVER/TRUST_CERT` | `127.0.0.1` / `1433` / `sa` / `Admin_123` / `encino_orm_test` / `ODBC Driver 18 for SQL Server` / `true` |
 | Oracle | `ENCINO_ORM_ORACLE_HOST/PORT/SERVICE/USER/PASSWORD` | `127.0.0.1` / `1521` / `XEPDB1` / `system` / `admin` |
+| Redis | `ENCINO_ORM_REDIS_URL` | `redis://127.0.0.1:6379` |
 
 Ejemplo (Linux/macOS):
 
@@ -252,6 +274,10 @@ services:
     environment:
       ORACLE_PASSWORD: admin
     ports: ["1521:1521"]
+
+  redis:
+    image: redis:latest
+    ports: ["6379:6379"]
 ```
 
 > MariaDB y MySQL comparten protocolo; si se levantan ambos a la vez, usa puertos

@@ -8,6 +8,30 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-10
+
+### Añadido
+
+- Extra opcional `cache` (`redis`) para `CachedModel` con `RedisCacheBackend`
+  probado contra Redis real; servicio `redis` en `docker-compose.yml` y tests de
+  caché (`tests/test_redis_cache.py`).
+
+### Seguridad
+
+- `Model.search(columns=...)` y `QueryBuilder.sum(column)` validan los
+  identificadores de columna antes de incrustarlos en SQL.
+- `columns_of` de SQLite y MySQL valida el nombre de tabla antes de interpolarlo.
+- SQL Server conecta con TLS por defecto (`Encrypt=yes`,
+  `TrustServerCertificate=no`); configurable con `encrypt`/
+  `trust_server_certificate`.
+- Codegen (`generate_model`) emite `_table` y `name=` con `repr`, evitando
+  inyección de código desde nombres de tabla/columna.
+- JWT: separación access/refresh mediante el claim `type` y lista permitida de
+  algoritmos (rechaza `"none"`).
+- Los nombres de `SAVEPOINT` se validan antes de interpolar en SQL.
+- El `PUT` de REST ignora los campos de solo lectura (`id`, `enabled`,
+  `created_at`, `updated_at`).
+
 ## [0.2.3] - 2026-09-08
 
 ### Corregido

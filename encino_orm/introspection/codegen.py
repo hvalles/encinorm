@@ -76,7 +76,7 @@ async def generate_model(db, table: str, *, folder: str,
         _DOMAIN_IMPORT,
         "",
         f"class {cls}(Model):",
-        f'    _table = "{table}"',
+        f"    _table = {table!r}",
     ]
     if missing:
         lines.append(f"    _fields_disabled = {missing!r}")
@@ -95,7 +95,7 @@ async def generate_model(db, table: str, *, folder: str,
         if not c.nullable:
             args.append("required=True")
         if fname != c.name:
-            args.append(f'name="{c.name}"')
+            args.append(f"name={c.name!r}")
         suffix = f"({', '.join(args)})" if args else "()"
         lines.append(f"    {fname}: {type_expr}{suffix}")
     lines.append("")

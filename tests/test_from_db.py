@@ -220,4 +220,4 @@ class TestGenerateModel:
         text = path.read_text(encoding="utf-8")
         assert "class LineaDetalle(Model):" in text
         # "order" es palabra reservada -> atributo con sufijo y name= mapeado
-        assert 'name="order"' in text
+        assert "name='order'" in text

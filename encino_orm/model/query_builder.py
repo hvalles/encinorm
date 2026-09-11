@@ -241,6 +241,7 @@ class QueryBuilder:
 
     async def sum(self, column: str):
         self._ensure_db()
+        column = _safe_column(column)
         sql, params = self._build_base()
         sql = f"SELECT SUM({column}) {sql}"
         row = await self._db.fetch_one(Query(sql, params))

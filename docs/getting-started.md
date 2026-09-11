@@ -7,6 +7,7 @@ Guía rápida para instalar encino_orm y crear tu primer modelo funcional.
 ```bash
 pip install -e .                 # núcleo
 pip install -e ".[http,security,graphql]"   # capas opcionales (REST, GraphQL, seguridad)
+pip install -e ".[cache]"        # caché en Redis (CachedModel + RedisCacheBackend)
 pip install -e ".[mssql,oracle]" # motores SQL Server y Oracle
 pip install -e ".[all-db]"       # o todos los motores opcionales de golpe
 ```

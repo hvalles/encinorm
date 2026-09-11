@@ -32,6 +32,9 @@ Endpoints generados por modelo (tabla `users`):
   (`/api/memberships/{tenant_id}/{code}`).
 - `create_crud` acepta `get_db` para inyectar una dependency propia; por defecto
   usa `session(pool)`.
+- El `PUT` ignora los campos de solo lectura `id`, `enabled`, `created_at` y
+  `updated_at` (no se pueden modificar por esta vía; el soft-delete se gestiona
+  con `DELETE`).
 
 ## 2. GraphQL (Strawberry)
 
@@ -60,8 +63,28 @@ from encino_orm.security import (
 )
 
 token = emit_token("user-1", SECRET)
-payload = verify_token(token, SECRET)      # {"sub": "user-1", ...}
+payload = verify_token(token, SECRET)      # {"sub": "user-1", "type": "access", ...}
 ```
+
+### Access vs refresh tokens
+
+`emit_token`/`verify_token` gestionan tokens de **acceso** y
+`emit_refresh`/`verify_refresh` tokens de **refresco**. Ambos se distinguen por el
+claim `type` (`"access"`/`"refresh"`): `verify_token` **rechaza** un token de
+refresco y `verify_refresh` **exige** que lo sea, de modo que un access token
+robado no sirve para emitir nuevos tokens:
+
+```python
+from encino_orm.security import emit_refresh, verify_refresh
+
+refresh = emit_refresh("user-1", SECRET, expires_seconds=604800)
+payload = verify_refresh(refresh, SECRET)   # solo acepta type == "refresh"
+```
+
+Los algoritmos se validan contra una lista permitida (`HS256`, `RS256`, `ES256`,
+…) y se rechaza `"none"` tanto al emitir como al verificar. Por compatibilidad,
+`verify_token` sigue aceptando tokens legados **sin** `type` (pero no podrán
+usarse como refresh).
 
 ### Roles y permisos
 
@@ -113,7 +136,9 @@ encino_orm generate models mysql --host localhost --user root --password s3cret 
 ```
 
 Las claves primarias compuestas y los nombres de columna reservados se detectan
-y se emiten automáticamente (`_primary_key`, `name="..."`).
+y se emiten automáticamente (`_primary_key`, `name='...'`). El `_table` y el
+`name=` se generan con `repr`, por lo que los nombres con caracteres especiales
+quedan correctamente escapados en el código generado.
 
 ## 5. Observabilidad
 

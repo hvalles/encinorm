@@ -12,6 +12,7 @@ from .observability import current_trace_id
 from .query import Query
 
 _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MIGRATIONS_TABLE = "_encino_orm_migrations"
 
 
@@ -87,12 +88,14 @@ class MysqlDb(Db):
         if self._connection is None:
             return
         if save_point:
+            save_point = self._check_identifier(save_point, "savepoint")
             await self._execute_raw(f"ROLLBACK TO SAVEPOINT {save_point}")
         else:
             await self._connection.rollback()
 
     async def save_point(self, name: str):
         if self._connection is not None:
+            name = self._check_identifier(name, "savepoint")
             await self._execute_raw(f"SAVEPOINT {name}")
 
     def _ensure_connected(self):
@@ -110,6 +113,8 @@ class MysqlDb(Db):
         )
 
     async def columns_of(self, table: str) -> list[ColumnSpec]:
+        if not _IDENTIFIER_RE.match(table):
+            raise ValueError(f"nombre de tabla inválido: {table!r}")
         rows = await self.fetch_all(Query(f"SHOW COLUMNS FROM {table}", []))
         return [
             ColumnSpec(
