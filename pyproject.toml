@@ -7,7 +7,7 @@ packages = ["encino_orm"]
 
 [project]
 name = "encino-orm"
-version = "0.2.5"
+version = "0.2.6"
 description = "Librería asíncrona de interfaz unificada para SQLite, MySQL y PostgreSQL"
 requires-python = ">=3.10"
 license = "MIT"

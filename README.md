@@ -1,4 +1,4 @@
-# encino_orm · v0.2.5
+# encino_orm · v0.2.6
 
 ORM asíncrono de interfaz unificada para **SQLite**, **MySQL**, **MariaDB**,
 **PostgreSQL**, **SQL Server** y **Oracle**, construido sobre `pydantic`. Proporciona un modelo de datos declarativo, CRUD
@@ -7,7 +7,7 @@ migraciones, y capas opcionales de producto: REST (FastAPI), GraphQL
 (Strawberry), seguridad (RBAC + JWT) y generación de código desde la base de
 datos.
 
-> **Estado: experimental (v0.2.5).** encino_orm se encuentra en **fase
+> **Estado: experimental (v0.2.6).** encino_orm se encuentra en **fase
 > experimental**: la API pública y su comportamiento pueden cambiar **sin previo
 > aviso** en versiones posteriores, **sin garantía de compatibilidad
 > retroactiva**. El núcleo ORM está probado sobre los tres motores (más de 350

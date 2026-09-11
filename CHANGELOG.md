@@ -8,6 +8,15 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-09-11
+
+### Corregido
+
+- Compatibilidad con Python 3.13: se sustituye `Annotated.__class_getitem__`
+  (eliminado en Python 3.13) por la forma de subíndice `Annotated[...]` con
+  tupla, manteniendo a la vez la compatibilidad con Python 3.10 en
+  `encino_orm/model/constraint.py` y `encino_orm/model/model.py`.
+
 ## [0.2.5] - 2026-09-10
 
 ### Seguridad
