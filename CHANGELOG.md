@@ -8,6 +8,8 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-09-10
+
 ### Seguridad
 
 - Límite máximo de paginación (`MAX_LIMIT=1000`) y normalización de `limit`/`page`
