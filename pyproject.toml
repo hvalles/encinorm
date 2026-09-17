@@ -43,6 +43,17 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
 
+[tool.ruff]
+# Debe coincidir con requires-python: dirige las reescrituras de las reglas UP.
+target-version = "py310"
+# A 88 el baseline pre-formato era de 195 hallazgos en encino_orm/ frente a 128 a 100,
+# y la salida de `ruff format` depende de este valor. 100 es la fuente de verdad
+# (ver AGENTS.md §Code Style, actualizado en Fase 1).
+line-length = 100
+
+[tool.ruff.lint.isort]
+known-first-party = ["encino_orm"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
@@ -51,4 +62,8 @@ dev = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.26",
+    # Pin exacto: la salida del formateador de ruff está versionada; sin fijar,
+    # CI podría resolver una versión más nueva cuyo formato difiere y provocar
+    # un `ruff format --check` fallido en un PR no relacionado.
+    "ruff==0.16.8",
 ]
