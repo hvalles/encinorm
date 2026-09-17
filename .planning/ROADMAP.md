@@ -78,11 +78,13 @@ backed by a signal that would have caught the `COUNT(*)` bug.
 **Research**: not needed — ruff/mypy/pytest-cov/uv configuration is exhaustively documented in STACK.md with version-verified config sketches
 
 Plans:
-- [ ] 01-01: Upgrade `uv` to 0.12.15, land ruff format-only commit (registered in `.git-blame-ignore-revs`), then the narrow `ruff check` ruleset as a blocking CI job — CI-03
-- [ ] 01-02: `mypy` non-strict with `--warn-unused-ignores` + `py.typed` marker, and the dependency/vulnerability scanning job (`uv lock --check`, `uv audit`, `pip-audit`) — CI-04, CI-07
-- [ ] 01-03: Harden pytest config (`--strict-markers`, `xfail_strict`, `filterwarnings = ["error"]`, both loop scopes, declared markers) and wire `pytest-cov` with `parallel = true`, per-engine `COVERAGE_FILE` + `coverage combine`, low ratchet floor — CI-05, CI-06
-- [ ] 01-04: `ENCINO_ORM_REQUIRE_ENGINES` switch that fails instead of skipping, JUnit-XML post-run `skipped > 0` gate, and `release.yml` `needs:` CI — CI-01, CI-02, CI-08
-- [ ] 01-05: Characterization tests for pool invariants (checkout cap, `last_id` scoping, release semantics, `close()` behavior) written against the current implementation — CI-09
+- [ ] 01-01-PLAN.md — Upgrade `uv` to 0.12.15, land ruff format-only commit (registered in `.git-blame-ignore-revs`), then the narrow `ruff check` ruleset as a blocking CI job — CI-03
+- [ ] 01-02-PLAN.md — `mypy` non-strict with `--warn-unused-ignores` + `py.typed` marker, and the dependency/vulnerability scanning job (`uv lock --check`, `uv audit`, `pip-audit`) — CI-04, CI-07
+- [ ] 01-03-PLAN.md — Harden pytest config (`--strict-markers`, `xfail_strict`, `filterwarnings = ["error"]`, both loop scopes, declared markers) and wire `pytest-cov` with `parallel = true`, per-engine `COVERAGE_FILE` + `coverage combine`, low ratchet floor — CI-05, CI-06
+- [ ] 01-04-PLAN.md — `ENCINO_ORM_REQUIRE_ENGINES` switch that fails instead of skipping, JUnit-XML post-run `skipped > 0` gate, and `release.yml` `needs:` CI — CI-01, CI-02, CI-08
+- [ ] 01-05-PLAN.md — Characterization tests for pool invariants (checkout cap, `last_id` scoping, release semantics, `close()` behavior) written against the current implementation — CI-09
+
+**Waves:** 1 → 01-01; 2 → 01-02; 3 → 01-03; 4 → 01-04; 5 → 01-05. The chain is forced by `pyproject.toml` and `ci.yml` overlap across 01-01…01-04; 01-05 lands last so its characterization tests are validated against every gate above them. 01-02 is the only non-autonomous plan (a blocking package-legitimacy checkpoint).
 
 ### Phase 2: Dialect Seam & Engine Parity
 **Goal**: Identifier validation and DML construction live in exactly one place inside the core, and the
