@@ -17,7 +17,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 - [x] **CI-06**: La configuración de pytest se endurece (`--strict-markers`, `xfail_strict`, `filterwarnings = ["error"]`, ambos loop scopes, markers declarados)
 - [x] **CI-07**: El escaneo de dependencias/vulnerabilidades (`uv lock --check`, `uv audit` o `pip-audit`) corre en CI
 - [x] **CI-08**: El workflow de release depende de CI, de modo que ninguna publicación ocurre sin gates verdes
-- [ ] **CI-09**: Existen tests de caracterización de los invariantes del pool **antes** de refactorizarlo
+- [x] **CI-09**: Existen tests de caracterización de los invariantes del pool **antes** de refactorizarlo
 
 ### Dialect Seam & Engine Parity
 
@@ -138,7 +138,7 @@ Qué fase cubre cada requisito.
 | CI-06 | Phase 1 | Complete |
 | CI-07 | Phase 1 | Complete |
 | CI-08 | Phase 1 | Complete |
-| CI-09 | Phase 1 | Pending |
+| CI-09 | Phase 1 | Complete |
 | DIAL-01 | Phase 2 | Pending |
 | DIAL-02 | Phase 2 | Pending |
 | DIAL-03 | Phase 2 | Pending |

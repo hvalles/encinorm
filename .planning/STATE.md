@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-09-17T23:42:24.380Z"
+status: verifying
+stopped_at: Completed 01-05-PLAN.md
+last_updated: "2026-09-17T23:48:46.068Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 13
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 
 Phase: 01 (Safety Net — CI Gates & Test Infrastructure) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-17
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [████████░░] 80%
 | Phase 01 P02 | 9 min | 3 tasks | 4 files |
 | Phase 01 P03 | 8 min | 3 tasks | 10 files |
 | Phase 01 P04 | 12 min | 3 tasks | 12 files |
+| Phase 01 P05 | 3 min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Recent decisions affecting current work:
 - [Phase 01]: El except Exception de los 8 fixtures de motor NO se estrecha en Fase 1. — Un typo de env var o un ImportError degradan a skip en local y el interruptor lo hace irrelevante en CI (cualquier fallo de un motor requerido es fallo duro); estrecharlo es Pitfall 1 y queda para Fase 2.
 - [Phase 01]: S314 (xml.etree.ElementTree) se ignora por fichero en tools/ci/check_skips.py con justificacion escrita (T-01-11). — El XML es un artefacto de build del propio job y ET de CPython no resuelve entidades externas; defusedxml violaria la regla solo-stdlib del gate.
 - [Phase 01]: Los tests del arnes llevan el nombre del modulo en el metodo (test_check_skips_*, test_require_engines_*) para que -k seleccione de verdad. — TestCheckSkipsMain no contiene el literal check_skips (falta el guion bajo), asi que -k deseleccionaba los 13 tests y pasaba en vacio.
+- [Phase 01]: Los tests de caracterizacion del pool capturan el comportamiento actual tal cual (D-09): la carrera de acquire() con 5 tareas y max_size=2 produce _size=5 de forma determinista gracias a una barrera hecha con asyncio.Event (piso 3.10); la asercion _size > _max_size se espera invertir en Fase 4 (POOL-02).
+- [Phase 01]: Baselines medidos para Fase 4: last_id fuera de transaccion lee un cache a nivel de pool compartido entre tareas (POOL-03); release() no confirma, no revierte ni comprueba liveness (POOL-04); close() cierra una conexion que un llamador aun mantiene (POOL-06).
 
 ### Pending Todos
 
@@ -110,6 +113,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-17T23:42:24.371Z
-Stopped at: Completed 01-04-PLAN.md
+Last session: 2026-09-17T23:48:13.056Z
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None

@@ -57,7 +57,7 @@ These are not preferences. Violating any of them invalidates later verification.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Safety Net — CI Gates & Test Infrastructure** - Make CI able to fail: lint, types, per-engine coverage, required-engine switch, and pool characterization tests before any refactor
+- [x] **Phase 1: Safety Net — CI Gates & Test Infrastructure** - Make CI able to fail: lint, types, per-engine coverage, required-engine switch, and pool characterization tests before any refactor (completed 2026-09-17)
 - [ ] **Phase 2: Dialect Seam & Engine Parity** - One identifier-validation choke point, shared DML builders, `Query` correctness, and proof that count/paginate/list_tables work on all six engines
 - [ ] **Phase 3: Data Correctness** - Migration ledger, atomic-or-reconciled `migrate()`, and `CachedModel` write-invalidation (parallel to Phase 2)
 - [ ] **Phase 4: Pool Correctness & Concurrency** - `PooledConnection` handle, race-free `acquire()`, in-insert `last_id`, explicit release policy, lazy reaper, deterministic stress tests
@@ -106,7 +106,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 01-05-PLAN.md — Characterization tests for pool invariants (checkout cap, `last_id` scoping, release semantics, `close()` behavior) written against the current implementation — CI-09
+- [x] 01-05-PLAN.md — Characterization tests for pool invariants (checkout cap, `last_id` scoping, release semantics, `close()` behavior) written against the current implementation — CI-09
 
 **Waves:** 1 → 01-01; 2 → 01-02; 3 → 01-03; 4 → 01-04; 5 → 01-05. The chain is forced by `pyproject.toml` and `ci.yml` overlap across 01-01…01-04; 01-05 lands last so its characterization tests are validated against every gate above them. 01-02 is the only non-autonomous plan (a blocking package-legitimacy checkpoint).
 
@@ -329,7 +329,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Net — CI Gates & Test Infrastructure | 4/5 | In Progress|  |
+| 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 0/5 | Not started | - |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
