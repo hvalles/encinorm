@@ -130,3 +130,51 @@ jobs:
 
       - name: Mypy
         run: uv run mypy encino_orm
+
+  deps:
+    name: Dependencias y vulnerabilidades
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # Pin por versión de uv; el pin por SHA de la action queda diferido.
+          version: "0.12.15"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Lockfile al dia
+        # `uv lock --check` falla si `pyproject.toml` y `uv.lock` divergen, de
+        # modo que un lock editado a mano o desactualizado no puede mergear.
+        run: uv lock --check
+
+      - name: Auditar dependencias (uv audit, feed OSV)
+        # PyJWT 2.12.1: 5 avisos (9 entradas OSV), todos con fix en 2.13.0.
+        # El proyecto mantiene el cap `PyJWT>=2.8,<2.13` (CONCERNS.md), que
+        # bloquea esas correcciones. Se aceptan de forma TEMPORAL: ampliar el
+        # cap es un cambio de dependencia que puede romper la capa `security`
+        # y queda fuera del alcance de 01-02 (fase de red de seguridad, cero
+        # cambio de comportamiento). Se levantaran al revalidar la capa de
+        # seguridad y ampliar el cap en la Fase 6 (CFG-02).
+        # La lista de ignores es explicita y revisable; el gate es bloqueante.
+        run: |
+          uv audit \
+            --ignore GHSA-993g-76c3-p5m4 \
+            --ignore GHSA-fhv5-28vv-h8m8 \
+            --ignore GHSA-jq35-7prp-9v3f \
+            --ignore GHSA-w7vc-732c-9m39 \
+            --ignore GHSA-xgmm-8j9v-c9wx
+
+      - name: Cross-check (pip-audit sobre uv export, feed PyPA)
+        # pip-audit no lee uv.lock (verificado: `--locked .` -> "no lockfiles
+        # found"), asi que se le alimenta el export de uv. Usa el feed PyPA,
+        # distinto del feed OSV de `uv audit`: dos fuentes independientes.
+        run: |
+          uv export --format requirements-txt --no-emit-project --no-hashes > "$RUNNER_TEMP/uv-export.txt"
+          uv run pip-audit -r "$RUNNER_TEMP/uv-export.txt"
