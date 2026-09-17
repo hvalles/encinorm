@@ -98,7 +98,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-03-PLAN.md — Harden pytest config (`--strict-markers`, `xfail_strict`, `filterwarnings = ["error"]`, both loop scopes, declared markers) and wire `pytest-cov` with `parallel = true`, per-engine `COVERAGE_FILE` + `coverage combine`, low ratchet floor — CI-05, CI-06
+- [x] 01-03-PLAN.md — Harden pytest config (`--strict-markers`, `xfail_strict`, `filterwarnings = ["error"]`, both loop scopes, declared markers) and wire `pytest-cov` with `parallel = true`, per-engine `COVERAGE_FILE` + `coverage combine`, low ratchet floor — CI-05, CI-06
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -329,7 +329,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Net — CI Gates & Test Infrastructure | 2/5 | In Progress|  |
+| 1. Safety Net — CI Gates & Test Infrastructure | 3/5 | In Progress|  |
 | 2. Dialect Seam & Engine Parity | 0/5 | Not started | - |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |

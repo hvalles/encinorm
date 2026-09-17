@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-17T23:13:08.199Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-09-17T23:23:16.984Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 01 (Safety Net — CI Gates & Test Infrastructure) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-09-17
 
-Progress: [████░░░░░░] 40%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [████░░░░░░] 40%
 *Updated after each plan completion*
 | Phase 01 P01 | 6 min | 4 tasks | 60 files |
 | Phase 01 P02 | 9 min | 3 tasks | 4 files |
+| Phase 01 P03 | 8 min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,10 @@ Recent decisions affecting current work:
 - [Phase 01]: El job typecheck sincroniza los mismos extras que test (--extra http --extra security --extra graphql) — El ratchet de mypy se midio con fastapi/PyJWT/strawberry-graphql importables; sin ellos ignore_missing_imports los vuelve Any y el gate mediria otro conjunto de errores (W3).
 - [Phase 01]: Los 5 avisos GHSA de PyJWT 2.12.1 se aceptan con uv audit --ignore explicito y comentado — El flag ignore-until-fixed no suprime avisos que ya tienen fix (2.13.0), verificado empiricamente. El cap PyJWT inferior a 2.13 se ampliara al revalidar la capa security (Fase 6, CFG-02).
 - [Phase 01]: pip-audit se alimenta de un fichero temporal con la salida de uv export — pip-audit no acepta -r - (stdin) ni lee uv.lock (--locked . -> no lockfiles found), verificado empiricamente. Se mantienen dos feeds de avisos independientes: OSV (uv audit) y PyPA (pip-audit).
+- [Phase 01]: El piso de cobertura se fija en 82 contra el 83% equivalente a CI (medido hoy 84.42% con -m 'not optional_engine'), NO contra el 88% local con seis motores: en CI solo corren MySQL y PostgreSQL y oracle.py cae del 59% al 16% (Pitfall 2b). Fase 2 lo sube (D-04/D-06).
+- [Phase 01]: El guard de seleccion de markers se refuerza con una comprobacion por fichero de motor: la asercion '> 0' del plan no detectaba la retirada del pytestmark de un solo fichero (quedaban 26 tests integration), de modo que el fallo inducido exigido por el plan habria pasado en verde.
+- [Phase 01]: S603 en per-file-ignores para tests/test_pytest_config.py: el comando de subprocess lleva rutas de tmp_path y no puede ser literal; se prefirio a un # noqa para preservar el invariante noqa=0 de 01-01.
+- [Phase 01]: El step de test de CI emite --junitxml=junit.xml y --cov* pero NO anade -m 'not optional_engine', ENCINO_ORM_REQUIRE_ENGINES ni el gate de skips: son del plan 01-04 y anadirlos haria inatribuible su prueba de fallo inducido.
 
 ### Pending Todos
 
@@ -98,6 +103,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-17T23:13:08.188Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-09-17T23:23:16.974Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
