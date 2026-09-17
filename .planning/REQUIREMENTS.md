@@ -126,63 +126,76 @@ Excluido explícitamente. Documentado para prevenir reincorporaciones.
 
 ## Traceability
 
-Qué fase cubre cada requisito. Se completa durante la creación del roadmap.
+Qué fase cubre cada requisito.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CI-01 | TBD | Pending |
-| CI-02 | TBD | Pending |
-| CI-03 | TBD | Pending |
-| CI-04 | TBD | Pending |
-| CI-05 | TBD | Pending |
-| CI-06 | TBD | Pending |
-| CI-07 | TBD | Pending |
-| CI-08 | TBD | Pending |
-| CI-09 | TBD | Pending |
-| DIAL-01 | TBD | Pending |
-| DIAL-02 | TBD | Pending |
-| DIAL-03 | TBD | Pending |
-| DIAL-04 | TBD | Pending |
-| DIAL-05 | TBD | Pending |
-| DIAL-06 | TBD | Pending |
-| DIAL-07 | TBD | Pending |
-| DIAL-08 | TBD | Pending |
-| DIAL-09 | TBD | Pending |
-| DATA-01 | TBD | Pending |
-| DATA-02 | TBD | Pending |
-| DATA-03 | TBD | Pending |
-| DATA-04 | TBD | Pending |
-| POOL-01 | TBD | Pending |
-| POOL-02 | TBD | Pending |
-| POOL-03 | TBD | Pending |
-| POOL-04 | TBD | Pending |
-| POOL-05 | TBD | Pending |
-| POOL-06 | TBD | Pending |
-| POOL-07 | TBD | Pending |
-| RESL-01 | TBD | Pending |
-| RESL-02 | TBD | Pending |
-| RESL-03 | TBD | Pending |
-| RESL-04 | TBD | Pending |
-| CFG-01 | TBD | Pending |
-| CFG-02 | TBD | Pending |
-| CFG-03 | TBD | Pending |
-| CFG-04 | TBD | Pending |
-| CFG-05 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
-| REL-01 | TBD | Pending |
-| REL-02 | TBD | Pending |
-| REL-03 | TBD | Pending |
-| REL-04 | TBD | Pending |
-| REL-05 | TBD | Pending |
+| CI-01 | Phase 1 | Pending |
+| CI-02 | Phase 1 | Pending |
+| CI-03 | Phase 1 | Pending |
+| CI-04 | Phase 1 | Pending |
+| CI-05 | Phase 1 | Pending |
+| CI-06 | Phase 1 | Pending |
+| CI-07 | Phase 1 | Pending |
+| CI-08 | Phase 1 | Pending |
+| CI-09 | Phase 1 | Pending |
+| DIAL-01 | Phase 2 | Pending |
+| DIAL-02 | Phase 2 | Pending |
+| DIAL-03 | Phase 2 | Pending |
+| DIAL-04 | Phase 2 | Pending |
+| DIAL-05 | Phase 2 | Pending |
+| DIAL-06 | Phase 2 | Pending |
+| DIAL-07 | Phase 2 | Pending |
+| DIAL-08 | Phase 2 | Pending |
+| DIAL-09 | Phase 2 | Pending |
+| DATA-01 | Phase 3 | Pending |
+| DATA-02 | Phase 3 | Pending |
+| DATA-03 | Phase 3 | Pending |
+| DATA-04 | Phase 3 | Pending |
+| POOL-01 | Phase 4 | Pending |
+| POOL-02 | Phase 4 | Pending |
+| POOL-03 | Phase 4 | Pending |
+| POOL-04 | Phase 4 | Pending |
+| POOL-05 | Phase 4 | Pending |
+| POOL-06 | Phase 4 | Pending |
+| POOL-07 | Phase 4 | Pending |
+| RESL-01 | Phase 5 | Pending |
+| RESL-02 | Phase 5 | Pending |
+| RESL-03 | Phase 5 | Pending |
+| RESL-04 | Phase 5 | Pending |
+| CFG-01 | Phase 6 | Pending |
+| CFG-02 | Phase 6 | Pending |
+| CFG-03 | Phase 6 | Pending |
+| CFG-04 | Phase 6 | Pending |
+| CFG-05 | Phase 6 | Pending |
+| PERF-01 | Phase 7 | Pending |
+| PERF-02 | Phase 7 | Pending |
+| PERF-03 | Phase 7 | Pending |
+| PERF-04 | Phase 7 | Pending |
+| REL-01 | Phase 8 | Pending |
+| REL-02 | Phase 8 | Pending |
+| REL-03 | Phase 8 | Pending |
+| REL-04 | Phase 8 | Pending |
+| REL-05 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 47 total
-- Mapped to phases: 0
-- Unmapped: 47 ⚠️ (se resuelve en la creación del roadmap)
+- Mapped to phases: 47 ✓
+- Unmapped: 0
+
+**Por fase:**
+
+| Phase | Requirements | Count |
+|-------|--------------|-------|
+| 1. Safety Net — CI Gates & Test Infrastructure | CI-01…CI-09 | 9 |
+| 2. Dialect Seam & Engine Parity | DIAL-01…DIAL-09 | 9 |
+| 3. Data Correctness | DATA-01…DATA-04 | 4 |
+| 4. Pool Correctness & Concurrency | POOL-01…POOL-07 | 7 |
+| 5. Resilience | RESL-01…RESL-04 | 4 |
+| 6. Config & Optional-Layer Hygiene | CFG-01…CFG-05 | 5 |
+| 7. Performance & Benchmarks | PERF-01…PERF-04 | 4 |
+| 8. Release 0.3.0 | REL-01…REL-05 | 5 |
 
 ---
 *Requirements defined: 2026-09-17*
-*Last updated: 2026-09-17 after initial definition*
+*Last updated: 2026-09-17 after roadmap creation (traceability complete)*
