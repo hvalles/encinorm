@@ -12,10 +12,10 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 - [ ] **CI-01**: Un interruptor `ENCINO_ORM_REQUIRE_ENGINES` hace que un motor requerido ausente **falle** la suite en lugar de omitirla con `skip`
 - [ ] **CI-02**: Un gate post-run sobre JUnit-XML falla el job de CI si `skipped > 0`
 - [x] **CI-03**: `ruff` (lint + format) está configurado y es un job bloqueante de CI
-- [ ] **CI-04**: `mypy` (no estricto, con ratchet) pasa y existe el marcador `py.typed`
+- [x] **CI-04**: `mypy` (no estricto, con ratchet) pasa y existe el marcador `py.typed`
 - [ ] **CI-05**: `pytest-cov` reporta con `parallel = true` + `coverage combine` por motor y un umbral ratchet bajo
 - [ ] **CI-06**: La configuración de pytest se endurece (`--strict-markers`, `xfail_strict`, `filterwarnings = ["error"]`, ambos loop scopes, markers declarados)
-- [ ] **CI-07**: El escaneo de dependencias/vulnerabilidades (`uv lock --check`, `uv audit` o `pip-audit`) corre en CI
+- [x] **CI-07**: El escaneo de dependencias/vulnerabilidades (`uv lock --check`, `uv audit` o `pip-audit`) corre en CI
 - [ ] **CI-08**: El workflow de release depende de CI, de modo que ninguna publicación ocurre sin gates verdes
 - [ ] **CI-09**: Existen tests de caracterización de los invariantes del pool **antes** de refactorizarlo
 
@@ -133,10 +133,10 @@ Qué fase cubre cada requisito.
 | CI-01 | Phase 1 | Pending |
 | CI-02 | Phase 1 | Pending |
 | CI-03 | Phase 1 | Complete |
-| CI-04 | Phase 1 | Pending |
+| CI-04 | Phase 1 | Complete |
 | CI-05 | Phase 1 | Pending |
 | CI-06 | Phase 1 | Pending |
-| CI-07 | Phase 1 | Pending |
+| CI-07 | Phase 1 | Complete |
 | CI-08 | Phase 1 | Pending |
 | CI-09 | Phase 1 | Pending |
 | DIAL-01 | Phase 2 | Pending |

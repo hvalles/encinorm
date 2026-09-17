@@ -94,7 +94,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — `mypy` non-strict with `--warn-unused-ignores` + `py.typed` marker, and the dependency/vulnerability scanning job (`uv lock --check`, `uv audit`, `pip-audit`) — CI-04, CI-07
+- [x] 01-02-PLAN.md — `mypy` non-strict with `--warn-unused-ignores` + `py.typed` marker, and the dependency/vulnerability scanning job (`uv lock --check`, `uv audit`, `pip-audit`) — CI-04, CI-07
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -329,7 +329,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Net — CI Gates & Test Infrastructure | 1/5 | In Progress|  |
+| 1. Safety Net — CI Gates & Test Infrastructure | 2/5 | In Progress|  |
 | 2. Dialect Seam & Engine Parity | 0/5 | Not started | - |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
