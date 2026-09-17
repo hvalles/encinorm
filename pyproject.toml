@@ -161,6 +161,12 @@ select = [
 # completamente literal, imposible con una ruta dinamica. Se levantara si
 # aparece una alternativa sin subprocess (p. ej. el fixture `pytester`).
 "tests/test_pytest_config.py" = ["S603"]
+# S314: el gate de skips parsea un artefacto de build producido por el propio
+# job (no hay entrada no confiable) y `xml.etree.ElementTree` de CPython no
+# resuelve entidades externas por defecto (T-01-11). La alternativa
+# (`defusedxml`) violaria la regla "solo stdlib" de `tools/ci/`. Se levantara
+# solo si el XML pasara a venir de fuera del job.
+"tools/ci/check_skips.py" = ["S314"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["encino_orm"]

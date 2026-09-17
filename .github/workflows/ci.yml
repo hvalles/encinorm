@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # CI-08: `release.yml` no puede usar `needs:` sobre un job de otro fichero, asi
+  # que CI se expone como workflow reutilizable y `publish` lo llama.
+  workflow_call:
 
 permissions:
   contents: read
@@ -74,6 +77,10 @@ jobs:
           # `parallel = true` cada job escribe el suyo y `coverage combine` los
           # une en el job `coverage` (D-06).
           COVERAGE_FILE: .coverage.py${{ matrix.python-version }}
+          # CI-01: en CI un motor requerido ausente FALLA en vez de omitir
+          # (D-01: exactamente los dos servicios que existen arriba). En local
+          # la variable no existe y un motor ausente sigue omitiendo (D-03).
+          ENCINO_ORM_REQUIRE_ENGINES: mysql,postgresql
           ENCINO_ORM_MYSQL_HOST: 127.0.0.1
           ENCINO_ORM_MYSQL_PORT: "3306"
           ENCINO_ORM_MYSQL_USER: root
@@ -84,12 +91,20 @@ jobs:
           ENCINO_ORM_POSTGRES_USER: postgres
           ENCINO_ORM_POSTGRES_PASSWORD: admin
           ENCINO_ORM_POSTGRES_DB: encino_orm_test
-        # --cov-report= desactiva el reporte por pata: el combine y el gate de
-        # `fail_under` los aplica el job `coverage`. El `-m` de motores
-        # requeridos y el gate JUnit los añade el plan 01-04.
+        # `-m "not optional_engine"` deselecciona los 13 tests de motores no
+        # requeridos (D-02): los deseleccionados no aparecen en el XML, asi que
+        # cualquier `skipped > 0` que quede es un skip NO marcado. `--junitxml`
+        # alimenta el gate de abajo. `--cov-report=` desactiva el reporte por
+        # pata: el combine y el gate de `fail_under` los aplica el job `coverage`.
         run: >
-          uv run pytest -q --junitxml=junit.xml
+          uv run pytest -q -m "not optional_engine" --junitxml=junit.xml
           --cov=encino_orm --cov-branch --cov-report=
+
+      - name: Gate — ningún test omitido
+        # `if: always()` para que el gate reporte el conteo aunque pytest ya haya
+        # fallado por otro motivo; sin esto un fallo de test ocultaria el skip.
+        if: always()
+        run: uv run python tools/ci/check_skips.py junit.xml
 
       - name: Subir datos de cobertura
         if: always()

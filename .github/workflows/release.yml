@@ -11,7 +11,15 @@ permissions:
   id-token: write          # para trusted publishing (OIDC) si se usa
 
 jobs:
+  # CI-08: `needs:` no puede cruzar ficheros de workflow, asi que se llama a
+  # `ci.yml` como workflow reutilizable. Con `./` el workflow llamado es el del
+  # MISMO commit que el caller, que es la semantica correcta sobre un tag.
+  ci:
+    name: CI (reusable)
+    uses: ./.github/workflows/ci.yml
+
   publish:
+    needs: [ci]
     name: Build and publish
     runs-on: ubuntu-latest
     steps:
@@ -21,6 +29,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
+          # Pin de uv en la ruta de publicacion (T-01-04): el entorno que
+          # publica un artefacto debe usar una version conocida.
+          version: "0.12.15"
           enable-cache: true
 
       - name: Build
