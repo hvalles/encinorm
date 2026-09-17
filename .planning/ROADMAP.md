@@ -102,7 +102,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-04-PLAN.md — `ENCINO_ORM_REQUIRE_ENGINES` switch that fails instead of skipping, JUnit-XML post-run `skipped > 0` gate, and `release.yml` `needs:` CI — CI-01, CI-02, CI-08
+- [x] 01-04-PLAN.md — `ENCINO_ORM_REQUIRE_ENGINES` switch that fails instead of skipping, JUnit-XML post-run `skipped > 0` gate, and `release.yml` `needs:` CI — CI-01, CI-02, CI-08
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -329,7 +329,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Net — CI Gates & Test Infrastructure | 3/5 | In Progress|  |
+| 1. Safety Net — CI Gates & Test Infrastructure | 4/5 | In Progress|  |
 | 2. Dialect Seam & Engine Parity | 0/5 | Not started | - |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |

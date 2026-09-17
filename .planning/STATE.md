@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-09-17T23:23:16.984Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-09-17T23:42:24.380Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 01 (Safety Net — CI Gates & Test Infrastructure) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-09-17
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████░░░░] 60%
 | Phase 01 P01 | 6 min | 4 tasks | 60 files |
 | Phase 01 P02 | 9 min | 3 tasks | 4 files |
 | Phase 01 P03 | 8 min | 3 tasks | 10 files |
+| Phase 01 P04 | 12 min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,12 @@ Recent decisions affecting current work:
 - [Phase 01]: El guard de seleccion de markers se refuerza con una comprobacion por fichero de motor: la asercion '> 0' del plan no detectaba la retirada del pytestmark de un solo fichero (quedaban 26 tests integration), de modo que el fallo inducido exigido por el plan habria pasado en verde.
 - [Phase 01]: S603 en per-file-ignores para tests/test_pytest_config.py: el comando de subprocess lleva rutas de tmp_path y no puede ser literal; se prefirio a un # noqa para preservar el invariante noqa=0 de 01-01.
 - [Phase 01]: El step de test de CI emite --junitxml=junit.xml y --cov* pero NO anade -m 'not optional_engine', ENCINO_ORM_REQUIRE_ENGINES ni el gate de skips: son del plan 01-04 y anadirlos haria inatribuible su prueba de fallo inducido.
+- [Phase 01]: El gate de skips se reconcilia en la INVOCACION: el job requerido corre con -m 'not optional_engine', asi que skipped mayor que 0 en el XML es un skip NO marcado por construccion (D-02). — El JUnit-XML no lleva informacion de markers; deseleccionar los 13 tests opcionales antes del run elimina la ambiguedad en la fuente (verificado: no aparecen en el XML).
+- [Phase 01]: El interruptor es solo env var (ENCINO_ORM_REQUIRE_ENGINES), nunca auto-deteccion (D-03). — La auto-deteccion es el fallo silencioso que la fase elimina; en local, sin la var, un motor ausente sigue omitiendo.
+- [Phase 01]: release.yml no puede usar needs: sobre un job de otro fichero: CI se expone con on.workflow_call y publish llama ./.github/workflows/ci.yml (CI-08). — Con ./ el workflow llamado es el del mismo commit que el caller (correcto sobre un tag); workflow_run correria contra la rama por defecto.
+- [Phase 01]: El except Exception de los 8 fixtures de motor NO se estrecha en Fase 1. — Un typo de env var o un ImportError degradan a skip en local y el interruptor lo hace irrelevante en CI (cualquier fallo de un motor requerido es fallo duro); estrecharlo es Pitfall 1 y queda para Fase 2.
+- [Phase 01]: S314 (xml.etree.ElementTree) se ignora por fichero en tools/ci/check_skips.py con justificacion escrita (T-01-11). — El XML es un artefacto de build del propio job y ET de CPython no resuelve entidades externas; defusedxml violaria la regla solo-stdlib del gate.
+- [Phase 01]: Los tests del arnes llevan el nombre del modulo en el metodo (test_check_skips_*, test_require_engines_*) para que -k seleccione de verdad. — TestCheckSkipsMain no contiene el literal check_skips (falta el guion bajo), asi que -k deseleccionaba los 13 tests y pasaba en vacio.
 
 ### Pending Todos
 
@@ -103,6 +110,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-17T23:23:16.974Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-09-17T23:42:24.371Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None
