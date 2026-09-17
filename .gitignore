@@ -26,3 +26,6 @@ site/
 
 # Notas internas (no distribuir)
 prompts/
+
+# SQLITE
+*.db-*
