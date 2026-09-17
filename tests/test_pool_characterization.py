@@ -338,3 +338,56 @@ class TestPoolReleaseSemantics:
         # mientras `_connections` guarda una sola entrada. Baseline pre-refactor.
         assert conn_a is conn_b
         await p.close()
+
+
+class TestPoolClose:
+    async def test_close_normal_path(self, pool):
+        conn = await pool.acquire()
+        await pool.release(conn)
+
+        await pool.close()
+
+        assert pool.is_connected is False
+        assert pool._size == 0
+        assert len(pool._connections) == 0
+        assert pool._last_used == {}
+        assert conn.closed is True
+
+    async def test_close_is_idempotent(self, pool):
+        conn = await pool.acquire()
+        await pool.release(conn)
+
+        await pool.close()
+        await pool.close()  # segunda llamada: no debe lanzar
+
+        assert pool.is_connected is False
+        assert pool._size == 0
+        assert len(pool._connections) == 0
+        # POOL-06: baseline de idempotencia.
+
+    async def test_close_closes_held_connection(self, pool):
+        held = await pool.acquire()  # NO se libera
+
+        await pool.close()
+
+        # POOL-06: defecto caracterizado. `close()` cierra una conexión que un
+        # llamador aún mantiene. Fase 4 exige que nunca cierre una conexión en
+        # uso, así que esta aserción se espera INVERTIR (`held.closed is False`).
+        assert held.closed is True
+
+    async def test_close_never_connected_pool_does_not_raise(self, fake_engine):
+        p = PoolDb("fake", min_size=0, max_size=1)
+
+        await p.close()
+
+        assert p.is_connected is False
+
+    async def test_close_does_not_reset_stats(self, fake_engine):
+        p = PoolDb("fake", min_size=1, max_size=1)
+        await p.connect()
+        creates_before = p.stats["creates"]
+        assert creates_before == 1
+
+        await p.close()
+
+        assert p.stats["creates"] == creates_before
