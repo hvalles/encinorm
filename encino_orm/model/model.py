@@ -71,9 +71,8 @@ def _types_compatible(model_dt: str, db_dt: str, engine: str) -> bool:
         return True  # DECIMAL/NUMERIC exacto se introspecciona como "numeric"
     if engine == Engine.SQLITE and model_dt in ("datetime", "date") and db_dt == "str":
         return True  # SQLite guarda datetime/date como TEXT
-    if engine == Engine.SQLITE and model_dt == "decimal" and db_dt == "str":
-        return True  # SQLite guarda Decimal como TEXT
-    return False
+    # SQLite guarda Decimal como TEXT
+    return engine == Engine.SQLITE and model_dt == "decimal" and db_dt == "str"
 
 
 def _set_private(obj, name, value):
@@ -156,7 +155,7 @@ class Model(BaseModel):
     @classmethod
     def add_index(cls, idx) -> "Model":
         """Registra un índice (clase `Index`) para generarlo en `create_table`."""
-        cls._indexes = list(cls._indexes) + [idx]
+        cls._indexes = [*cls._indexes, idx]
         return cls
 
     def __init__(self, db: Db = None, **kwargs):
@@ -443,13 +442,19 @@ class Model(BaseModel):
         if adapter is None:
             info = cls.model_fields[field]
             metadata = getattr(info, "metadata", None) or []
-            if metadata:
-                annotation = Annotated[(info.annotation, *metadata)]
-            else:
-                annotation = info.annotation
+            annotation = Annotated[(info.annotation, *metadata)] if metadata else info.annotation
             adapter = TypeAdapter(annotation)
             per_class[field] = adapter
         return adapter
+
+    def _validate_field(self, field: str) -> str | None:
+        """Devuelve el mensaje de error de `field`, o `None` si es válido."""
+        try:
+            type(self)._field_adapter(field).validate_python(getattr(self, field, None))
+        except PydanticValidationError as exc:
+            e = exc.errors()[0]
+            return f"{e['msg']} | valor actual {e.get('input')}"
+        return None
 
     async def validate(self, fields=None) -> dict | None:
         model = type(self)
@@ -457,11 +462,9 @@ class Model(BaseModel):
         target = list(model_fields) if fields is None else [f for f in fields if f in model_fields]
         errors = {}
         for field in target:
-            try:
-                model._field_adapter(field).validate_python(getattr(self, field, None))
-            except PydanticValidationError as exc:
-                e = exc.errors()[0]
-                errors[field] = f"{e['msg']} | valor actual {e.get('input')}"
+            msg = self._validate_field(field)
+            if msg is not None:
+                errors[field] = msg
         return errors or None
 
     # --- CRUD ---
@@ -506,7 +509,7 @@ class Model(BaseModel):
         return await self.insert()
 
     @classmethod
-    async def insert_many(cls, db=None, rows: list[dict] = None, *, chunk: int = 500) -> int:
+    async def insert_many(cls, db=None, rows: list[dict] | None = None, *, chunk: int = 500) -> int:
         """Inserta varios registros en una transacción (multi-filas `VALUES`).
 
         Devuelve el total de filas insertadas. Los registros se particionan en
@@ -667,10 +670,7 @@ class Model(BaseModel):
             existing = await self.load(keys=keys)
             if not existing._exists:
                 raise FailOnUpdate(f"update en '{self._table}' no afectó ningún registro")
-        if data is None:
-            data = list(self.__dict__.get("__dirties", []) or [])
-        else:
-            data = list(data)
+        data = list(self.__dict__.get("__dirties", []) or []) if data is None else list(data)
         if not data:
             data = [f for f in self._column_map() if f not in ("id", "created_at")]
         data = [f for f in data if f not in ("id", "created_at") and not f.startswith("_")]
@@ -858,7 +858,7 @@ class Model(BaseModel):
 
         return QueryBuilder(type(self), self._get_db())
 
-    async def create_table(self, engine: str = None):
+    async def create_table(self, engine: str | None = None):
         """Genera y aplica el DDL de la tabla (e índices) vía `to_ddl` + `migrate`."""
         from .types import indexes_ddl, to_ddl
 
@@ -869,7 +869,7 @@ class Model(BaseModel):
             await self._get_db().migrate(f"create_index_{name}", Query(idx_ddl, []))
 
     async def sync_schema(
-        self, engine: str = None, drop_missing: bool = False, alter_types: bool = False
+        self, engine: str | None = None, drop_missing: bool = False, alter_types: bool = False
     ) -> dict:
         """Sincroniza el esquema con ``_column_map()`` vía ``ALTER TABLE``.
 
@@ -924,7 +924,7 @@ class Model(BaseModel):
 
         return {"added": added, "dropped": dropped, "changed": changed}
 
-    async def diff_schema(self, engine: str = None) -> dict:
+    async def diff_schema(self, engine: str | None = None) -> dict:
         """Compara el modelo contra la BD sin aplicar cambios.
 
         Devuelve ``{"added": [...], "dropped": [...], "changed": [...]}``; cada
@@ -1007,7 +1007,7 @@ class Model(BaseModel):
         cond = None
         for pair in pairs:
             sub = None
-            for rf, val in zip(remote_fields, pair):
+            for rf, val in zip(remote_fields, pair, strict=False):
                 eq = Filter.eq(rf, val)
                 sub = eq if sub is None else sub & eq
             cond = sub if cond is None else cond | sub
@@ -1021,7 +1021,7 @@ class Model(BaseModel):
             if key in remote_index:
                 m_ref = m._references[name]
                 m_ref._cached = remote_index[key]
-                m_ref._cached_keys = dict(zip(remote_fields, key))
+                m_ref._cached_keys = dict(zip(remote_fields, key, strict=False))
 
     @classmethod
     async def batch_has_many(cls, models, name: str, extra=None):
@@ -1078,7 +1078,7 @@ class Model(BaseModel):
         cond = None
         for pair in pairs:
             sub = None
-            for cf, val in zip(child_fields, pair):
+            for cf, val in zip(child_fields, pair, strict=False):
                 eq = Filter.eq(cf, val)
                 sub = eq if sub is None else sub & eq
             cond = sub if cond is None else cond | sub

@@ -98,7 +98,7 @@ class PostgresDb(Db):
         if self._connection is not None:
             await self._connection.execute("COMMIT")
 
-    async def rollback(self, save_point: str = None):
+    async def rollback(self, save_point: str | None = None):
         if self._connection is None:
             return
         if save_point:
@@ -161,7 +161,7 @@ class PostgresDb(Db):
     ):
         columns = list(data.keys())
         values = list(data.values())
-        placeholders = ",".join("{%d}" % i for i in range(len(columns)))
+        placeholders = ",".join(f"{{{i}}}" for i in range(len(columns)))
 
         sql = f"INSERT INTO {tabla} ({','.join(columns)}) VALUES ({placeholders})"
         if replace:

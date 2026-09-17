@@ -6,7 +6,7 @@ los recolecta en ``__init_subclass__`` y los ejecuta en orden de declaración.
 
 
 def _mark(func, hook: str):
-    setattr(func, "_encino_orm_hook", hook)
+    func._encino_orm_hook = hook
     return func
 
 

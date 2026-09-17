@@ -4,6 +4,7 @@ Traduce los valores según el datatype lógico de cada columna (introspección) 
 formato que espera el motor destino, y opcionalmente crea el esquema destino.
 """
 
+import contextlib
 import json
 import re
 from datetime import date, datetime, timezone
@@ -127,12 +128,11 @@ async def _set_fk(db, enabled: bool):
     elif engine is Engine.MYSQL:
         await db.execute(Query(f"SET FOREIGN_KEY_CHECKS={'1' if enabled else '0'}", []))
     elif engine is Engine.POSTGRESQL:
-        try:
+        # best-effort: cambiar el rol de replicación puede requerir superusuario
+        with contextlib.suppress(Exception):
             await db.execute(
                 Query(f"SET session_replication_role = {'origin' if enabled else 'replica'}", [])
             )
-        except Exception:
-            pass
 
 
 async def copy_table(

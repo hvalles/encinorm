@@ -188,7 +188,7 @@ def to_ddl(model_class, engine: str = "sqlite") -> str:
             continue
         remote = spec["model"]
         local_cols = [model_class._col(local) for local in spec["match_keys"].values()]
-        remote_cols = [remote._col(r) for r in spec["match_keys"].keys()]
+        remote_cols = [remote._col(r) for r in spec["match_keys"]]
         lines.append(
             f"  FOREIGN KEY ({', '.join(local_cols)}) "
             f"REFERENCES {remote._table} ({', '.join(remote_cols)}) ON DELETE {action}"

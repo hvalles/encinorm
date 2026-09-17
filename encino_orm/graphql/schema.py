@@ -19,9 +19,9 @@ from .types import _snake, build_input, build_type
 def _list_resolver(model, gtype, ftype):
     async def resolver(
         info: Info,
-        filter: Optional[ftype] = None,
-        limit: Optional[int] = None,
-        page: Optional[int] = 1,
+        filter: ftype | None = None,
+        limit: int | None = None,
+        page: int | None = 1,
     ) -> list[gtype]:
         async with db_session(info) as conn:
             f = filter_from_input(model, filter)
@@ -32,7 +32,7 @@ def _list_resolver(model, gtype, ftype):
 
 
 def _count_resolver(model, ftype):
-    async def resolver(info: Info, filter: Optional[ftype] = None) -> int:
+    async def resolver(info: Info, filter: ftype | None = None) -> int:
         async with db_session(info) as conn:
             return await cursor(model, conn).count(filter_from_input(model, filter))
 
@@ -51,7 +51,7 @@ def _pk_resolver(model, gtype, op, itype=None):
     """Construye un resolver `get`/`update`/`delete` derivado de `_primary_key`."""
     pk = list(model._primary_key)
     type_names = [f"_pk_t{i}" for i in range(len(pk))]
-    sig = ", ".join(f"{f}: {tn}" for f, tn in zip(pk, type_names))
+    sig = ", ".join(f"{f}: {tn}" for f, tn in zip(pk, type_names, strict=False))
     kwargs = ", ".join((f"{f}=int({f})" if f == "id" else f"{f}={f}") for f in pk)
 
     if op == "get":

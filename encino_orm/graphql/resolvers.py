@@ -1,7 +1,7 @@
 """Helpers de resolución: conexión por request, cursor y relaciones."""
 
 from contextlib import asynccontextmanager
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import strawberry
 from strawberry.dataloader import DataLoader
@@ -46,7 +46,7 @@ def _ref_resolver(model, name, child, module_name):
 
     async def resolver(
         root: Any, info: Info
-    ) -> Optional[Annotated[child.__name__, strawberry.lazy(module_name)]]:
+    ) -> Annotated[child.__name__, strawberry.lazy(module_name)] | None:
         loader = _dataloader(info, f"_encino_orm_ref:{model.__name__}:{name}", load_fn)
         return await loader.load(root)
 
@@ -60,7 +60,7 @@ def _has_many_resolver(model, name, child, module_name):
 
     async def resolver(
         root: Any, info: Info
-    ) -> Optional[list[Annotated[child.__name__, strawberry.lazy(module_name)]]]:
+    ) -> list[Annotated[child.__name__, strawberry.lazy(module_name)]] | None:
         loader = _dataloader(info, f"_encino_orm_hm:{model.__name__}:{name}", load_fn)
         return await loader.load(root)
 

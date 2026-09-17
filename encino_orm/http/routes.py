@@ -81,7 +81,7 @@ def register_crud(router, model: type[Model], prefix: str, *, get_db) -> None:
     de `get`/`put`/`delete` derivan sus parámetros de `model._primary_key`
     (simple o compuesta).
     """
-    from fastapi import Depends, HTTPException, Query
+    from fastapi import Depends, Query
 
     @router.post(prefix + "/", response_model=model, status_code=201)
     async def create(data: model, db=Depends(get_db)) -> model:

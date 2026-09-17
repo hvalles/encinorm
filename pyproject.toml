@@ -51,6 +51,54 @@ target-version = "py310"
 # (ver AGENTS.md §Code Style, actualizado en Fase 1).
 line-length = 100
 
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "UP", "B", "C4", "SIM", "PERF", "FURB", "ASYNC", "RUF", "S", "PT",
+]
+# No se habilitan en este milestone: "ANN", "D", "PL". Racional: 101 ficheros /
+# 507 tests; habilitarlos en bloque produce un diff irrevisable y entierra los
+# hallazgos reales.
+
+[tool.ruff.lint.per-file-ignores]
+# D-09: no se reescriben asserts genéricos (pytest.raises(Exception)) ni asserts
+# de estado privado en Fase 1, así que PT011/B017 se ignoran aquí y se levantan
+# en Fase 4. PT012/PT018/PT006 siguen activos.
+"tests/**" = ["S101", "PT011", "B017", "ARG001", "ARG002"]
+# S608: los constructores de dialecto interpolan SQL intencionadamente.
+# La validación centralizada llega en Fase 2 (DIAL-02); el resto de `S` sigue activo.
+"encino_orm/sqlite.py" = ["S608"]
+"encino_orm/mysql.py" = ["S608"]
+"encino_orm/mariadb.py" = ["S608"]
+"encino_orm/postgresql.py" = ["S608"]
+"encino_orm/mssql.py" = ["S608"]
+"encino_orm/oracle.py" = ["S608"]
+"encino_orm/transfer.py" = ["S608"]
+"encino_orm/model/model.py" = ["S608"]
+# S102: handlers generados con exec(); se sustituyen en Fase 6 (CFG-03).
+# B008: Depends(...) en defaults de inyección de dependencias de FastAPI; se
+# levanta en Fase 6 (CFG-02).
+"encino_orm/http/routes.py" = ["S102", "B008"]
+"encino_orm/graphql/schema.py" = ["S102"]
+# B008: Depends(...)/require(...) en defaults de FastAPI (5 hallazgos); idiom del
+# framework, se levanta en Fase 6 (CFG-02).
+"encino_orm/security/guard.py" = ["B008"]
+# S608: igual que el resto de adaptadores. S311: `random` solo alimenta el
+# backoff con jitter para reintentos de deadlock; no es sensible a seguridad.
+# PERF203: el try/except debe permanecer dentro del bucle de reintentos (máx. 9
+# iteraciones) para el control de flujo; sacarlo cambia la semántica.
+"encino_orm/base.py" = ["S608", "S311", "PERF203"]
+# PERF203: `get_nowait()` + `except QueueEmpty` es la condición del bucle de
+# adquisición; no se puede sacar el try/except sin cambiar la semántica.
+"encino_orm/pool.py" = ["PERF203"]
+# S324: sha1 construye claves de caché, no una frontera de seguridad.
+"encino_orm/model/cached.py" = ["S324"]
+"encino_orm/model/filter.py" = ["S324"]
+# B008: Depends/require en defaults (2 hallazgos). S105: la constante SECRET es
+# solo de test. Ambos se levantan en Fase 6 (CFG-02).
+"tests/test_security.py" = ["B008", "S105"]
+# Interpola SQL a propósito para ejercitar los fragmentos portables.
+"tests/test_sql_functions.py" = ["S608"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["encino_orm"]
 

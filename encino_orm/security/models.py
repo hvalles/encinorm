@@ -56,7 +56,4 @@ async def seed_roles(db) -> list[int]:
     """
     if await Rol.cursor(db).count() > 0:
         return []
-    ids = []
-    for nombre in SEED_ROLES:
-        ids.append(await Rol(db, rol=nombre).insert())
-    return ids
+    return [await Rol(db, rol=nombre).insert() for nombre in SEED_ROLES]

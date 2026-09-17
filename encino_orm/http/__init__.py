@@ -5,9 +5,9 @@ función, por lo que `encino_orm` y `encino_orm.model` siguen funcionando sin el
 """
 
 from .errors import install_error_handlers
+from .parsing import filter_from_str, sort_from_str
 from .registry import Registry, register_introspection
 from .routes import register_crud
-from .parsing import filter_from_str, sort_from_str
 
 
 def create_crud(pool, models, *, get_db=None, prefix="/api", registry=None, tags=("Model",)):
@@ -17,6 +17,7 @@ def create_crud(pool, models, *, get_db=None, prefix="/api", registry=None, tags
     si no se inyecta (sin singleton global).
     """
     from fastapi import APIRouter
+
     from encino_orm import session
 
     if get_db is None:
@@ -36,10 +37,10 @@ def create_crud(pool, models, *, get_db=None, prefix="/api", registry=None, tags
 
 __all__ = [
     "Registry",
+    "create_crud",
+    "filter_from_str",
+    "install_error_handlers",
     "register_crud",
     "register_introspection",
-    "create_crud",
-    "install_error_handlers",
-    "filter_from_str",
     "sort_from_str",
 ]

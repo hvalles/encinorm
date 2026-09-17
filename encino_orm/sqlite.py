@@ -83,7 +83,7 @@ class SqliteDb(Db):
         if self._connection:
             await self._connection.commit()
 
-    async def rollback(self, save_point: str = None):
+    async def rollback(self, save_point: str | None = None):
         if not self._connection:
             return
         if save_point:
@@ -140,7 +140,7 @@ class SqliteDb(Db):
     ):
         columns = list(data.keys())
         values = list(data.values())
-        placeholders = ",".join("{%d}" % i for i in range(len(columns)))
+        placeholders = ",".join(f"{{{i}}}" for i in range(len(columns)))
 
         keyword = "INSERT"
         if replace:

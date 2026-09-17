@@ -1,7 +1,7 @@
 """Traducción de filtros GraphQL a `Filter` del ORM."""
 
 from datetime import date, datetime
-from typing import Annotated, Optional
+from typing import Annotated
 
 import strawberry
 
@@ -102,13 +102,13 @@ def build_filter_input(model, module_name: str):
         if f.startswith("_") or f in _AUTO:
             continue
         dt = _field_datatype(model, f, info)
-        annotations[f] = Optional[_filter_type_for(dt, f)]
+        annotations[f] = _filter_type_for(dt, f) | None
 
     name = f"{model.__name__}Filter"
     lazy_self = Annotated[name, strawberry.lazy(module_name)]
-    annotations["and_"] = Optional[list[lazy_self]]
-    annotations["or_"] = Optional[list[lazy_self]]
-    annotations["not_"] = Optional[lazy_self]
+    annotations["and_"] = list[lazy_self] | None
+    annotations["or_"] = list[lazy_self] | None
+    annotations["not_"] = lazy_self | None
 
     namespace = {"__annotations__": annotations}
     for f in annotations:

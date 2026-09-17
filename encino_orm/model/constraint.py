@@ -93,7 +93,9 @@ def make_constraint(py_type, *, datatype=None, required=False, name=None, valida
         try:
             datatype = PY_TYPE_TO_DATATYPE[py_type]
         except KeyError:
-            raise TypeError(f"Sin datatype inferido para {py_type!r}; indícalo con datatype=...")
+            raise TypeError(
+                f"Sin datatype inferido para {py_type!r}; indícalo con datatype=..."
+            ) from None
 
     def build(name=name, required=required, **overrides):
         field_kwargs = {**base, **overrides}

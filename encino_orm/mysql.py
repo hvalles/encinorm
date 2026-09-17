@@ -90,7 +90,7 @@ class MysqlDb(Db):
         if self._connection is not None:
             await self._connection.commit()
 
-    async def rollback(self, save_point: str = None):
+    async def rollback(self, save_point: str | None = None):
         if self._connection is None:
             return
         if save_point:
@@ -156,7 +156,7 @@ class MysqlDb(Db):
     ):
         columns = list(data.keys())
         values = list(data.values())
-        placeholders = ",".join("{%d}" % i for i in range(len(columns)))
+        placeholders = ",".join(f"{{{i}}}" for i in range(len(columns)))
 
         if replace:
             keyword = "REPLACE"

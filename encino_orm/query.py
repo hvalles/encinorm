@@ -9,7 +9,7 @@ class Query:
         else:
             self.query = [sql, {}]
 
-    def format(self, sql, columns: list = None, name="parameter_000"):
+    def format(self, sql, columns: list | None = None, name="parameter_000"):
         if columns is None:
             columns = []
         if not columns:

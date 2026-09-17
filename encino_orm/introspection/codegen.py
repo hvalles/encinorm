@@ -44,7 +44,6 @@ _RESERVED = {
     # palabras reservadas SQL comunes
     "create",
     "select",
-    "insert",
     "drop",
     "alter",
     "table",

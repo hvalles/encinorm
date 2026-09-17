@@ -119,7 +119,7 @@ class MssqlDb(Db):
             await self._connection.commit()
             self._in_tx = False
 
-    async def rollback(self, save_point: str = None):
+    async def rollback(self, save_point: str | None = None):
         if self._connection is None:
             return
         if save_point:
@@ -215,7 +215,7 @@ class MssqlDb(Db):
                 f"WHEN NOT MATCHED THEN INSERT ({ins_cols}) VALUES ({ins_vals})"
             )
         else:
-            placeholders = ",".join("{%d}" % i for i in range(len(columns)))
+            placeholders = ",".join(f"{{{i}}}" for i in range(len(columns)))
             sql = f"INSERT INTO {tabla} ({','.join(columns)}) VALUES ({placeholders})"
 
         q = Query(sql, values)

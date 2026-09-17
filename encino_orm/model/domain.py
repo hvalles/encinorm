@@ -42,6 +42,17 @@ DECIMAL = make_constraint(Decimal)  # datatype "decimal" (dinero exacto)
 JSON = make_constraint(dict, datatype="json")  # dict | None -> columna JSON
 
 __all__ = [
+    "BLOB",
+    "BOOL",
+    "CURRENCY",
+    "DATE",
+    "DATETIME",
+    "DECIMAL",
+    "FLOAT",
+    "FLOAT_POS",
+    "INT",
+    "INT_POS",
+    "JSON",
     "STR_10",
     "STR_15",
     "STR_20",
@@ -51,15 +62,4 @@ __all__ = [
     "STR_255",
     "STR_500",
     "TEXT",
-    "INT",
-    "INT_POS",
-    "CURRENCY",
-    "FLOAT",
-    "FLOAT_POS",
-    "BOOL",
-    "DATE",
-    "DATETIME",
-    "BLOB",
-    "DECIMAL",
-    "JSON",
 ]

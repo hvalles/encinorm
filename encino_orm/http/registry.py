@@ -28,5 +28,5 @@ def register_introspection(router, registry: Registry) -> None:
         try:
             cls = registry.get(name)
         except KeyError:
-            raise HTTPException(404, detail="modelo no encontrado")
+            raise HTTPException(404, detail="modelo no encontrado") from None
         return cls.model_json_schema()

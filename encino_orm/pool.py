@@ -141,7 +141,7 @@ class PoolDb(Db):
                     self._stats["timeouts"] += 1
                     raise PoolExhaustedError(
                         f"Pool agotado tras {timeout}s de espera (max_size={self._max_size})"
-                    )
+                    ) from None
             else:
                 if not self._needs_check(db) or await db.is_alive():
                     self._stats["acquires"] += 1
@@ -226,7 +226,7 @@ class PoolDb(Db):
             "commit() se gestiona con pool.transaction(); no lo llames directamente"
         )
 
-    async def rollback(self, save_point: str = None):
+    async def rollback(self, save_point: str | None = None):
         if save_point is None:
             raise ConnectionError(
                 "rollback() se gestiona con pool.transaction(); no lo llames directamente"

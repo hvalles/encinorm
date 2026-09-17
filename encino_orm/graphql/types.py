@@ -1,7 +1,7 @@
 """Generación de ObjectType/Input desde un `Model`."""
 
 import re
-from typing import Annotated, Optional
+from typing import Annotated
 
 import strawberry
 
@@ -25,7 +25,7 @@ def _graphql_annotation(model, field):
     if field == "id":
         base = strawberry.ID
     if not info.is_required():
-        base = Optional[base]
+        base = base | None
     return base
 
 
@@ -38,12 +38,12 @@ def build_type(model, module_name: str):
 
     for name, spec in model._references_def.items():
         child = spec["model"]
-        annotations[name] = Optional[Annotated[child.__name__, strawberry.lazy(module_name)]]
+        annotations[name] = Annotated[child.__name__, strawberry.lazy(module_name)] | None
         namespace[name] = strawberry.field(resolver=_ref_resolver(model, name, child, module_name))
 
     for name, spec in model._has_many_def.items():
         child = spec["model"]
-        annotations[name] = Optional[list[Annotated[child.__name__, strawberry.lazy(module_name)]]]
+        annotations[name] = list[Annotated[child.__name__, strawberry.lazy(module_name)]] | None
         namespace[name] = strawberry.field(
             resolver=_has_many_resolver(model, name, child, module_name)
         )

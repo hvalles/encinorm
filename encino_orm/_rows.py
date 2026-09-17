@@ -15,4 +15,4 @@ def _rows_to_dicts(description, rows) -> list[dict]:
     columna.
     """
     cols = [d[0].lower() for d in description]
-    return [dict(zip(cols, row)) for row in rows]
+    return [dict(zip(cols, row, strict=False)) for row in rows]

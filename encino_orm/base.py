@@ -4,6 +4,7 @@ import random
 import re
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
+from typing import ClassVar
 
 from .query import Query
 
@@ -14,7 +15,7 @@ _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 class Db(ABC):
     MAX_TRIES = 9
-    WAITERS = [x * 0.02 for x in range(1, 11)]
+    WAITERS: ClassVar[list[float]] = [x * 0.02 for x in range(1, 11)]
     MAX_WAIT = len(WAITERS) - 1
 
     dialect: str = ""
@@ -51,7 +52,7 @@ class Db(ABC):
     async def commit(self): ...
 
     @abstractmethod
-    async def rollback(self, save_point: str = None): ...
+    async def rollback(self, save_point: str | None = None): ...
 
     @abstractmethod
     async def save_point(self, name: str): ...
@@ -75,7 +76,7 @@ class Db(ABC):
         """Indica si `exc` corresponde a un error de bloqueo/deadlock re-reintentable."""
         return False
 
-    async def retry(self, coro, tries: int = None):
+    async def retry(self, coro, tries: int | None = None):
         """Reintenta una coroutine ante errores de bloqueo (deadlock)."""
         max_tries = tries if tries is not None else self.MAX_TRIES
         last_exc = None

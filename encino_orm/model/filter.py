@@ -36,7 +36,7 @@ class Filter:
     con placeholders ``{0}..{n}`` y la lista de parámetros correspondiente.
     """
 
-    __slots__ = ("_op", "_args")
+    __slots__ = ("_args", "_op")
 
     def __init__(self, op: str, *args):
         self._op = op
@@ -162,7 +162,7 @@ class Filter:
         que dos filtros semánticamente iguales producen la misma huella.
         """
         sql, params = self.to_sql()
-        raw = f"{sql}||{repr(params)}"
+        raw = f"{sql}||{params!r}"
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
     def _build(self, alias, idx) -> tuple[str, list]:

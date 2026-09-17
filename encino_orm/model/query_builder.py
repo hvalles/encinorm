@@ -1,10 +1,16 @@
 import re
+from typing import TYPE_CHECKING
 
 from encino_orm.query import Query
 
 from .exceptions import DuplicateAliasError, DuplicateColumnAliasError
 from .filter import Filter
 from .records import normalize_limit_page
+
+if TYPE_CHECKING:
+    # Solo para la anotación `-> "Records"` de `paginate`; la importación real
+    # sigue siendo diferida dentro del método (contrato de import diferido).
+    from .records import Records
 
 _PLACEHOLDER = re.compile(r"\{(\d+)\}")
 _COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
