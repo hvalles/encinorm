@@ -4,6 +4,10 @@ import pytest
 
 from encino_orm import MysqlDb, Query
 
+# Todas las clases de este modulo necesitan un MySQL vivo (D-08): el marker se
+# aplica a nivel de modulo. MySQL es motor requerido en Fase 1 (D-01).
+pytestmark = pytest.mark.integration
+
 MYSQL_CONFIG = {
     "host": os.getenv("ENCINO_ORM_MYSQL_HOST", "127.0.0.1"),
     "port": int(os.getenv("ENCINO_ORM_MYSQL_PORT", "3306")),

@@ -5,6 +5,10 @@ import pytest
 from encino_orm import Query
 from encino_orm.model import CachedModel, RedisCacheBackend
 
+# Todas las clases de este modulo necesitan un Redis vivo (D-08). Redis no es
+# motor requerido en Fase 1 (D-02), asi que tambien lleva `optional_engine`.
+pytestmark = [pytest.mark.integration, pytest.mark.optional_engine]
+
 REDIS_URL = os.getenv("ENCINO_ORM_REDIS_URL", "redis://127.0.0.1:6379")
 
 

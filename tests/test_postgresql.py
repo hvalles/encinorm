@@ -82,6 +82,7 @@ async def _reset(db, name, ddl):
     await db.execute(Query(ddl, []))
 
 
+@pytest.mark.integration
 class TestPostgresLifecycle:
     @pytest.mark.asyncio
     async def test_connect_and_close(self, pg_connected_db):
@@ -132,6 +133,7 @@ class TestPostgresLifecycle:
             assert rows[0]["valor"] == "paso1"
 
 
+@pytest.mark.integration
 class TestPostgresBuildersAndQueries:
     @pytest.mark.asyncio
     async def test_insert_execute_and_last_id(self, pg_connected_db):
@@ -230,6 +232,7 @@ class TestPostgresBuildersAndQueries:
         assert [r["nombre"] for r in page3] == ["e"]
 
 
+@pytest.mark.integration
 class TestPostgresMigrations:
     @pytest.mark.asyncio
     async def test_migrate_applies_and_records(self, pg_connected_db):

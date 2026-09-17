@@ -107,6 +107,8 @@ async def oracle_connected_db():
     await db.close()
 
 
+@pytest.mark.integration
+@pytest.mark.optional_engine
 class TestOracleLifecycle:
     @pytest.mark.asyncio
     async def test_connect_and_close(self, oracle_connected_db):

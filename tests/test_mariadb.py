@@ -47,6 +47,8 @@ async def mariadb_connected_db():
     await db.close()
 
 
+@pytest.mark.integration
+@pytest.mark.optional_engine
 class TestMariadbLifecycle:
     @pytest.mark.asyncio
     async def test_connect_and_close(self, mariadb_connected_db):
