@@ -27,24 +27,31 @@ These are not preferences. Violating any of them invalidates later verification.
 
 1. **CI gates before any breaking change.** CI-09 (pool invariant characterization tests) must land
    *before* POOL work begins — a pool refactor cannot be verified against tests written afterwards.
+
 2. **Centralize before validating.** DIAL-01 is a separate, zero-behavior-change commit. DIAL-02
    (validation) is a separate, bisectable commit on top of it. Merging them makes the security change
    unbisectable and lets it silently miss five of six dialects.
+
 3. **POOL-01…POOL-06 are one unit.** They mutate the same pool bookkeeping and the same release path;
    splitting them across phases or releases invites conflicting fixes.
+
 4. **RESL depends on POOL.** Reconnect and health checks need the `PooledConnection` handle and the
    generation counter to exist first.
+
 5. **PERF depends on DIAL constants + POOL.** Batch sizing needs per-dialect `MAX_PARAMS`/`MAX_ROWS`;
    the idle-reaper work needs the pool handle.
+
 6. **REL is sequenced before the first breaking change reaches users.** 0.2.7 (runtime deprecations)
    → 0.3.0rc1 → 0.3.0, in that order, on PyPI. 0.2.7 is cut from the `v0.2.6` maintenance line, **not**
    from hardened `main` — the deprecations describe the old behavior while it still exists.
+
 7. **DATA runs parallel to DIAL.** Disjoint modules (`migration.py`, `model/cached.py`,
    `model/cache_backend.py` vs. `dialects/`, `query.py`, adapters). No file overlap.
 
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -62,6 +69,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Safety Net — CI Gates & Test Infrastructure
+
 **Goal**: CI can actually fail. Lint, format, types, per-engine coverage, a required-engine switch and
 pool characterization tests all exist and block merge, so that every later "fix verified" claim is
 backed by a signal that would have caught the `COUNT(*)` bug.
@@ -69,39 +77,59 @@ backed by a signal that would have caught the `COUNT(*)` bug.
 **Depends on**: Nothing (first phase)
 **Requirements**: CI-01, CI-02, CI-03, CI-04, CI-05, CI-06, CI-07, CI-08, CI-09
 **Success Criteria** (what must be TRUE):
+
   1. Removing a required engine's CI service makes its job **fail**, not skip
   2. Any skipped test fails the CI job through the JUnit-XML `skipped > 0` gate
   3. A lint, format, or type violation, or a coverage drop below the ratchet floor, fails CI before merge
   4. A publish attempt cannot run while CI gates are red
   5. Pool invariant characterization tests exist and pass against the **unmodified** pool
+
 **Plans**: 5 plans
 **Research**: not needed — ruff/mypy/pytest-cov/uv configuration is exhaustively documented in STACK.md with version-verified config sketches
 
 Plans:
+**Wave 1**
+
 - [ ] 01-01-PLAN.md — Upgrade `uv` to 0.12.15, land ruff format-only commit (registered in `.git-blame-ignore-revs`), then the narrow `ruff check` ruleset as a blocking CI job — CI-03
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 01-02-PLAN.md — `mypy` non-strict with `--warn-unused-ignores` + `py.typed` marker, and the dependency/vulnerability scanning job (`uv lock --check`, `uv audit`, `pip-audit`) — CI-04, CI-07
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 01-03-PLAN.md — Harden pytest config (`--strict-markers`, `xfail_strict`, `filterwarnings = ["error"]`, both loop scopes, declared markers) and wire `pytest-cov` with `parallel = true`, per-engine `COVERAGE_FILE` + `coverage combine`, low ratchet floor — CI-05, CI-06
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 01-04-PLAN.md — `ENCINO_ORM_REQUIRE_ENGINES` switch that fails instead of skipping, JUnit-XML post-run `skipped > 0` gate, and `release.yml` `needs:` CI — CI-01, CI-02, CI-08
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 01-05-PLAN.md — Characterization tests for pool invariants (checkout cap, `last_id` scoping, release semantics, `close()` behavior) written against the current implementation — CI-09
 
 **Waves:** 1 → 01-01; 2 → 01-02; 3 → 01-03; 4 → 01-04; 5 → 01-05. The chain is forced by `pyproject.toml` and `ci.yml` overlap across 01-01…01-04; 01-05 lands last so its characterization tests are validated against every gate above them. 01-02 is the only non-autonomous plan (a blocking package-legitimacy checkpoint).
 
 ### Phase 2: Dialect Seam & Engine Parity
+
 **Goal**: Identifier validation and DML construction live in exactly one place inside the core, and the
 library demonstrably returns correct results on all six engines — not just SQLite.
 **Mode:** mvp
 **Depends on**: Phase 1
 **Requirements**: DIAL-01, DIAL-02, DIAL-03, DIAL-04, DIAL-05, DIAL-06, DIAL-07, DIAL-08, DIAL-09
 **Success Criteria** (what must be TRUE):
+
   1. `_check_identifier` lives in exactly one module and all six adapters import it, with the existing suite passing unchanged (pure-refactor proof)
   2. `insert`/`update`/`delete` reject an invalid table or column with `ValueError` before the driver is reached, on all six engines; `sync_schema` rejects introspection-derived names before interpolating them into `ALTER TABLE`
   3. `count`/`paginate`/`list_tables` return correct results on PostgreSQL, SQL Server and Oracle — no `KeyError: 'COUNT(*)'`
   4. `Query` is immutable and hashable, `rebind` works, per-dialect `MAX_PARAMS`/`MAX_ROWS` constants exist, and committed SQL snapshots assert dialect output on the always-on SQLite job
   5. The CI matrix runs per-engine integration tests for `count`/`paginate`/`list_tables`/`sync_schema`/`last_id` on MariaDB, Redis, MSSQL and Oracle
+
 **Plans**: 5 plans
 **Research**: needed — syrupy dialect-snapshot adoption, `testcontainers` Oracle/MSSQL topology, and the `Query` immutability refactor shape are design recommendations without documented consensus
 
 Plans:
+
 - [ ] 02-01: Centralize `_IDENTIFIER_RE`/`_check_identifier` into a single module as a pure refactor with zero behavior change, in its own commit — DIAL-01
 - [ ] 02-02: Shared `dialects/builders.py` + `strategies.py` with `build_insert`/`update`/`delete` validating every table and column; validate introspection-derived identifiers in `sync_schema` before `ALTER TABLE` — DIAL-02, DIAL-04
 - [ ] 02-03: `Query` correctness (remove the fragile `{0}` sentinel, make immutable/hashable, fix `rebind`) plus per-dialect `MAX_PARAMS`/`MAX_ROWS` constants — DIAL-05, DIAL-06
@@ -109,26 +137,31 @@ Plans:
 - [ ] 02-05: Per-dialect SQL snapshots via syrupy on the always-on SQLite job, and the full multi-engine CI matrix (MariaDB + Redis as services; MSSQL/Oracle in a separate single-Python-version job) — DIAL-07, DIAL-08
 
 ### Phase 3: Data Correctness
+
 **Goal**: Migrations and the read cache stop lying. A rolled-back migration can be re-applied, a failed
 `migrate()` leaves a reconcilable state, and cached rows are never stale after a write.
 **Mode:** mvp
 **Depends on**: Phase 1 (parallel to Phase 2 — disjoint modules, no file overlap)
 **Requirements**: DATA-01, DATA-02, DATA-03, DATA-04
 **Success Criteria** (what must be TRUE):
+
   1. After `rollback_migration`, re-applying the same migration succeeds — with a regression test that fails before the fix and passes after
   2. `migrate()` either completes atomically, or on a dialect without transactional DDL records intent first and reconciles on next startup
   3. `CachedModel.update()` and `CachedModel.delete()` never leave a stale cached row readable (store-then-invalidate)
   4. `MemoryCacheBackend` is bounded, or explicitly documented as dev/test-only
+
 **Plans**: 4 plans
 **Research**: not needed — `transactional_ddl` branching and cache-aside invalidation follow Alembic and Microsoft's documented patterns
 
 Plans:
+
 - [ ] 03-01: Fix the `rollback_migration` ledger (delete `{name}`, not only insert `{name}:down`) so re-apply works — DATA-01
 - [ ] 03-02: Per-dialect `transactional_ddl: bool` (True: PostgreSQL/SQLite/SQL Server; False: MySQL/MariaDB/Oracle) with record-intent-first + reconcile-on-startup for the False branch — DATA-02
 - [ ] 03-03: `CachedModel` write-invalidation, overriding both `update` and `delete` — DATA-03
 - [ ] 03-04: Bound `MemoryCacheBackend` (max entries / eviction) or document it as dev/test-only with an explicit contract — DATA-04
 
 ### Phase 4: Pool Correctness & Concurrency
+
 **Goal**: `PoolDb` is correct under concurrency. Per-connection state lives on a per-connection handle,
 admission never exceeds `max_size`, `last_id` belongs to the insert that produced it, and release
 semantics are explicit instead of accidental.
@@ -136,15 +169,18 @@ semantics are explicit instead of accidental.
 **Depends on**: Phase 1 (CI-09 characterization tests) and Phase 2 (dialect constants used by reset paths)
 **Requirements**: POOL-01, POOL-02, POOL-03, POOL-04, POOL-05, POOL-06, POOL-07
 **Success Criteria** (what must be TRUE):
+
   1. Under N concurrent tasks on a pool of size M, live connections never exceed M and no `acquire()` raises spuriously
   2. Concurrent inserts on pooled connections each return their own id (no cross-talk), and post-hoc `last_id()` emits a `DeprecationWarning`
   3. Releasing a connection with an open transaction rolls it back by default; `reset_on_release="commit"` restores the old behavior, and standalone `pool.execute(INSERT)` still commits
   4. `close()` is idempotent and never closes a connection currently held by a caller
   5. Idle connections above `min_size` are closed by the lazy reaper, and deterministic Python-3.10-compatible concurrency/stress tests pass under `pytest-timeout`
+
 **Plans**: 5 plans
 **Research**: needed — the `PooledConnection` refactor shape and the `last_id` API-contract change are breaking-change design decisions
 
 Plans:
+
 - [ ] 04-01: `PooledConnection` handle consolidating per-connection state (driver, `last_id`, timestamps, generation, in-use) and reserve-before-await `acquire()` that never locks across the await; task-ownership binding on the `_current_connection` contextvar — POOL-01, POOL-02
 - [ ] 04-02: Capture `last_id` **inside** the insert (`RETURNING` / `SCOPE_IDENTITY` / immediate `lastrowid`) per connection/task; deprecate post-hoc `last_id()` with a warning — POOL-03
 - [ ] 04-03: `reset_on_release` policy (rollback by default, configurable commit), with explicit commit-or-rollback in `execute`/`_run` first so standalone writes are not silently dropped; `DeprecationWarning` + CHANGELOG entry — POOL-04
@@ -152,41 +188,49 @@ Plans:
 - [ ] 04-05: Deterministic concurrency/stress tests using a hand-rolled `asyncio.Event` barrier (never `asyncio.Barrier`/`TaskGroup` on 3.10), `pytest-timeout` with the signal method, and a `pytest-repeat` stress variant behind a marker — POOL-07
 
 ### Phase 5: Resilience
+
 **Goal**: Connection loss is classified, handled once, and never silently duplicates a write. Direct
 (non-pooled) connections survive idle periods, and driver failures surface as library exceptions.
 **Mode:** mvp
 **Depends on**: Phase 4 (needs `PooledConnection` + generation counter)
 **Requirements**: RESL-01, RESL-02, RESL-03, RESL-04
 **Success Criteria** (what must be TRUE):
+
   1. Each of the six adapters classifies a simulated disconnect as a disconnect error, and does not misclassify a lock/deadlock error
   2. A disconnect **outside** a transaction reconnects once and the operation succeeds; the same disconnect **inside** a transaction raises instead of retrying
   3. Direct (non-pooled) connections survive an idle period via `pre_ping` and `max_connection_lifetime`
   4. Driver exceptions are translated into a documented public library error taxonomy
+
 **Plans**: 4 plans
 **Research**: needed — the error-taxonomy boundary and per-driver disconnect classification require adapter-level API research
 
 Plans:
+
 - [ ] 05-01: `is_disconnect_error` per adapter across all six engines — RESL-01
 - [ ] 05-02: `Db._with_reconnect` template method that reconnects exactly once and only when `in_transaction()` is false, kept strictly separate from the lock/deadlock retry path — RESL-02
 - [ ] 05-03: `pre_ping` + `max_connection_lifetime` policy for direct (non-pooled) connections — RESL-03
 - [ ] 05-04: Public error taxonomy translating driver exceptions into library exceptions — RESL-04
 
 ### Phase 6: Config & Optional-Layer Hygiene
+
 **Goal**: No mutable module-level global decides which database or which secret is in play, and
 generated handlers stop being built with `exec()` — without changing the HTTP or GraphQL contract.
 **Mode:** mvp
 **Depends on**: Phase 1 (independent of Phases 4/5; may run in parallel). Level 4 (config) must precede Level 5 (codegen) so public signatures change once.
 **Requirements**: CFG-01, CFG-02, CFG-03, CFG-04, CFG-05
 **Success Criteria** (what must be TRUE):
+
   1. Two `ConnectionRegistry` instances in the same process resolve to their own databases, and the deprecated global shim still works with a `DeprecationWarning`
   2. `SecurityConfig` is frozen and guards are built from injected config; mutating `SECRET`/`GET_DB` no longer changes behavior
   3. The generated OpenAPI schema is identical before and after the `exec()` → closure rewrite, and path parameters still validate
   4. Two successive `build_schema` calls do not mutate module-level GraphQL namespace state
   5. `Filter.raw`, `Query` and `db.fn.*` trust boundaries are documented with safe/unsafe examples
+
 **Plans**: 5 plans
 **Research**: needed — `__signature__` for FastAPI path params is a community pattern (MEDIUM confidence) and GraphQL namespace isolation is explicitly untested
 
 Plans:
+
 - [ ] 06-01: `ConnectionRegistry` replacing the `_default_db` global, with deprecated backward-compatible shims — CFG-01
 - [ ] 06-02: Immutable `SecurityConfig` + guard factories replacing mutable `SECRET`/`GET_DB`, with deprecated globals — CFG-02
 - [ ] 06-03: Replace `exec()`-generated handlers with closures/`__signature__` as a behavior-preserving refactor, guarded by an OpenAPI snapshot taken before and after — CFG-03
@@ -194,40 +238,48 @@ Plans:
 - [ ] 06-05: Explicit trust-boundary documentation for `Filter.raw`, `Query` and `db.fn.*` fragments — CFG-05
 
 ### Phase 7: Performance & Benchmarks
+
 **Goal**: Every performance claim is measured before it is made. Profiler output is committed first,
 batched inserts remove real round-trips, and a benchmark gate fails on a deliberate regression.
 **Mode:** mvp
 **Depends on**: Phase 2 (per-dialect `MAX_PARAMS`/`MAX_ROWS`) and Phase 4 (pool handle for reaper work)
 **Requirements**: PERF-01, PERF-02, PERF-03, PERF-04
 **Success Criteria** (what must be TRUE):
+
   1. Profiler output (`py-spy`/`cProfile`) is committed to the repo **before** any optimization commit lands
   2. A benchmark suite with numeric targets runs in CI, and a deliberate 2× regression fails the gate
   3. `copy_table` inserts in batches sized per dialect (`min(MAX_PARAMS // n_columns, MAX_ROWS)`) and produces exactly the same rows as the row-by-row path
   4. `QueryTracer._latencies` is bounded and `_FIELD_ADAPTERS` no longer retains model classes indefinitely
+
 **Plans**: 4 plans
 **Research**: needed — per-dialect parameter ceilings (MSSQL 2100, Oracle 1000-element `IN`, asyncpg ~32767) are documented but not empirically verified; measure before sizing batches
 
 Plans:
+
 - [ ] 07-01: Run and commit profiler output (`py-spy`/`cProfile`) on a representative workload, before any optimization — PERF-03
 - [ ] 07-02: Benchmark harness (warmup, ≥5 reps, median + p95 + σ, logging disabled) benchmarking **sync units directly** — SQL build, placeholder translation, batch sizing — with numeric targets and a 2× regression gate — PERF-02
 - [ ] 07-03: Batched `copy_table` with per-dialect batch sizing (`min(MAX_PARAMS // n_columns, MAX_ROWS)`), preferring array binding/`executemany` for Oracle/PostgreSQL, with row-equivalence tests — PERF-01
 - [ ] 07-04: Bound `QueryTracer._latencies` with `deque(maxlen=N)` and switch `_FIELD_ADAPTERS` to `WeakKeyDictionary` — PERF-04
 
 ### Phase 8: Release 0.3.0
+
 **Goal**: The deprecation path is shipped, not planned. Users on `>=0.2.6` get warned by 0.2.7, then
 get a release candidate, then a documented 0.3.0 — with no way to publish past a red CI gate.
 **Mode:** mvp
 **Depends on**: Phases 2–7 (all breaking-change semantics must be settled). Phase 6 may run in parallel but its API changes must be frozen before 0.3.0rc1.
 **Requirements**: REL-01, REL-02, REL-03, REL-04, REL-05
 **Success Criteria** (what must be TRUE):
+
   1. 0.2.7 is published to PyPI with runtime `DeprecationWarning`s for every 0.3.0 breaking change, **before** any 0.3.0 artifact is published
   2. 0.3.0rc1 is published before 0.3.0, using OIDC trusted publishing with no `PYPI_API_TOKEN` and a protected `pypi` environment
   3. `CHANGELOG.md` enumerates every breaking change with old and new behavior, and `MIGRATION-0.3.md` shows before/after examples
   4. The README documents `~=0.2.6` pinning, warns that dev credentials are dev-only, and the `prompts/` link no longer 404s
+
 **Plans**: 5 plans
 **Research**: not needed — SemVer deprecation guidance and PyPI trusted publishing are official, stable and fully sourced
 
 Plans:
+
 - [ ] 08-01: Cut 0.2.7 from the `v0.2.6` maintenance line with runtime `DeprecationWarning`s for each 0.3.0 break (implicit commit on release, unvalidated identifiers, mutable `SECRET`/`GET_DB`, post-hoc `last_id()`), and publish it first — REL-01
 - [ ] 08-02: OIDC trusted publishing (`id-token: write`, `uv publish`), protected `pypi` environment, delete `PYPI_API_TOKEN` — REL-03
 - [ ] 08-03: Publish 0.3.0rc1 and verify the release workflow is gated on CI before promoting to 0.3.0 — REL-02
@@ -246,6 +298,7 @@ These corrections override statements elsewhere in the repo. Do not build on the
    PostgreSQL is `INSERT ... RETURNING <pk>`**, which changes `Db.insert`'s return contract. POOL-03
    must capture the id inside the insert (`RETURNING` / `SCOPE_IDENTITY` / immediate `lastrowid`).
    Correct `ARCHITECTURE.md` before Phase 4 planning.
+
 2. **Neither `pytest-benchmark` nor `pytest-codspeed` measures coroutines.** Verified by reading
    plugin source: pytest-codspeed's `BenchmarkFixture.__call__` is literally
    `return target(*args, **kwargs)`, so an async target only "benchmarks" coroutine-object creation.
@@ -253,13 +306,16 @@ These corrections override statements elsewhere in the repo. Do not build on the
    placeholder translation, batch sizing). For end-to-end async latency use a hand-rolled
    `time.perf_counter` harness inside an async test with a loose budget. Do not gate on
    `@pytest.mark.benchmark` over an async test until empirically validated.
+
 3. **TS-37 (placeholder caching) is deferred, not in scope.** A `re.sub` over a ~200-byte SQL string
    costs ~1 µs against a ~1 ms round-trip — under 1% by Amdahl's law. It is tracked as v2 `DATA-07`
    and may be re-opened only if placeholder translation appears in the profiler's top 5 hot paths in
    Phase 7. The `Query` correctness bugs (DIAL-05) are independent and still land in Phase 2.
+
 4. **Python 3.10 floor rules out `asyncio.Barrier`, `asyncio.timeout`, `TaskGroup` and `except*`** in
    library code *and tests*. POOL-07 must use a hand-rolled `asyncio.Event` barrier. `hypothesis`'s
    `RuleBasedStateMachine` is the fallback if the hand-rolled barrier proves awkward.
+
 5. **POOL-04 ordering is safety-critical.** Flipping release-from-commit to release-from-rollback
    naively turns every standalone `pool.execute(INSERT)` into a silent data-loss bug. Sequence:
    (i) make `execute`/`_run` commit-or-rollback explicitly, (ii) then roll back leftovers with a

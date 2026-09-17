@@ -1,8 +1,8 @@
 # Phase 1: Safety Net — CI Gates & Test Infrastructure - Pattern Map
 
 **Mapped:** 2026-09-17
-**Files analyzed:** 9 (5 new, 4 modified)
-**Analogs found:** 7 / 9
+**Files analyzed:** 10 (6 new, 4 modified)
+**Analogs found:** 8 / 10
 
 ## File Classification
 
@@ -11,6 +11,7 @@
 | `tools/ci/check_skips.py` | utility (CLI script) | file-I/O / transform | `encino_orm/cli.py` | role-match |
 | `tests/test_ci_harness.py` | test | unit + file-I/O | `tests/test_cli.py` + `tests/test_pool.py` | exact |
 | `tests/test_pool_characterization.py` | test | event-driven / concurrency | `tests/test_pool.py` | exact |
+| `tests/test_pytest_config.py` | test | config regression guards | `tests/test_ci_harness.py` | role-match |
 | `tests/conftest.py` (modify) | config / test fixture | request-response | `tests/conftest.py` (self) + skip pattern in `tests/test_postgresql.py` | exact |
 | `encino_orm/py.typed` (new) | config (packaging marker) | none | — | no analog |
 | `pyproject.toml` (modify) | config | none | `pyproject.toml` (self) | exact |

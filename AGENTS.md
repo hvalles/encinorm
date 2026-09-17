@@ -109,6 +109,7 @@
 ## Code Style
 - No formatter is configured. There is **no** `ruff`, `black`, `flake8`, `isort`, `mypy`, or `pre-commit` config anywhere in the repo (`pyproject.toml` has no `[tool.ruff]`/`[tool.black]`; no `setup.cfg`, `tox.ini`, `.flake8`, `.ruff.toml`, or `.pre-commit-config.yaml`).
 - De-facto style is PEP 8 with a practical line limit near 88 chars; a small number of lines exceed it (notably `encino_orm/security/permissions.py`, ~78 lines > 88). Match the surrounding file rather than imposing a new limit.
+- **Since Phase 1 the enforced limit is `[tool.ruff].line-length = 100`** (deliberate: at 88 the source baseline was 195 ruff findings vs 128 at 100, and the smaller mechanical reformat diff was preferred). The config is the source of truth; this bullet's 88-char description is historical.
 - Indentation is 4 spaces; blank line between top-level definitions; two blank lines between top-level classes/functions.
 - Trailing commas and implicit string concatenation are used in multi-line calls/SQL (e.g., `tests/test_postgresql.py:45-48`).
 - Multiple parameters per line are kept aligned when a signature is long (`encino_orm/base.py:95-96`, `encino_orm/model/model.py:118-119`).

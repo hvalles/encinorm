@@ -253,6 +253,8 @@ def engine_unavailable(engine: str, exc: Exception) -> None:
     pytest.skip(f"{engine} no disponible: {exc}")
 ```
 
+**Import path (verified empirically):** `tests/__init__.py` exists (0 bytes), so `tests` is a regular package and pytest imports the modules as `tests.test_*` / `tests.conftest` with `sys.path[0]` set to the **repo root**. Callers therefore MUST use `from tests.conftest import engine_unavailable`; a bare `import conftest` raises `ModuleNotFoundError`. Ruff's isort places `tests.conftest` in the same first-party block as `encino_orm`.
+
 **Important nuance (Pitfall 1):** the existing fixtures wrap connection setup in a bare `except Exception`. That means a typo'd env var, a renamed driver, or an `ImportError` all currently degrade to *skip*. Phase 1 must not fix this (that is Pitfall 1 item 2 and is not in CI-01's scope), but the switch makes it moot in CI: any failure reaching `engine_unavailable()` for a required engine becomes a hard failure. Document the bare-`except` narrowing as a Phase 2 follow-up.
 
 ### Pattern 2: JUnit skip gate (CI-02) — `-m` deselect + XML parse
@@ -533,6 +535,8 @@ known-first-party = ["encino_orm"]
 | `tests/` | narrow `E,F,I,UP,PT,B` (ignoring S101) | 100 | **102** |
 | `encino_orm/` + `tests/` | full proposed | 100 | **1479** (1044 of them `S101` in tests) |
 
+> **Stage caveat (added during planning revision):** every count above is a *pre-`ruff format`* measurement. After the format-only commit (plan 01-01 Task 2, 61 files) and with the scoped `per-file-ignores` applied, the residuals that plan 01-01 Tasks 3/4 actually fix are **69 in `encino_orm/`** (23 auto-fixable) and **63 in `tests/`** (18 auto-fixable) — 132 findings total, not 236. The narrow `E,F,I,UP,B` alternative for `tests/` is **21** post-format. Size any re-planning against the post-format numbers.
+
 **Practical landing order:** the format-only commit first (61 files), then `ruff check --fix` for the 23 auto-fixable findings, then hand-fix the remainder. Two realistic options for the blocking job:
 - **Option A (recommended):** narrow ruleset (`E,F,I,UP,B,C4,SIM,PERF,FURB,ASYNC,RUF,S,PT`) and fix the ~128 source findings. This is the honest gate — every selected rule is enforced everywhere.
 - **Option B (faster):** start with `E,F,I,UP,PT,B` (~52 source + ~102 test findings) and ratchet the remaining families in later. The ruleset is smaller but still catches unused imports, import order, and pyupgrade drift.
@@ -674,32 +678,39 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 | A6 | Fixing the `var-annotated`/`assignment` mypy errors is "mechanical" | §Mypy | Some may require real type decisions, expanding scope beyond D-09's "minimal fixes". Mitigation: default to the `ignore_errors` ratchet and treat fixes as optional. |
 | A7 | The 4-engine CI job can absorb ~20–30 s of connection-timeout cost when a required engine is missing | §Pattern 2 | If multiple required engines are missing simultaneously, the fail path could approach `timeout-minutes: 15`. Mitigation: measure the real failure path on the first deliberate-failure run. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All five questions below were resolved during planning. Each carries an inline `RESOLVED:` line recording the decision actually taken by plans 01-01…01-05. The questions and their evidence are kept verbatim so the reasoning is auditable.
 
 1. **Does `uv audit` report pre-existing vulnerabilities in the current locked set?**
    - What we know: `uv audit` audits "known vulnerabilities, as well as 'adverse' statuses such as deprecation and quarantine" (official CLI reference). `pip-audit` exists as a cross-check. `PyJWT<2.13` is capped and `aiomysql<0.3.2` is capped, both flagged in `CONCERNS.md`.
    - What's unclear: whether the audit is clean today. It cannot be run until uv ≥ 0.12.15 is installed.
    - Recommendation: make CI-07's job **blocking from day one but with an explicit, commented `--ignore-until-fixed` allowlist** for any pre-existing finding, each entry naming the phase that fixes it. Do not use `continue-on-error` — that would repeat the phase's core anti-pattern. If the audit is clean, delete the allowlist.
+   - **RESOLVED:** Adopt the recommendation exactly. Plan 01-02 Task 3 adds a blocking `deps` job (`uv lock --check` + `uv audit` + a `pip-audit` cross-check fed by `uv export`), with `--ignore-until-fixed <ID>` / `--ignore-vuln <ID>` entries allowed **only** as commented allowlist entries naming the resolving phase. `continue-on-error` is forbidden and asserted absent by grep. If the audit is clean, no allowlist is added. The exit-code semantics of `uv audit` on a finding are verified empirically (assumption A2) rather than assumed.
 
 2. **What is the exact CI coverage number on Linux, across four Python versions?**
    - What we know: 83% on Windows with MySQL+PostgreSQL only (475 tests).
    - What's unclear: whether Linux/3.10–3.13 shifts it. `encino_orm/` has no platform conditionals (verified), so the drift should be ~0.
    - Recommendation: set `fail_under = 82` provisionally, then raise it to the measured CI value in the same plan once the first green run reports it. Record both numbers in the config comment.
+   - **RESOLVED:** `fail_under = 82` is pinned provisionally in plan 01-03 Task 3, one point under the measured 83% CI-equivalent baseline, with the measurement date, the 88% local figure and the reason it must not be used recorded as a Spanish comment. The second half of the original recommendation — "raise it to the measured CI value in the same plan" — is **explicitly REJECTED**: it conflicts with locked decisions **D-04** (low global ratchet + high per-dialect floor) and **D-06** (Phase 1 builds the mechanism; the per-dialect floor is defined in Phase 2 once the `dialects/` seam exists). Raising the floor inside Phase 1 would require a second CI round-trip and would pre-empt a decision the user reserved for Phase 2. The floor is raised in Phase 2, not here.
 
 3. **Should the JUnit gate live in `tools/ci/` or inline in the workflow?**
    - What we know: a checked-in script is unit-testable; inline YAML is not.
    - What's unclear: whether the repo wants a `tools/` tree (it currently has none).
    - Recommendation: `tools/ci/check_skips.py` + a `tests/test_ci_harness.py` that exercises it against fixture XML. This is the only new top-level directory the phase introduces.
+   - **RESOLVED:** Checked-in script. Plan 01-04 Task 3 creates `tools/ci/check_skips.py` (stdlib only: `sys` + `xml.etree.ElementTree`, with a `main(argv) -> int` and an `if __name__ == "__main__"` entry block) plus `tests/test_ci_harness.py`, which drives `main()` in-process against three fixture XML documents (clean, skips across two `<testsuite>` elements, failures-only). The script must be unit-testable, which inline YAML is not.
 
 4. **Is the `integration` marker's `README.md` command verified anywhere in CI?**
    - What we know: `-m "not integration"` is a documented command that currently does nothing.
    - What's unclear: nothing functionally — but the phase should add a regression guard so it cannot silently revert.
    - Recommendation: add a CI step (or a test) asserting `pytest --collect-only -m "integration"` selects a non-zero count. A one-line check that would have caught the current bug.
+   - **RESOLVED:** Add the check as a test, not a CI step: plan 01-03 Task 3 creates `TestMarkerSelectionRegression` in `tests/test_pytest_config.py`, which runs `--collect-only -q -m "integration"` and asserts the collected count is strictly greater than zero, and runs `-m "not integration"` and asserts its count is strictly less than the no-`-m` total. Plan 01-03 also carries the explicit 41 / 13 / 469 / 497 collected-count assertions, and plan 01-03's acceptance criteria include an induced-failure proof (removing the `pytestmark` from `tests/test_mysql.py` must fail the guard).
 
 5. **Does the phase need to touch `docs.yml` or `publish-testpypi.yml`?**
    - What we know: `docs.yml` runs `uv sync --group dev`, so every new dev dependency is installed there too. `publish-testpypi.yml` is a manual TestPyPI publisher.
    - What's unclear: whether `mkdocs build --strict` is sensitive to anything ruff changes. Docstrings are Spanish prose; `ruff format` does not alter string contents, and no `D` rules are enabled.
    - Recommendation: leave both untouched in Phase 1, but run `mkdocs build --strict` locally once after the format commit to confirm. REL-03 (Phase 8) owns `publish-testpypi.yml`.
+   - **RESOLVED:** Both files are left untouched by every plan in Phase 1. Plan 01-01 Task 2 records the local `mkdocs build --strict` run once after the format commit (and records that it was skipped, with the reason, if mkdocs is not installed locally). Plan 01-02 Task 3 explicitly forbids touching `publish-testpypi.yml` and `docs.yml`. The fact that `docs.yml` will now install the four new dev dependencies is expected and harmless, and is stated in plan 01-02's `<interfaces>`.
 
 ## Environment Availability
 
