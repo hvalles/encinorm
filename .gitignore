@@ -13,7 +13,10 @@ dist/
 
 # Pruebas y cobertura
 .pytest_cache/
-.coverage
+# El glob es necesario: con `parallel = true` coverage escribe un artefacto por
+# pata (`.coverage.py3.10`, o `.coverage.py3.10.<host>.<pid>.<rand>` cuando
+# aplica el sufijo paralelo), y la entrada exacta `.coverage` NO los captura.
+.coverage*
 htmlcov/
 
 # Documentación generada

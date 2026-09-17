@@ -70,6 +70,10 @@ jobs:
 
       - name: Run tests
         env:
+          # Archivo de cobertura distinto por pata de la matriz: con
+          # `parallel = true` cada job escribe el suyo y `coverage combine` los
+          # une en el job `coverage` (D-06).
+          COVERAGE_FILE: .coverage.py${{ matrix.python-version }}
           ENCINO_ORM_MYSQL_HOST: 127.0.0.1
           ENCINO_ORM_MYSQL_PORT: "3306"
           ENCINO_ORM_MYSQL_USER: root
@@ -80,7 +84,23 @@ jobs:
           ENCINO_ORM_POSTGRES_USER: postgres
           ENCINO_ORM_POSTGRES_PASSWORD: admin
           ENCINO_ORM_POSTGRES_DB: encino_orm_test
-        run: uv run pytest -q
+        # --cov-report= desactiva el reporte por pata: el combine y el gate de
+        # `fail_under` los aplica el job `coverage`. El `-m` de motores
+        # requeridos y el gate JUnit los añade el plan 01-04.
+        run: >
+          uv run pytest -q --junitxml=junit.xml
+          --cov=encino_orm --cov-branch --cov-report=
+
+      - name: Subir datos de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-py${{ matrix.python-version }}
+          path: .coverage.py${{ matrix.python-version }}*
+          # OBLIGATORIO: `.coverage.*` es un archivo oculto y
+          # `upload-artifact` los excluye por defecto; sin esto el job de
+          # combine no encuentra nada.
+          include-hidden-files: true
 
   lint:
     name: Lint y formato
@@ -178,3 +198,38 @@ jobs:
         run: |
           uv export --format requirements-txt --no-emit-project --no-hashes > "$RUNNER_TEMP/uv-export.txt"
           uv run pip-audit -r "$RUNNER_TEMP/uv-export.txt"
+
+  coverage:
+    name: Cobertura combinada (ratchet)
+    needs: [test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # Pin por versión de uv; el pin por SHA de la action queda diferido.
+          version: "0.12.15"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Descargar datos de cobertura de cada pata
+        uses: actions/download-artifact@v4
+        with:
+          # `merge-multiple` deja los `.coverage.py*` en un solo directorio para
+          # que `coverage combine` los encuentre.
+          pattern: coverage-py*
+          merge-multiple: true
+
+      - name: Combinar cobertura de la matriz
+        run: uv run coverage combine
+
+      - name: Gate de cobertura (fail_under desde pyproject.toml)
+        # `fail_under = 82` vive en [tool.coverage.report]; este step es el que
+        # convierte el ratchet no-baja en un gate bloqueante.
+        run: uv run coverage report

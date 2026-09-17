@@ -71,6 +71,35 @@ markers = [
     "benchmark: medidos por pytest-codspeed; excluidos de corridas normales",
 ]
 
+[tool.coverage.run]
+source_pkgs = ["encino_orm"]
+# La cobertura de ramas importa: la mayoria de los fallos de dialecto son
+# ramas no tomadas, no lineas no ejecutadas.
+branch = true
+# REQUIRED: cada pata de la matriz escribe su propio archivo de datos
+# (`.coverage.py<version>`; coverage puede añadir ademas el sufijo paralelo
+# `<host>.<pid>.<rand>`). Sin `parallel` las patas se sobrescribirian entre si
+# y `coverage combine` solo veria la ultima.
+parallel = true
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+# RATCHET no-baja (D-05). Medido el 2026-09-17 con coverage 7.16.1 y cobertura
+# de ramas: **83%** en el escenario equivalente a CI (solo MySQL + PostgreSQL,
+# 475 tests) y **88%** en local con los seis motores en Docker.
+# El piso se fija contra el 83%, NO contra el 88%: en CI solo corren MySQL y
+# PostgreSQL, y `oracle.py` cae del 59% al 16% cuando se excluyen los tests de
+# motores opcionales. Un piso de 88 fallaria en la primera corrida de CI
+# (Pitfall 2b). Fase 2 sube el piso y añade pisos por dialecto sobre el seam
+# `dialects/` (D-04/D-06); aqui solo se monta el mecanismo.
+fail_under = 82
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
+
 [tool.ruff]
 # Debe coincidir con requires-python: dirige las reescrituras de las reglas UP.
 target-version = "py310"
@@ -126,6 +155,12 @@ select = [
 "tests/test_security.py" = ["B008", "S105"]
 # Interpola SQL a propósito para ejercitar los fragmentos portables.
 "tests/test_sql_functions.py" = ["S608"]
+# S603: los guards de tests/test_pytest_config.py lanzan pytest en un
+# subproceso con `sys.executable` y argumentos construidos por el propio test
+# (rutas de `tmp_path`); no hay entrada no confiable. La regla exige un comando
+# completamente literal, imposible con una ruta dinamica. Se levantara si
+# aparece una alternativa sin subprocess (p. ej. el fixture `pytester`).
+"tests/test_pytest_config.py" = ["S603"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["encino_orm"]
