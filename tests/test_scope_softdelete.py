@@ -99,7 +99,8 @@ class TestScope:
 
         with scope(Filter.eq("tenant_id", 1)):
             ok = await Doc(db, id=1).load()
-            assert ok._exists is True and ok.titulo == "a"
+            assert ok._exists is True
+            assert ok.titulo == "a"
             forbidden = await Doc(db, id=2).load()
             assert forbidden._exists is False
 
@@ -111,9 +112,8 @@ class TestScope:
         await Doc(db, tenant_id=1, titulo="a").insert()
         await Doc(db, tenant_id=2, titulo="b").insert()
 
-        with scope(Filter.eq("tenant_id", 1)):
-            with pytest.raises(FailOnUpdate):
-                await Doc(db, id=2, titulo="hacked").update(data=["titulo"])
+        with scope(Filter.eq("tenant_id", 1)), pytest.raises(FailOnUpdate):
+            await Doc(db, id=2, titulo="hacked").update(data=["titulo"])
 
         row = await Doc(db, id=2).load()
         assert row.titulo == "b"
@@ -139,7 +139,8 @@ class TestScope:
             assert result is False
 
         row = await Doc(db, id=2).load()
-        assert row._exists is True and row.enabled is True
+        assert row._exists is True
+        assert row.enabled is True
 
     @pytest.mark.asyncio
     async def test_save_respects_scope(self, db):
@@ -153,4 +154,5 @@ class TestScope:
         assert original.titulo == "b"
         # y se insertó uno nuevo en el tenant 1
         rows = await Doc(db).search(Filter.eq("tenant_id", 1))
-        assert len(rows) == 1 and rows[0].titulo == "nuevo"
+        assert len(rows) == 1
+        assert rows[0].titulo == "nuevo"

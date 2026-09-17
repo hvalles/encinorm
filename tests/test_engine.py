@@ -24,7 +24,7 @@ def test_engine_values():
     assert Engine.MSSQL.value == "mssql"
     assert Engine.ORACLE.value == "oracle"
     assert Engine.SQLITE == "sqlite"
-    assert "sqlite" == Engine.SQLITE
+    assert Engine.SQLITE == "sqlite"
     assert str(Engine.SQLITE) == "sqlite"
     assert [e.value for e in Engine] == [
         "sqlite",

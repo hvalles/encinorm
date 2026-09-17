@@ -58,6 +58,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
+          # uv fijado para que CI no resuelva una versión futura con distinto
+          # comportamiento. El pin por SHA completo de las actions queda
+          # diferido (ver .planning/phases/01-*/01-RESEARCH.md, T-01-04).
+          version: "0.12.15"
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
@@ -77,3 +81,27 @@ jobs:
           ENCINO_ORM_POSTGRES_PASSWORD: admin
           ENCINO_ORM_POSTGRES_DB: encino_orm_test
         run: uv run pytest -q
+
+  lint:
+    name: Lint y formato
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # Pin por versión de uv; el pin por SHA de la action queda diferido.
+          version: "0.12.15"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Ruff check
+        run: uv run ruff check encino_orm tests
+
+      - name: Ruff format --check
+        run: uv run ruff format --check encino_orm tests

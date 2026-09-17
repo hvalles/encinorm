@@ -1,6 +1,6 @@
 import pytest
 
-from encino_orm import Engine, PoolDb, SqliteDb, Weekday, create_db
+from encino_orm import PoolDb, SqliteDb, Weekday, create_db
 from encino_orm.query import Query
 from encino_orm.sql import SqlFunctions
 
@@ -84,7 +84,8 @@ async def test_fn_executes_on_sqlite():
     db = await create_db("sqlite", database=":memory:")
     try:
         rows = await db.fetch_all(Query(f"SELECT {db.fn.now()} AS n", []))
-        assert rows and rows[0]["n"]
+        assert rows
+        assert rows[0]["n"]
     finally:
         await db.close()
 
@@ -125,7 +126,8 @@ async def test_fn_date_arithmetic_integration():
         # partes de fecha
         rows = await db.fetch_all(
             Query(
-                f"SELECT {db.fn.year('fecha')} AS y, {db.fn.month('fecha')} AS m FROM ev WHERE id = 1",
+                f"SELECT {db.fn.year('fecha')} AS y, {db.fn.month('fecha')} AS m "
+                f"FROM ev WHERE id = 1",
                 [],
             )
         )

@@ -1,7 +1,5 @@
 import asyncio
 
-import pytest
-
 from encino_orm.cli import _build_parser, _conn_kwargs, main
 from encino_orm.query import Query
 from encino_orm.sqlite import SqliteDb

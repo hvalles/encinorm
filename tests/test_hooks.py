@@ -1,6 +1,5 @@
 import pytest
 
-from encino_orm.query import Query
 from encino_orm.model import (
     Model,
     after_commit,
@@ -10,7 +9,7 @@ from encino_orm.model import (
     before_insert,
     before_update,
 )
-
+from encino_orm.query import Query
 
 DDL = (
     "CREATE TABLE pedidos (id INTEGER PRIMARY KEY AUTOINCREMENT, total REAL, "

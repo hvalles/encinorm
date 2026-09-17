@@ -1,10 +1,10 @@
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 import pytest
 from pydantic import Field
 
-from encino_orm.query import Query
 from encino_orm.model import Column, DuplicateReferenceError, Model
+from encino_orm.query import Query
 
 
 class Region(Model):
@@ -92,7 +92,7 @@ class TestOnDeleteForeignKey:
         class Hija(Model):
             _table = "hijas"
             padre_id: int | None = None
-            _references_def = {
+            _references_def: ClassVar[dict] = {
                 "padre": {"model": Padre, "match_keys": {"id": "padre_id"}, "on_delete": "cascade"},
             }
 

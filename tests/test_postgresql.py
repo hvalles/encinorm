@@ -1,3 +1,4 @@
+import contextlib
 import os
 
 import pytest
@@ -66,10 +67,8 @@ async def pg_connected_db():
     except Exception as e:
         pytest.skip(f"PostgreSQL no disponible: {e}")
 
-    try:
+    with contextlib.suppress(Exception):
         await admin.execute(Query(f"CREATE DATABASE {db_name}", []))
-    except Exception:
-        pass
     await admin.close()
 
     db = PostgresDb()

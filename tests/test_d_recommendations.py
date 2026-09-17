@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 import pytest
 from pydantic import Field
@@ -25,7 +25,7 @@ class AgenteDecl(Model):
     _table = "agentes_decl"
     agente: str | None = Field(default=None)
     region_id: int | None = None
-    _references_def = {
+    _references_def: ClassVar[dict] = {
         "region": {"model": Region, "match_keys": {"id": "region_id"}},
     }
 

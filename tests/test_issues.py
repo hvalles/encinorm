@@ -1,4 +1,5 @@
 from datetime import date
+from typing import ClassVar
 
 import pytest
 
@@ -19,13 +20,15 @@ class Client(Model):
 class Appointment(Model):
     _table = "appointments"
     client_id: INT_POS()
-    _references_def = {"client": {"model": Client, "match_keys": {"id": "client_id"}}}
+    _references_def: ClassVar[dict] = {
+        "client": {"model": Client, "match_keys": {"id": "client_id"}}
+    }
 
 
 class Tenant(Model):
     _table = "tenants"
     _primary_key = ("tenant_id", "code")
-    _fields_disabled = ["id"]
+    _fields_disabled: ClassVar[list] = ["id"]
     tenant_id: INT_POS(required=True)
     code: STR_100(required=True)
     label: STR_100(required=True)
@@ -33,10 +36,10 @@ class Tenant(Model):
 
 class Member(Model):
     _table = "members"
-    _fields_disabled = ["id"]
+    _fields_disabled: ClassVar[list] = ["id"]
     tenant_id: INT_POS()
     code: STR_100()
-    _references_def = {
+    _references_def: ClassVar[dict] = {
         "tenant": {
             "model": Tenant,
             "match_keys": {"tenant_id": "tenant_id", "code": "code"},

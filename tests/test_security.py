@@ -5,14 +5,13 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from encino_orm import session
-from encino_orm.sqlite import SqliteDb
 from encino_orm.security import (
     AuthenticationError,
     AuthorizationError,
     CurrentUser,
     PermissionSet,
-    Roldet,
     Rol,
+    Roldet,
     RolUsuario,
     create_tables,
     emit_refresh,
@@ -24,6 +23,7 @@ from encino_orm.security import (
     verify_token,
 )
 from encino_orm.security.permissions import PUBLIC_USER_ID
+from encino_orm.sqlite import SqliteDb
 
 SECRET = "test-secret-key-that-is-at-least-32-bytes-long!"
 
@@ -130,7 +130,8 @@ class TestJwt:
         token = emit_token("42", SECRET)
         payload = verify_token(token, SECRET)
         assert payload["sub"] == "42"
-        assert "exp" in payload and "iat" in payload
+        assert "exp" in payload
+        assert "iat" in payload
 
     def test_expired_raises_authentication(self):
         token = emit_token("42", SECRET, expires_seconds=-1)

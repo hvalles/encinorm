@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 
 from encino_orm.graphql import build_schema
@@ -14,7 +16,7 @@ class Agente(Model):
 class Region(Model):
     _table = "regiones"
     region: str | None = None
-    _has_many_def = {"agentes": {"model": Agente, "foreign_key": "region_id"}}
+    _has_many_def: ClassVar[dict] = {"agentes": {"model": Agente, "foreign_key": "region_id"}}
 
 
 Agente._references_def = {"region": {"model": Region, "match_keys": {"id": "region_id"}}}
@@ -181,7 +183,8 @@ class TestMutations:
     async def test_update_partial(self, db, schema):
         await Agente(db, agente="Héctor", region_id=1).insert()
         result = await schema.execute(
-            'mutation { agente_update(id: 1, data: { agente: "Héctor M." }) { id agente region_id } }',
+            'mutation { agente_update(id: 1, data: { agente: "Héctor M." }) '
+            "{ id agente region_id } }",
             context_value={"db": db},
         )
         assert result.errors is None

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 from pydantic import Field
 
@@ -19,7 +21,7 @@ class Agente(Model):
 class Hija(Model):
     _table = "hijas"
     padre_id: int | None = None
-    _references_def = {
+    _references_def: ClassVar[dict] = {
         "padre": {"model": Padre, "match_keys": {"id": "padre_id"}, "on_delete": "cascade"},
     }
 
@@ -40,7 +42,7 @@ class TestE10ForeignKeyDdl:
         class SinFK(Model):
             _table = "sinfk"
             padre_id: int | None = None
-            _references_def = {
+            _references_def: ClassVar[dict] = {
                 "padre": {"model": Padre, "match_keys": {"id": "padre_id"}},
             }
 

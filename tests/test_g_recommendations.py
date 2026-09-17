@@ -1,7 +1,6 @@
 import logging
 
 import pytest
-from pydantic import Field
 
 from encino_orm import PoolDb, PoolExhaustedError, Query
 from encino_orm.model import Model

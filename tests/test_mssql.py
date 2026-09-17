@@ -5,8 +5,8 @@ import pytest
 from encino_orm import MssqlDb, Query
 from encino_orm._rows import _rows_to_dicts
 from encino_orm.introspection.types import _normalize
-from encino_orm.mssql import _to_mssql
 from encino_orm.model.types import ddl_type
+from encino_orm.mssql import _to_mssql
 
 MSSQL_CONFIG = {
     "host": os.getenv("ENCINO_ORM_MSSQL_HOST", "127.0.0.1"),
@@ -38,7 +38,7 @@ class TestMssqlInternal:
         db = MssqlDb()
         q = db.insert("t", {"a": 1}, ignore_duplicated=True)
         assert q.ignore_duplicated is True
-        sql, values = db._prepare(q)
+        sql, _values = db._prepare(q)
         assert sql == "INSERT INTO t (a) VALUES (?)"
 
     def test_insert_builder_replace_merge(self):
@@ -174,7 +174,8 @@ class TestMssqlLifecycle:
         await db.execute(Query("IF OBJECT_ID('usuarios', 'U') IS NOT NULL DROP TABLE usuarios", []))
         await db.execute(
             Query(
-                "IF OBJECT_ID('_encino_orm_migrations', 'U') IS NOT NULL DROP TABLE _encino_orm_migrations",
+                "IF OBJECT_ID('_encino_orm_migrations', 'U') IS NOT NULL "
+                "DROP TABLE _encino_orm_migrations",
                 [],
             )
         )

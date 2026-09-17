@@ -128,13 +128,15 @@ class TestCopyTable:
         )
         await src.execute(
             Query(
-                "INSERT INTO users (nombre, edad, activo, creado) VALUES ('Ana', 30, 1, '2026-09-07')",
+                "INSERT INTO users (nombre, edad, activo, creado) "
+                "VALUES ('Ana', 30, 1, '2026-09-07')",
                 [],
             )
         )
         await src.execute(
             Query(
-                "INSERT INTO users (nombre, edad, activo, creado) VALUES ('Bob', 25, 0, '2026-09-08')",
+                "INSERT INTO users (nombre, edad, activo, creado) "
+                "VALUES ('Bob', 25, 0, '2026-09-08')",
                 [],
             )
         )

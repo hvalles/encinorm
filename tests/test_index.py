@@ -1,5 +1,5 @@
 import sqlite3
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 import pytest
 
@@ -29,7 +29,7 @@ class TestIndexesDdl:
             _table = "clientes"
             rfc: str | None = None
             nombre: str | None = None
-            _indexes = [Index("rfc", unique=True), Index("nombre")]
+            _indexes: ClassVar[list] = [Index("rfc", unique=True), Index("nombre")]
 
         result = indexes_ddl(C, "sqlite")
         assert (
@@ -45,7 +45,7 @@ class TestIndexesDdl:
         class C(Model):
             _table = "c"
             a: str | None = None
-            _indexes = [Index("a", name="idx_custom")]
+            _indexes: ClassVar[list] = [Index("a", name="idx_custom")]
 
         result = indexes_ddl(C, "sqlite")
         assert ("idx_custom", "CREATE INDEX IF NOT EXISTS idx_custom ON c (a)") in result
@@ -54,7 +54,7 @@ class TestIndexesDdl:
         class A(Model):
             _table = "a"
             agente: Annotated[str | None, Column(name="nombre")] = None
-            _indexes = [Index("agente")]
+            _indexes: ClassVar[list] = [Index("agente")]
 
         result = indexes_ddl(A, "sqlite")
         assert "ON a (nombre)" in result[0][1]
@@ -63,7 +63,7 @@ class TestIndexesDdl:
         class C(Model):
             _table = "c"
             a: str | None = None
-            _indexes = [Index("a")]
+            _indexes: ClassVar[list] = [Index("a")]
 
         result = indexes_ddl(C, "mysql")
         assert "IF NOT EXISTS" not in result[0][1]
@@ -72,7 +72,7 @@ class TestIndexesDdl:
         class C(Model):
             _table = "c"
             created_at: str | None = None
-            _indexes = [Index([("created_at", "DESC")])]
+            _indexes: ClassVar[list] = [Index([("created_at", "DESC")])]
 
         result = indexes_ddl(C, "sqlite")
         assert "ON c (created_at DESC)" in result[0][1]
@@ -81,7 +81,7 @@ class TestIndexesDdl:
         class C(Model):
             _table = "c"
             created_at: str | None = None
-            _indexes = [Index([("created_at", "ASC")])]
+            _indexes: ClassVar[list] = [Index([("created_at", "ASC")])]
 
         result = indexes_ddl(C, "sqlite")
         assert "ON c (created_at ASC)" in result[0][1]
@@ -91,7 +91,7 @@ class TestIndexesDdl:
             _table = "c"
             rfc: str | None = None
             created_at: str | None = None
-            _indexes = [Index(["rfc", ("created_at", "DESC")])]
+            _indexes: ClassVar[list] = [Index(["rfc", ("created_at", "DESC")])]
 
         result = indexes_ddl(C, "sqlite")
         assert "ON c (rfc, created_at DESC)" in result[0][1]
@@ -100,7 +100,7 @@ class TestIndexesDdl:
         class C(Model):
             _table = "c"
             a: str | None = None
-            _indexes = [Index([("a", "SIDEWAYS")])]
+            _indexes: ClassVar[list] = [Index([("a", "SIDEWAYS")])]
 
         with pytest.raises(ValueError):
             indexes_ddl(C, "sqlite")
@@ -124,7 +124,7 @@ class TestCreateTableIndexes:
             _table = "c"
             rfc: str | None = None
             nombre: str | None = None
-            _indexes = [Index("rfc", unique=True), Index("nombre")]
+            _indexes: ClassVar[list] = [Index("rfc", unique=True), Index("nombre")]
 
         await C(connected_db).create_table()
 
@@ -138,7 +138,7 @@ class TestCreateTableIndexes:
         class C(Model):
             _table = "c"
             rfc: str | None = None
-            _indexes = [Index("rfc", unique=True)]
+            _indexes: ClassVar[list] = [Index("rfc", unique=True)]
 
         await C(connected_db).create_table()
         await C(connected_db, rfc="AAA").insert()

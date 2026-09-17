@@ -4,7 +4,6 @@ from pydantic import ValidationError as PydanticValidationError
 from encino_orm.model import Constraint, Model, make_constraint
 from encino_orm.model.types import to_ddl
 
-
 STR_100 = make_constraint(str, max_length=100)
 STR_50_REQ = make_constraint(str, max_length=50, required=True)
 INT_POS = make_constraint(int, ge=0)

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -14,7 +16,7 @@ from encino_orm.sqlite import SqliteDb
 class Product(Model):
     _table = "products"
     _primary_key = ("sku",)
-    _fields_disabled = ["id"]
+    _fields_disabled: ClassVar[list] = ["id"]
     sku: str | None = None
     name: str | None = None
 
@@ -22,7 +24,7 @@ class Product(Model):
 class Membership(Model):
     _table = "memberships"
     _primary_key = ("tenant_id", "code")
-    _fields_disabled = ["id"]
+    _fields_disabled: ClassVar[list] = ["id"]
     tenant_id: int | None = None
     code: str | None = None
     role: str | None = None
@@ -30,11 +32,11 @@ class Membership(Model):
 
 class AuditLog(Model):
     _table = "audit_logs"
-    _fields_disabled = ["id"]
+    _fields_disabled: ClassVar[list] = ["id"]
     tenant_id: int | None = None
     code: str | None = None
     detail: str | None = None
-    _references_def = {
+    _references_def: ClassVar[dict] = {
         "membership": {
             "model": Membership,
             "match_keys": {"tenant_id": "tenant_id", "code": "code"},
@@ -68,7 +70,8 @@ class TestNaturalPk:
 
         assert await Product(db, sku="A", name="x").insert() == 0
         got = await Product(db, sku="A").load()
-        assert got._exists and got.name == "x"
+        assert got._exists
+        assert got.name == "x"
 
         got.name = "y"
         await got.update()
@@ -76,7 +79,8 @@ class TestNaturalPk:
 
         await Product(db, sku="A").delete()
         got = await Product(db, sku="A").load()
-        assert got._exists and got.enabled is False
+        assert got._exists
+        assert got.enabled is False
 
 
 class TestCompositePk:
@@ -90,7 +94,8 @@ class TestCompositePk:
 
         await Membership(db, tenant_id=7, code="admin", role="owner").insert()
         got = await Membership(db, tenant_id=7, code="admin").load()
-        assert got._exists and got.role == "owner"
+        assert got._exists
+        assert got.role == "owner"
 
         got.role = "super"
         await got.update()
@@ -125,7 +130,8 @@ class TestCompositeFk:
         await log.insert()
 
         m = await log["membership"]
-        assert m._exists and m.role == "owner"
+        assert m._exists
+        assert m.role == "owner"
 
     @pytest.mark.asyncio
     async def test_fk_ddl(self):

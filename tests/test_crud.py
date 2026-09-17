@@ -7,8 +7,6 @@ from encino_orm.http import (
     create_crud,
     filter_from_str,
     install_error_handlers,
-    register_crud,
-    register_introspection,
     sort_from_str,
 )
 from encino_orm.model import Filter, Model, make_constraint
@@ -65,7 +63,8 @@ class TestParsing:
         f = filter_from_str('{"agente":{"like":"Héc"},"region_id":{"ge":1}}')
         assert isinstance(f, Filter)
         sql, params = f.to_sql()
-        assert "LIKE" in sql and ">=" in sql
+        assert "LIKE" in sql
+        assert ">=" in sql
         assert params == ["%Héc%", 1]
 
     def test_filter_from_str_and_or_not(self):
@@ -84,7 +83,8 @@ class TestParsing:
     def test_filter_from_str_between_is_null(self):
         f = filter_from_str('{"region_id":{"between":[1,3]}}')
         sql, params = f.to_sql()
-        assert "BETWEEN" in sql and params == [1, 3]
+        assert "BETWEEN" in sql
+        assert params == [1, 3]
 
         f = filter_from_str('{"region_id":{"is_null":true}}')
         sql, _ = f.to_sql()

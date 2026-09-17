@@ -228,7 +228,6 @@ class TestPoolStandaloneCommit:
 
     @pytest.mark.asyncio
     async def test_recently_used_skips_check(self, fake_engine):
-        import time
 
         p = PoolDb("fake", min_size=1, max_size=1, idle_timeout=60)
         await p.connect()

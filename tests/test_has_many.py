@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import ClassVar
 
 import pytest
 
@@ -27,7 +28,7 @@ class Order(Model):
 class Region(Model):
     _table = "regiones"
     region: str | None = None
-    _has_many_def = {
+    _has_many_def: ClassVar[dict] = {
         "agentes": {"model": Agente, "foreign_key": "region_id"},
     }
 

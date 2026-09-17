@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 import pytest
 from pydantic import Field
@@ -15,7 +15,7 @@ class Agente(Model):
 
 class Legacy(Model):
     _table = "legacy"
-    _fields_disabled = ["enabled", "created_at", "updated_at"]
+    _fields_disabled: ClassVar[list] = ["enabled", "created_at", "updated_at"]
     id: Annotated[int, Column(name="legacy_id")] = None
     nota: str | None = None
 

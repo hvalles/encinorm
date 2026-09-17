@@ -1,4 +1,5 @@
 import pytest
+
 from encino_orm.query import Query
 
 
@@ -227,7 +228,8 @@ class TestSqliteBuildersAndQueries:
         assert result == 1
 
         row = await connected_db.fetch_one(Query("SELECT * FROM u WHERE id = 1", []))
-        assert row["nombre"] == "modificado" and row["email"] == "correo@gmail.com"
+        assert row["nombre"] == "modificado"
+        assert row["email"] == "correo@gmail.com"
 
     @pytest.mark.asyncio
     async def test_fetch_one_and_exists(self, connected_db):

@@ -3,8 +3,8 @@ from typing import Annotated
 import pytest
 from pydantic import Field
 
-from encino_orm.query import Query
 from encino_orm.model import Column, FailOnUpdate, Filter, Model, ValidationError
+from encino_orm.query import Query
 
 
 class Agente(Model):

@@ -1,8 +1,8 @@
 import pytest
 from pydantic import Field
 
-from encino_orm.query import Query
 from encino_orm.model import Filter, Model, QueryBuilder, col
+from encino_orm.query import Query
 
 
 class Region(Model):
