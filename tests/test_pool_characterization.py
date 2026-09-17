@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 import pytest
 
 import encino_orm.pool as pool_module
-from encino_orm import PoolDb, PoolExhaustedError
+from encino_orm import PoolDb, PoolExhaustedError, Query
 
 _THIS_MODULE = sys.modules[__name__]
 
@@ -227,4 +227,114 @@ class TestPoolAcquireOvershootRace:
         assert p._size > p._max_size
         assert p._size == 5
 
+        await p.close()
+
+
+class TestPoolLastIdScoping:
+    async def test_inside_transaction_reads_held_connection(self, pool):
+        qry = Query("INSERT 1", [])
+        async with pool.transaction() as db:
+            await pool.execute(qry)
+            rid = await pool.last_id()
+
+        assert rid == 42
+        assert ("execute", qry) in db.calls
+        assert ("last_id",) in db.calls
+
+    async def test_outside_transaction_reads_pool_level_cache(self, single_pool):
+        conn = next(iter(single_pool._connections))
+        await single_pool.execute(Query("INSERT 1", []))
+
+        assert single_pool._last_id == 42
+
+        calls_before = list(conn.calls)
+        rid = await single_pool.last_id()
+
+        assert rid == 42
+        # `last_id()` fuera de transacción NO consulta la conexión: lee el cache
+        # del pool. Ese cache es compartido entre tareas (hazard que POOL-03 quita).
+        assert conn.calls == calls_before
+
+    async def test_cross_task_staleness(self, single_pool):
+        await single_pool.execute(Query("INSERT 1", []))
+        assert single_pool._last_id == 42
+
+        # Otra tarea que no insertó nada observa el id de la inserción anterior:
+        # el cache es a nivel de POOL, no de tarea. Baseline de POOL-03.
+        async def other_task():
+            return await single_pool.last_id()
+
+        stale = await asyncio.create_task(other_task())
+        assert stale == 42
+
+    async def test_insert_sets_pool_level_cache(self, single_pool):
+        await single_pool.execute(Query("INSERT 1", []))
+        assert single_pool._last_id == 42
+
+    async def test_lowercase_insert_sets_pool_level_cache(self, single_pool):
+        single_pool._last_id = 0
+        await single_pool.execute(Query("insert into t values (1)", []))
+        assert single_pool._last_id == 42
+
+    async def test_non_insert_leaves_cache_unchanged(self, single_pool):
+        single_pool._last_id = 7
+        await single_pool.execute(Query("SELECT 1", []))
+        assert single_pool._last_id == 7
+
+
+class TestPoolReleaseSemantics:
+    async def test_release_records_last_used_and_requeues(self, fake_engine):
+        p = PoolDb("fake", min_size=0, max_size=2)
+        await p.connect()
+        conn = await p.acquire()
+
+        p._last_used.pop(conn, None)  # aísla el efecto de `release()`
+        await p.release(conn)
+        assert conn in p._last_used
+
+        reused = await p.acquire()
+        assert reused is conn
+        await p.close()
+
+    async def test_release_does_not_commit_or_rollback(self, fake_engine):
+        p = PoolDb("fake", min_size=0, max_size=2)
+        await p.connect()
+        conn = await p.acquire()
+        conn._in_tx = True
+
+        await p.release(conn)
+
+        # POOL-04: Fase 4 hace que release() revierta por defecto; hoy no toca
+        # la transacción en absoluto.
+        assert ("commit",) not in conn.calls
+        assert ("rollback", None) not in conn.calls
+        await p.close()
+
+    async def test_release_does_not_check_liveness(self, fake_engine):
+        p = PoolDb("fake", min_size=0, max_size=2)
+        await p.connect()
+        conn = await p.acquire()
+        conn.connected = False
+
+        calls_before = list(conn.calls)
+        await p.release(conn)
+
+        assert conn.calls == calls_before
+        assert all(call[0] != "is_alive" for call in conn.calls)
+        await p.close()
+
+    async def test_double_release_aliases_same_connection(self, fake_engine):
+        p = PoolDb("fake", min_size=1, max_size=2)
+        await p.connect()
+        conn = await p.acquire()
+
+        await p.release(conn)
+        await p.release(conn)  # segunda liberación: la cola guarda DOS referencias
+
+        conn_a = await p.acquire()
+        conn_b = await p.acquire()
+
+        # POOL-06/POOL-02: la cola contiene dos referencias a la misma conexión
+        # mientras `_connections` guarda una sola entrada. Baseline pre-refactor.
+        assert conn_a is conn_b
         await p.close()
