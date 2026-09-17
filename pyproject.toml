@@ -102,6 +102,78 @@ select = [
 [tool.ruff.lint.isort]
 known-first-party = ["encino_orm"]
 
+[tool.mypy]
+# No estricto (CI-04): se aterriza en el suelo de la escalera medida en
+# 01-RESEARCH.md §Code Examples ("Mypy configuration"), no en el bloque de
+# .planning/research/STACK.md (que rinde 458 errores y NO es non-strict).
+python_version = "3.10"
+files = ["encino_orm"]
+# Las capas opcionales (fastapi, PyJWT, strawberry-graphql) y los drivers
+# opcionales no declaran tipos completos; sin esto el ruido de imports
+# ahogaría el gate. El CI sincroniza los mismos extras que el job `test`
+# para que este ajuste no convierta esos módulos en `Any` (W3).
+ignore_missing_imports = true
+# El plugin de pydantic aporta los tipos sintetizados de `Model`/`Records`;
+# sin él mypy ve `Any` en la superficie de los modelos.
+plugins = ["pydantic.mypy"]
+# Anti-podredumbre: cualquier `# type: ignore` que deje de ser necesario falla
+# el gate. Es el control que impide que las supresiones derroten el chequeo.
+warn_unused_ignores = true
+
+# ---------------------------------------------------------------------------
+# RATCHET de tipos (CI-04). Medido el 2026-09-17 con mypy 2.3.1 sobre este
+# repositorio, con `--python-version 3.10` y los extras opcionales instalados
+# (`uv sync --extra http --extra security --extra graphql`).
+#
+# Baseline: 64 errores en 17 de 56 ficheros. Los módulos de abajo quedan
+# excluidos con `ignore_errors = true` (NO con `# type: ignore`: el conteo de
+# supresiones inline en `encino_orm/` es 0 y debe seguir siéndolo).
+#
+# REGLA: las entradas se QUITAN a medida que el módulo se limpia. NUNCA se
+# añade una entrada nueva sin justificación escrita aquí. El objetivo es que
+# este bloque encoja hasta desaparecer.
+#
+# Nota de entorno (W3): los conteos se tomaron con fastapi/PyJWT/
+# strawberry-graphql importables. El job `typecheck` de CI sincroniza los
+# mismos extras que el job `test`; sin ellos `ignore_missing_imports` convierte
+# esos paquetes en `Any` y el gate mediría un conjunto de errores distinto.
+# ---------------------------------------------------------------------------
+
+[[tool.mypy.overrides]]
+# Concentración principal medida (52 de los 64 errores).
+module = [
+    "encino_orm.model.model",          # 20 errores — se limpia en Fase 2 (DIAL) y Fase 4 (POOL-03)
+    "encino_orm.model.query_builder",  #  9 errores — se limpia en Fase 2 (DIAL-03: count/paginate/list_tables)
+    "encino_orm.model.cached",         #  6 errores — se limpia en Fase 3 (DATA-03: invalidación de escritura)
+    "encino_orm.pool",                 #  5 errores — se limpia en Fase 4 (POOL-01…06)
+    "encino_orm.security.models",      #  4 errores — se limpia en Fase 6 (CFG-02: SecurityConfig inmutable)
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# 6 errores (filters 3, resolvers 2, types 1). Los cinco `name-defined`
+# (`Name "child.__name__" is not defined`) son un artefacto del patrón de
+# handlers generados con `exec()`, que CFG-03 (Fase 6) elimina; CFG-04
+# (Fase 6) elimina además la mutación del namespace de GraphQL.
+module = ["encino_orm.graphql.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# Cola medida: 6 errores repartidos en módulos pequeños. Se limpian cuando la
+# fase que reescribe cada módulo pase por él.
+module = [
+    "encino_orm.migration",            # 3 errores — Fase 3 (DATA-01/DATA-02: ledger y migrate atómico)
+    "encino_orm.http.routes",          # 2 errores — Fase 6 (CFG-03: exec() → closures)
+    "encino_orm.http.parsing",         # 2 errores — Fase 6 (CFG-03: capa HTTP)
+    "encino_orm.oracle",               # 2 errores — Fase 2 (DIAL-01/DIAL-02) y Fase 5 (RESL-01)
+    "encino_orm.mysql",                # 1 error  — Fase 2 (DIAL-01/DIAL-02) y Fase 5 (RESL-01)
+    "encino_orm.mssql",                # 1 error  — Fase 2 (DIAL-01/DIAL-02) y Fase 5 (RESL-01)
+    "encino_orm.model.references",     # 1 error  — Fase 2 (DIAL-02: validación en los builders)
+    "encino_orm.security.guard",       # 1 error  — Fase 6 (CFG-02: factorías de guardas)
+    "encino_orm.base",                 # 1 error  — Fase 5 (RESL-02: plantilla `_with_reconnect`)
+]
+ignore_errors = true
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
@@ -114,4 +186,8 @@ dev = [
     # CI podría resolver una versión más nueva cuyo formato difiere y provocar
     # un `ruff format --check` fallido en un PR no relacionado.
     "ruff==0.16.8",
+    "mypy>=2.3.1",
+    "pytest-cov>=7.1.0",
+    "coverage>=7.16.1",
+    "pip-audit>=2.10.1",
 ]

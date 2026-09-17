@@ -105,3 +105,28 @@ jobs:
 
       - name: Ruff format --check
         run: uv run ruff format --check encino_orm tests
+
+  typecheck:
+    name: Tipos (mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # Pin por versión de uv; el pin por SHA de la action queda diferido.
+          version: "0.12.15"
+          enable-cache: true
+
+      - name: Install dependencies
+        # Mismos extras que el job `test`: el ratchet de mypy (CI-04) se midió
+        # con fastapi/PyJWT/strawberry-graphql importables. Con `--group dev`
+        # solo, `ignore_missing_imports` convierte esos paquetes en `Any` y el
+        # gate mediría un conjunto de errores distinto al fijado (W3).
+        run: uv sync --extra http --extra security --extra graphql
+
+      - name: Mypy
+        run: uv run mypy encino_orm
