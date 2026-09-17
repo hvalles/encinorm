@@ -4,6 +4,7 @@ import pytest
 
 from encino_orm import Query
 from encino_orm.model import CachedModel, RedisCacheBackend
+from tests.conftest import engine_unavailable
 
 # Todas las clases de este modulo necesitan un Redis vivo (D-08). Redis no es
 # motor requerido en Fase 1 (D-02), asi que tambien lleva `optional_engine`.
@@ -28,15 +29,15 @@ DDL = (
 async def redis_cache():
     try:
         import redis.asyncio as redis
-    except ImportError:
-        pytest.skip("redis no instalado; usa el extra 'cache'")
+    except ImportError as e:
+        engine_unavailable("redis", e)
 
     client = redis.from_url(REDIS_URL)
     try:
         await client.ping()
     except Exception as e:
         await client.aclose()
-        pytest.skip(f"Redis no disponible: {e}")
+        engine_unavailable("redis", e)
 
     backend = RedisCacheBackend(url=REDIS_URL)
     backend._client = client

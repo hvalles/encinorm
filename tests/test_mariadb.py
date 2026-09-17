@@ -4,6 +4,7 @@ import pytest
 
 from encino_orm import MariadbDb, Query
 from encino_orm.model.types import ddl_type
+from tests.conftest import engine_unavailable
 
 MARIADB_CONFIG = {
     "host": os.getenv("ENCINO_ORM_MARIADB_HOST", "127.0.0.1"),
@@ -36,7 +37,7 @@ async def mariadb_connected_db():
     try:
         await admin.connect(**cfg)
     except Exception as e:
-        pytest.skip(f"MariaDB no disponible: {e}")
+        engine_unavailable("mariadb", e)
 
     await admin.execute(Query(f"CREATE DATABASE IF NOT EXISTS `{db_name}`", []))
     await admin.close()

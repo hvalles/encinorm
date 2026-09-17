@@ -7,6 +7,7 @@ from encino_orm._rows import _rows_to_dicts
 from encino_orm.introspection.types import _normalize
 from encino_orm.model.types import ddl_type
 from encino_orm.mssql import _to_mssql
+from tests.conftest import engine_unavailable
 
 MSSQL_CONFIG = {
     "host": os.getenv("ENCINO_ORM_MSSQL_HOST", "127.0.0.1"),
@@ -121,7 +122,7 @@ async def mssql_connected_db():
     try:
         await admin.connect(**cfg, db="master")
     except Exception as e:
-        pytest.skip(f"SQL Server no disponible: {e}")
+        engine_unavailable("mssql", e)
 
     admin._connection.autocommit = True
     await admin.execute(Query(f"IF DB_ID('{db_name}') IS NULL CREATE DATABASE {db_name}", []))
@@ -132,7 +133,7 @@ async def mssql_connected_db():
     try:
         await db.connect(db=db_name, **cfg)
     except Exception as e:
-        pytest.skip(f"SQL Server no disponible: {e}")
+        engine_unavailable("mssql", e)
     yield db
     await db.close()
 

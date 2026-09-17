@@ -6,6 +6,7 @@ from encino_orm import OracleDb, Query
 from encino_orm.introspection.types import _normalize
 from encino_orm.model.types import ddl_type
 from encino_orm.oracle import _to_oracle
+from tests.conftest import engine_unavailable
 
 ORACLE_CONFIG = {
     "host": os.getenv("ENCINO_ORM_ORACLE_HOST", "127.0.0.1"),
@@ -102,7 +103,7 @@ async def oracle_connected_db():
     try:
         await db.connect(**ORACLE_CONFIG)
     except Exception as e:
-        pytest.skip(f"Oracle no disponible: {e}")
+        engine_unavailable("oracle", e)
     yield db
     await db.close()
 
