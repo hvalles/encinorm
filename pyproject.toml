@@ -40,8 +40,36 @@ encino_orm = "encino_orm.cli:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# pytest-asyncio 1.4 exige ambos loop scopes explícitos. Con un loop de sesión,
+# un pool filtrado o el singleton de `set_default_db` sobrevivirían entre tests
+# y producirían fallos dependientes del orden (Pitfall 15).
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
 testpaths = ["tests"]
 pythonpath = ["."]
+# -ra: resumen de motivos al final. --strict-markers: un marker no registrado
+# falla la colección en vez de quedar inerte (CI-06).
+addopts = "-ra --strict-markers"
+# Hoy no hay ningún xfail; activarlo es gratis y evita que un xfail pase en
+# silencio si su expectativa deja de cumplirse.
+xfail_strict = true
+# D-07: cualquier warning nuevo FALLA la suite. La allowlist arranca vacía
+# porque la suite se verificó sin warnings bajo `-W error`. Solo se puede
+# añadir una entrada con justificación escrita que nombre el módulo y el
+# motivo (p. ej. "ignore::DeprecationWarning:<modulo>" si una pata de la
+# matriz 3.12/3.13 falla por una deprecación específica de versión); nunca se
+# debilita el "error" global.
+filterwarnings = [
+    "error",
+]
+# D-08: los cuatro markers registrados para que `--strict-markers` no falle y
+# para que el comando del README (`-m "not integration"`) sea real.
+markers = [
+    "integration: requiere un motor real (MySQL/PostgreSQL en CI; opcionales en local)",
+    "optional_engine: motor no requerido en Fase 1 (MariaDB/Redis/MSSQL/Oracle); ver D-02",
+    "concurrency: tests de pool/carreras; se excluyen de corridas con xdist",
+    "benchmark: medidos por pytest-codspeed; excluidos de corridas normales",
+]
 
 [tool.ruff]
 # Debe coincidir con requires-python: dirige las reescrituras de las reglas UP.
