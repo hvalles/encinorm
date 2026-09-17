@@ -1,0 +1,8 @@
+# Commits mecánicos excluidos de `git blame`.
+# Se listan del más reciente al más antiguo. Formato: un SHA completo (40 hex) por línea.
+# GitHub honra este fichero automáticamente; en local hay que activarlo con
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
+# Ver: https://git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-file
+#
+# ruff format (line-length=100): reformateo mecánico de 61 ficheros, sin cambios de lógica.
+fd00e59894d43a62e13627458eea81602229e205
