@@ -47,11 +47,14 @@ async def usuarios(db):
 class TestInsertMany:
     @pytest.mark.asyncio
     async def test_insert_many(self, agentes):
-        total = await Agente.insert_many(agentes, [
-            {"agente": "a", "region_id": 1},
-            {"agente": "b", "region_id": 2},
-            {"agente": "c", "region_id": 3},
-        ])
+        total = await Agente.insert_many(
+            agentes,
+            [
+                {"agente": "a", "region_id": 1},
+                {"agente": "b", "region_id": 2},
+                {"agente": "c", "region_id": 3},
+            ],
+        )
         assert total == 3
         rows = await Agente(agentes).search()
         assert len(rows) == 3

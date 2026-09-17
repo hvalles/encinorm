@@ -34,7 +34,12 @@ class TestRecordsProperties:
 class TestQueryBuilderPaginate:
     @pytest.mark.asyncio
     async def test_paginate(self, db):
-        rec = await QueryBuilder(Item, db).select("nombre").order_by("nombre").paginate(limit=2, page=2)
+        rec = (
+            await QueryBuilder(Item, db)
+            .select("nombre")
+            .order_by("nombre")
+            .paginate(limit=2, page=2)
+        )
         assert rec.total == 5
         assert rec.limit == 2
         assert rec.page == 2

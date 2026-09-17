@@ -9,7 +9,7 @@ class Registry:
         self._models[model_cls._table] = model_cls
 
     def get(self, name: str):
-        return self._models[name]          # KeyError -> 404
+        return self._models[name]  # KeyError -> 404
 
     def names(self) -> list[str]:
         return sorted(self._models)

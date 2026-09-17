@@ -57,9 +57,7 @@ class TestDbTransaction:
         await connected_db.commit()
 
         async with connected_db.transaction():
-            await connected_db.execute(
-                connected_db.insert("test_tx_ctx", {"valor": "tx_success"})
-            )
+            await connected_db.execute(connected_db.insert("test_tx_ctx", {"valor": "tx_success"}))
 
         rows = await connected_db.fetch_all(Query("SELECT valor FROM test_tx_ctx", []))
         assert len(rows) == 1

@@ -56,7 +56,7 @@ class TestQueries:
         await Agente(db, agente="Luis", region_id=2).insert()
 
         result = await schema.execute(
-            '{ agentes(filter: { region_id: { eq: 1 } }) { agente } }',
+            "{ agentes(filter: { region_id: { eq: 1 } }) { agente } }",
             context_value={"db": db},
         )
         assert result.errors is None
@@ -82,7 +82,7 @@ class TestQueries:
         await Agente(db, agente="c", region_id=3).insert()
 
         result = await schema.execute(
-            '{ agentes(filter: { region_id: { in: [1, 3] } }) { agente } }',
+            "{ agentes(filter: { region_id: { in: [1, 3] } }) { agente } }",
             context_value={"db": db},
         )
         assert result.errors is None
@@ -95,7 +95,7 @@ class TestQueries:
         await Agente(db, agente="Luis", region_id=2).insert()
 
         result = await schema.execute(
-            '{ agentes(filter: { and: [ { region_id: { eq: 1 } }, '
+            "{ agentes(filter: { and: [ { region_id: { eq: 1 } }, "
             '{ agente: { like: "Héc" } } ] }) { agente } }',
             context_value={"db": db},
         )
@@ -150,9 +150,7 @@ class TestQueries:
 
     @pytest.mark.asyncio
     async def test_get_not_found(self, db, schema):
-        result = await schema.execute(
-            "{ agente(id: 999) { agente } }", context_value={"db": db}
-        )
+        result = await schema.execute("{ agente(id: 999) { agente } }", context_value={"db": db})
         assert result.errors is None
         assert result.data["agente"] is None
 
@@ -193,9 +191,7 @@ class TestMutations:
     @pytest.mark.asyncio
     async def test_delete(self, db, schema):
         await Agente(db, agente="Héctor", region_id=1).insert()
-        result = await schema.execute(
-            "mutation { agente_delete(id: 1) }", context_value={"db": db}
-        )
+        result = await schema.execute("mutation { agente_delete(id: 1) }", context_value={"db": db})
         assert result.errors is None
         assert result.data["agente_delete"] is True
 

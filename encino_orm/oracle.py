@@ -13,8 +13,14 @@ _MIGRATIONS_TABLE = "_encino_orm_migrations"
 
 
 def _log(method, sql, values, elapsed):
-    logger.debug("oracle %s (%.4fs) trace_id=%r sql=%r params=%r",
-                 method, elapsed, current_trace_id(), sql, values)
+    logger.debug(
+        "oracle %s (%.4fs) trace_id=%r sql=%r params=%r",
+        method,
+        elapsed,
+        current_trace_id(),
+        sql,
+        values,
+    )
 
 
 def _to_oracle(sql: str, params: dict) -> tuple[str, dict]:
@@ -142,12 +148,14 @@ class OracleDb(Db):
         return "SELECT table_name AS name FROM user_tables"
 
     async def columns_of(self, table: str) -> list[ColumnSpec]:
-        rows = await self.fetch_all(Query(
-            "SELECT column_name AS name, data_type, data_length, data_precision, "
-            "data_scale, nullable, identity_column "
-            "FROM user_tab_columns WHERE table_name = UPPER({0})",
-            [table],
-        ))
+        rows = await self.fetch_all(
+            Query(
+                "SELECT column_name AS name, data_type, data_length, data_precision, "
+                "data_scale, nullable, identity_column "
+                "FROM user_tab_columns WHERE table_name = UPPER({0})",
+                [table],
+            )
+        )
         result = []
         for r in rows:
             dt = (r["data_type"] or "").lower()
@@ -158,24 +166,36 @@ class OracleDb(Db):
             else:
                 raw_type = dt
                 if r["data_length"] is not None and dt in (
-                    "varchar2", "nvarchar2", "char", "nchar", "raw",
+                    "varchar2",
+                    "nvarchar2",
+                    "char",
+                    "nchar",
+                    "raw",
                 ):
                     raw_type = f"{dt}({r['data_length']})"
                 datatype, max_length, unsigned = _normalize(raw_type)
-            result.append(ColumnSpec(
-                name=(r["name"] or "").lower(),
-                raw_type=dt,
-                datatype=datatype,
-                nullable=(r["nullable"] == "Y"),
-                primary_key=(r["identity_column"] == "YES"),
-                max_length=max_length,
-                unsigned=unsigned,
-            ))
+            result.append(
+                ColumnSpec(
+                    name=(r["name"] or "").lower(),
+                    raw_type=dt,
+                    datatype=datatype,
+                    nullable=(r["nullable"] == "Y"),
+                    primary_key=(r["identity_column"] == "YES"),
+                    max_length=max_length,
+                    unsigned=unsigned,
+                )
+            )
         return result
 
     # --- Builders (construyen Query, no ejecutan) ---
-    def insert(self, tabla: str, data: dict, ignore_duplicated=False, replace=False,
-               conflict: list[str] | None = None):
+    def insert(
+        self,
+        tabla: str,
+        data: dict,
+        ignore_duplicated=False,
+        replace=False,
+        conflict: list[str] | None = None,
+    ):
         columns = list(data.keys())
         values = list(data.values())
 
@@ -220,9 +240,7 @@ class OracleDb(Db):
         key_cols = list(keys.keys())
         key_vals = list(keys.values())
         offset = len(set_cols)
-        where = " AND ".join(
-            f"{col} = {{{offset + i}}}" for i, col in enumerate(key_cols)
-        )
+        where = " AND ".join(f"{col} = {{{offset + i}}}" for i, col in enumerate(key_cols))
 
         sql = f"UPDATE {tabla} SET {set_clause} WHERE {where}"
         return Query(sql, set_vals + key_vals)
@@ -317,17 +335,13 @@ class OracleDb(Db):
             return
 
         await self.execute(qry)
-        await self.execute(
-            self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.query[0]})
-        )
+        await self.execute(self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.query[0]}))
         await self.commit()
 
     async def migrate_status(self) -> list[dict]:
         self._ensure_connected()
         await self._ensure_migrations_table()
-        return await self.fetch_all(
-            Query(f"SELECT * FROM {_MIGRATIONS_TABLE} ORDER BY id", [])
-        )
+        return await self.fetch_all(Query(f"SELECT * FROM {_MIGRATIONS_TABLE} ORDER BY id", []))
 
     async def _ensure_migrations_table(self):
         self._ensure_connected()

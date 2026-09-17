@@ -45,8 +45,14 @@ class PoolDb(Db):
     operaciones se ejecutan sobre la conexión mantenida (vía contextvar).
     """
 
-    def __init__(self, engine: str | Engine, min_size: int = 2, max_size: int = 10,
-                 idle_timeout: float | None = 60, **conn_kwargs):
+    def __init__(
+        self,
+        engine: str | Engine,
+        min_size: int = 2,
+        max_size: int = 10,
+        idle_timeout: float | None = 60,
+        **conn_kwargs,
+    ):
         if isinstance(engine, Engine):
             engine = engine.value
         self._engine = engine
@@ -216,11 +222,15 @@ class PoolDb(Db):
         return await self._run("in_transaction")
 
     async def commit(self):
-        raise ConnectionError("commit() se gestiona con pool.transaction(); no lo llames directamente")
+        raise ConnectionError(
+            "commit() se gestiona con pool.transaction(); no lo llames directamente"
+        )
 
     async def rollback(self, save_point: str = None):
         if save_point is None:
-            raise ConnectionError("rollback() se gestiona con pool.transaction(); no lo llames directamente")
+            raise ConnectionError(
+                "rollback() se gestiona con pool.transaction(); no lo llames directamente"
+            )
         return await self._run_scoped("rollback", save_point)
 
     async def save_point(self, name: str):

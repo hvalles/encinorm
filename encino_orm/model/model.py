@@ -28,7 +28,7 @@ from .scope import current_scope
 _MISSING = object()
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _FIELD_ADAPTERS = weakref.WeakKeyDictionary()  # cls -> {field: TypeAdapter}
-_COLUMN_MAPS = weakref.WeakKeyDictionary()     # cls -> {field: columna}
+_COLUMN_MAPS = weakref.WeakKeyDictionary()  # cls -> {field: columna}
 
 
 def _serialize(value):
@@ -66,13 +66,13 @@ def _types_compatible(model_dt: str, db_dt: str, engine: str) -> bool:
     if model_dt == db_dt:
         return True
     if {model_dt, db_dt} == {"bool", "int"}:
-        return True          # bool se almacena como int/tinyint en todos los motores
+        return True  # bool se almacena como int/tinyint en todos los motores
     if {model_dt, db_dt} == {"decimal", "numeric"}:
-        return True          # DECIMAL/NUMERIC exacto se introspecciona como "numeric"
+        return True  # DECIMAL/NUMERIC exacto se introspecciona como "numeric"
     if engine == Engine.SQLITE and model_dt in ("datetime", "date") and db_dt == "str":
-        return True          # SQLite guarda datetime/date como TEXT
+        return True  # SQLite guarda datetime/date como TEXT
     if engine == Engine.SQLITE and model_dt == "decimal" and db_dt == "str":
-        return True          # SQLite guarda Decimal como TEXT
+        return True  # SQLite guarda Decimal como TEXT
     return False
 
 
@@ -110,13 +110,10 @@ _PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
 
 def _shift_placeholders(sql: str, offset: int) -> str:
     """Reindexa los placeholders ``{n}`` sumándoles `offset`."""
-    return _PLACEHOLDER_RE.sub(
-        lambda m: "{" + str(int(m.group(1)) + offset) + "}", sql
-    )
+    return _PLACEHOLDER_RE.sub(lambda m: "{" + str(int(m.group(1)) + offset) + "}", sql)
 
 
-def _has_many_cache_key(key_vals, extra, limit=None, page=1, sort_by=None,
-                        include_deleted=False):
+def _has_many_cache_key(key_vals, extra, limit=None, page=1, sort_by=None, include_deleted=False):
     """Clave de caché para una colección `has_many`.
 
     La carga completa (sin filtro/limite/orden) se cachea por las claves del
@@ -368,13 +365,13 @@ class Model(BaseModel):
         ref._cached_keys = key_vals
         return obj
 
-    async def _resolve_has_many(self, name, extra=None, limit=None, page=1,
-                                sort_by=None, include_deleted=False) -> list:
+    async def _resolve_has_many(
+        self, name, extra=None, limit=None, page=1, sort_by=None, include_deleted=False
+    ) -> list:
         hm = self._has_many[name]
         key_vals = tuple(getattr(self, p) for p in hm.match_keys)
 
-        cache_key = _has_many_cache_key(key_vals, extra, limit, page, sort_by,
-                                        include_deleted)
+        cache_key = _has_many_cache_key(key_vals, extra, limit, page, sort_by, include_deleted)
         if cache_key in hm._cache:
             return hm._cache[cache_key]
 
@@ -386,13 +383,15 @@ class Model(BaseModel):
             f = extra if f is None else f & extra
         cursor = hm.model_class.model_construct()
         _set_private(cursor, "_db", self._get_db())
-        children = await cursor.search(f, limit=limit, page=page, sort_by=sort_by,
-                                       include_deleted=include_deleted)
+        children = await cursor.search(
+            f, limit=limit, page=page, sort_by=sort_by, include_deleted=include_deleted
+        )
         hm._cache[cache_key] = children
         return children
 
-    async def has_many(self, name, *, filter=None, limit=None, page=1,
-                       sort_by=None, include_deleted=False) -> list:
+    async def has_many(
+        self, name, *, filter=None, limit=None, page=1, sort_by=None, include_deleted=False
+    ) -> list:
         """Carga la colección ``has_many`` ``name`` con un filtro previo a la consulta.
 
         El ``filter`` se combina con la clave foránea (``&``) y, junto con
@@ -403,8 +402,12 @@ class Model(BaseModel):
         if name not in self._has_many:
             raise RelationshipError(f"has_many '{name}' no registrada")
         return await self._resolve_has_many(
-            name, extra=filter, limit=limit, page=page,
-            sort_by=sort_by, include_deleted=include_deleted,
+            name,
+            extra=filter,
+            limit=limit,
+            page=page,
+            sort_by=sort_by,
+            include_deleted=include_deleted,
         )
 
     # --- hooks ---
@@ -521,7 +524,7 @@ class Model(BaseModel):
         total = 0
         async with db.transaction():
             for start in range(0, len(rows), chunk):
-                batch = rows[start:start + chunk]
+                batch = rows[start : start + chunk]
                 params = []
                 row_sqls = []
                 for row in batch:
@@ -537,10 +540,7 @@ class Model(BaseModel):
                         "(" + ",".join(f"{{{base + i}}}" for i in range(len(columns))) + ")"
                     )
                     params.extend(_serialize(merged.get(f)) for f in fields)
-                sql = (
-                    f"INSERT INTO {cls._table} ({','.join(columns)}) VALUES "
-                    + ",".join(row_sqls)
-                )
+                sql = f"INSERT INTO {cls._table} ({','.join(columns)}) VALUES " + ",".join(row_sqls)
                 await db.execute(Query(sql, params))
                 total += len(batch)
         return total
@@ -588,9 +588,7 @@ class Model(BaseModel):
             update_cols = list(mapped.keys())
             params = insert_vals + list(mapped.values())
             offset = len(insert_vals)
-            set_sql = ", ".join(
-                f"{c} = {{{offset + i}}}" for i, c in enumerate(update_cols)
-            )
+            set_sql = ", ".join(f"{c} = {{{offset + i}}}" for i, c in enumerate(update_cols))
 
         placeholders = ",".join(f"{{{i}}}" for i in range(len(cols)))
         if dialect is Engine.MYSQL:
@@ -668,9 +666,7 @@ class Model(BaseModel):
         if current_scope() is not None:
             existing = await self.load(keys=keys)
             if not existing._exists:
-                raise FailOnUpdate(
-                    f"update en '{self._table}' no afectó ningún registro"
-                )
+                raise FailOnUpdate(f"update en '{self._table}' no afectó ningún registro")
         if data is None:
             data = list(self.__dict__.get("__dirties", []) or [])
         else:
@@ -742,8 +738,15 @@ class Model(BaseModel):
             f = s if f is None else f & s
         return f
 
-    async def search(self, filter=None, columns=None, limit=None, page: int = 1,
-                     sort_by: list | None = None, include_deleted: bool = False) -> list:
+    async def search(
+        self,
+        filter=None,
+        columns=None,
+        limit=None,
+        page: int = 1,
+        sort_by: list | None = None,
+        include_deleted: bool = False,
+    ) -> list:
         columns = columns or ["*"]
         for c in columns:
             if c != "*" and not _IDENTIFIER_RE.match(c):
@@ -791,8 +794,15 @@ class Model(BaseModel):
         row = await self._get_db().fetch_one(Query(sql, params))
         return row["COUNT(*)"] if row else 0
 
-    async def paginate(self, filter=None, limit: int = DEFAULT_LIMIT, page: int = 1, columns=None,
-                       sort_by: list | None = None, include_deleted: bool = False):
+    async def paginate(
+        self,
+        filter=None,
+        limit: int = DEFAULT_LIMIT,
+        page: int = 1,
+        columns=None,
+        sort_by: list | None = None,
+        include_deleted: bool = False,
+    ):
         """Devuelve un `Records` con la página y el total de registros del filtro."""
         from .records import Records
 
@@ -800,8 +810,14 @@ class Model(BaseModel):
         if limit is None:
             limit = DEFAULT_LIMIT
         total = await self.count(filter, include_deleted=include_deleted)
-        rows = await self.search(filter, columns=columns, limit=limit, page=page,
-                                 sort_by=sort_by, include_deleted=include_deleted)
+        rows = await self.search(
+            filter,
+            columns=columns,
+            limit=limit,
+            page=page,
+            sort_by=sort_by,
+            include_deleted=include_deleted,
+        )
         return Records(rows=rows, total=total, limit=limit, page=page)
 
     @classmethod
@@ -852,8 +868,9 @@ class Model(BaseModel):
         for name, idx_ddl in indexes_ddl(type(self), engine):
             await self._get_db().migrate(f"create_index_{name}", Query(idx_ddl, []))
 
-    async def sync_schema(self, engine: str = None, drop_missing: bool = False,
-                          alter_types: bool = False) -> dict:
+    async def sync_schema(
+        self, engine: str = None, drop_missing: bool = False, alter_types: bool = False
+    ) -> dict:
         """Sincroniza el esquema con ``_column_map()`` vía ``ALTER TABLE``.
 
         Añade columnas faltantes; con ``drop_missing=True`` elimina las que ya no
@@ -1080,4 +1097,3 @@ class Model(BaseModel):
             key = tuple(getattr(m, p) for p in parent_fields)
             cache_key = _has_many_cache_key(key, extra)
             m._has_many[name]._cache[cache_key] = groups.get(key, [])
-

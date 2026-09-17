@@ -104,8 +104,6 @@ class TestGraphqlLimits:
     async def test_list_limit_capped(self, db, schema):
         for i in range(3):
             await Item(db, nombre=f"n{i}").insert()
-        result = await schema.execute(
-            "{ items(limit: 10000) { id } }", context_value={"db": db}
-        )
+        result = await schema.execute("{ items(limit: 10000) { id } }", context_value={"db": db})
         assert result.errors is None
         assert len(result.data["items"]) == 3

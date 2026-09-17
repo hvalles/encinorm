@@ -1,7 +1,17 @@
 import pytest
 
-from encino_orm import (Engine, SqliteDb, create_db, engine_of, is_mariadb,
-                      is_mssql, is_mysql, is_oracle, is_postgres, is_sqlite)
+from encino_orm import (
+    Engine,
+    SqliteDb,
+    create_db,
+    engine_of,
+    is_mariadb,
+    is_mssql,
+    is_mysql,
+    is_oracle,
+    is_postgres,
+    is_sqlite,
+)
 from encino_orm.exceptions import UnsupportedEngineError
 from encino_orm.pool import PoolDb
 
@@ -17,7 +27,12 @@ def test_engine_values():
     assert "sqlite" == Engine.SQLITE
     assert str(Engine.SQLITE) == "sqlite"
     assert [e.value for e in Engine] == [
-        "sqlite", "mysql", "mariadb", "postgresql", "mssql", "oracle",
+        "sqlite",
+        "mysql",
+        "mariadb",
+        "postgresql",
+        "mssql",
+        "oracle",
     ]
 
 

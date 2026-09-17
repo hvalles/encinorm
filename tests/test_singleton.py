@@ -102,6 +102,7 @@ class TestSession:
         await User(db_a).create_table()
         await User(db_b).create_table()
         try:
+
             async def work(db, name):
                 with bind(db):
                     u = User(name=name)

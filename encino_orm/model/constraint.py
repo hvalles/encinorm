@@ -13,15 +13,16 @@ from .types import PY_TYPE_TO_DATATYPE
 class Constraint:
     """Especificación inmutable: tipo de dato + restricciones de una columna."""
 
-    datatype: str                    # int, bool, str, datetime, date, numeric, blob, float
-    required: bool = False           # False -> campo opcional (None permitido)
-    name: str | None = None          # nombre de columna en la BD
+    datatype: str  # int, bool, str, datetime, date, numeric, blob, float
+    required: bool = False  # False -> campo opcional (None permitido)
+    name: str | None = None  # nombre de columna en la BD
     field_kwargs: dict = field(default_factory=dict)  # kwargs para pydantic.Field
-    validators: tuple = ()           # funciones extra (AfterValidator)
+    validators: tuple = ()  # funciones extra (AfterValidator)
 
     @classmethod
-    def str(cls, min_length=None, max_length=None, pattern=None,
-            required=False, name=None) -> "Constraint":
+    def str(
+        cls, min_length=None, max_length=None, pattern=None, required=False, name=None
+    ) -> "Constraint":
         kw = {}
         if min_length is not None:
             kw["min_length"] = min_length
@@ -32,8 +33,7 @@ class Constraint:
         return cls("str", required, name, kw)
 
     @classmethod
-    def int(cls, ge=None, gt=None, le=None, lt=None,
-            required=False, name=None) -> "Constraint":
+    def int(cls, ge=None, gt=None, le=None, lt=None, required=False, name=None) -> "Constraint":
         kw = {}
         if ge is not None:
             kw["ge"] = ge
@@ -46,8 +46,7 @@ class Constraint:
         return cls("int", required, name, kw)
 
     @classmethod
-    def numeric(cls, ge=None, gt=None, le=None, lt=None,
-                required=False, name=None) -> "Constraint":
+    def numeric(cls, ge=None, gt=None, le=None, lt=None, required=False, name=None) -> "Constraint":
         kw = {}
         if ge is not None:
             kw["ge"] = ge
@@ -84,8 +83,7 @@ class Constraint:
         return Column(datatype=self.datatype, name=self.name)
 
 
-def make_constraint(py_type, *, datatype=None, required=False, name=None,
-                    validators=(), **base):
+def make_constraint(py_type, *, datatype=None, required=False, name=None, validators=(), **base):
     """Fábrica de orden superior: devuelve una función ``build(...) -> Annotated``.
 
     ``STR_100 = make_constraint(str, max_length=100)`` es una **función**;
@@ -95,9 +93,7 @@ def make_constraint(py_type, *, datatype=None, required=False, name=None,
         try:
             datatype = PY_TYPE_TO_DATATYPE[py_type]
         except KeyError:
-            raise TypeError(
-                f"Sin datatype inferido para {py_type!r}; indícalo con datatype=..."
-            )
+            raise TypeError(f"Sin datatype inferido para {py_type!r}; indícalo con datatype=...")
 
     def build(name=name, required=required, **overrides):
         field_kwargs = {**base, **overrides}

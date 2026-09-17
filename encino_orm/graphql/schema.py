@@ -17,13 +17,17 @@ from .types import _snake, build_input, build_type
 
 
 def _list_resolver(model, gtype, ftype):
-    async def resolver(info: Info, filter: Optional[ftype] = None,
-                       limit: Optional[int] = None,
-                       page: Optional[int] = 1) -> list[gtype]:
+    async def resolver(
+        info: Info,
+        filter: Optional[ftype] = None,
+        limit: Optional[int] = None,
+        page: Optional[int] = 1,
+    ) -> list[gtype]:
         async with db_session(info) as conn:
             f = filter_from_input(model, filter)
             limit, page = normalize_limit_page(limit or DEFAULT_LIMIT, page)
             return await cursor(model, conn).search(f, limit=limit, page=page)
+
     return resolver
 
 
@@ -31,6 +35,7 @@ def _count_resolver(model, ftype):
     async def resolver(info: Info, filter: Optional[ftype] = None) -> int:
         async with db_session(info) as conn:
             return await cursor(model, conn).count(filter_from_input(model, filter))
+
     return resolver
 
 
@@ -47,9 +52,7 @@ def _pk_resolver(model, gtype, op, itype=None):
     pk = list(model._primary_key)
     type_names = [f"_pk_t{i}" for i in range(len(pk))]
     sig = ", ".join(f"{f}: {tn}" for f, tn in zip(pk, type_names))
-    kwargs = ", ".join(
-        (f"{f}=int({f})" if f == "id" else f"{f}={f}") for f in pk
-    )
+    kwargs = ", ".join((f"{f}=int({f})" if f == "id" else f"{f}={f}") for f in pk)
 
     if op == "get":
         decl = f"async def resolver(info: Info, {sig}) -> Optional[gtype]:"
@@ -113,6 +116,7 @@ def _create_resolver(model, gtype, itype):
             return await cursor(
                 model, conn, **{f: getattr(obj, f) for f in model._primary_key}
             ).load()
+
     return resolver
 
 
@@ -132,12 +136,9 @@ def _build_query(models, type_map, filter_map):
         gtype = type_map[model]
         ftype = filter_map[model]
 
-        fields[table] = strawberry.field(
-            resolver=_list_resolver(model, gtype, ftype))
-        fields[f"{table}_count"] = strawberry.field(
-            resolver=_count_resolver(model, ftype))
-        fields[singular] = strawberry.field(
-            resolver=_get_resolver(model, gtype))
+        fields[table] = strawberry.field(resolver=_list_resolver(model, gtype, ftype))
+        fields[f"{table}_count"] = strawberry.field(resolver=_count_resolver(model, ftype))
+        fields[singular] = strawberry.field(resolver=_get_resolver(model, gtype))
 
     return strawberry.type(type("Query", (), fields))
 
@@ -150,11 +151,12 @@ def _build_mutation(models, type_map, input_map):
         itype = input_map[model]
 
         fields[f"{singular}_create"] = strawberry.field(
-            resolver=_create_resolver(model, gtype, itype))
+            resolver=_create_resolver(model, gtype, itype)
+        )
         fields[f"{singular}_update"] = strawberry.field(
-            resolver=_update_resolver(model, gtype, itype))
-        fields[f"{singular}_delete"] = strawberry.field(
-            resolver=_delete_resolver(model))
+            resolver=_update_resolver(model, gtype, itype)
+        )
+        fields[f"{singular}_delete"] = strawberry.field(resolver=_delete_resolver(model))
 
     return strawberry.type(type("Mutation", (), fields))
 

@@ -16,20 +16,45 @@ class ColumnSpec:
 
 
 _STR_TYPES = {
-    "varchar", "char", "character varying", "text", "clob", "string",
-    "nvarchar", "nchar", "tinytext", "mediumtext", "longtext",
-    "varchar2", "nvarchar2", "long", "uniqueidentifier", "xml",
+    "varchar",
+    "char",
+    "character varying",
+    "text",
+    "clob",
+    "string",
+    "nvarchar",
+    "nchar",
+    "tinytext",
+    "mediumtext",
+    "longtext",
+    "varchar2",
+    "nvarchar2",
+    "long",
+    "uniqueidentifier",
+    "xml",
 }
 _BOOL_TYPES = {"bool", "boolean", "bit"}
 _INT_TYPES = {
-    "int", "integer", "bigint", "smallint", "tinyint", "mediumint",
-    "serial", "bigserial", "smallserial",
+    "int",
+    "integer",
+    "bigint",
+    "smallint",
+    "tinyint",
+    "mediumint",
+    "serial",
+    "bigserial",
+    "smallserial",
 }
 _NUMERIC_TYPES = {"numeric", "decimal", "money", "smallmoney"}
 _FLOAT_TYPES = {"real", "float", "double", "double precision", "binary_double"}
 _DATETIME_TYPES = {
-    "datetime", "timestamp", "timestamptz", "timestamp with time zone",
-    "datetime2", "smalldatetime", "datetimeoffset",
+    "datetime",
+    "timestamp",
+    "timestamptz",
+    "timestamp with time zone",
+    "datetime2",
+    "smalldatetime",
+    "datetimeoffset",
     "timestamp with local time zone",
 }
 _DATE_TYPES = {"date"}
@@ -50,7 +75,7 @@ def _normalize(raw_type: str) -> tuple[str, int | None, bool]:
         return "bool", None, unsigned
     if base in _INT_TYPES:
         if base == "tinyint" and max_length == 1:
-            return "bool", None, unsigned       # TINYINT(1) -> bool (ambiguo)
+            return "bool", None, unsigned  # TINYINT(1) -> bool (ambiguo)
         return "int", None, unsigned
     if base in _FLOAT_TYPES:
         return "float", None, unsigned
@@ -64,7 +89,7 @@ def _normalize(raw_type: str) -> tuple[str, int | None, bool]:
         return "blob", None, unsigned
     if base in _JSON_TYPES:
         return "json", None, unsigned
-    return "str", max_length, unsigned          # fallback conservador
+    return "str", max_length, unsigned  # fallback conservador
 
 
 # Clave (datatype, discriminador) -> preset del vocabulario.

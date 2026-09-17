@@ -101,7 +101,9 @@ class TestPostgresLifecycle:
     @pytest.mark.asyncio
     async def test_transaction_context(self, pg_connected_db):
         db = pg_connected_db
-        await _reset(db, "test_tx", "CREATE TABLE test_tx (id SERIAL PRIMARY KEY, valor VARCHAR(50))")
+        await _reset(
+            db, "test_tx", "CREATE TABLE test_tx (id SERIAL PRIMARY KEY, valor VARCHAR(50))"
+        )
 
         async with db.transaction():
             await db.execute(db.insert("test_tx", {"valor": "a"}))
@@ -113,7 +115,9 @@ class TestPostgresLifecycle:
     @pytest.mark.asyncio
     async def test_save_point_and_rollback(self, pg_connected_db):
         db = pg_connected_db
-        await _reset(db, "test_sp", "CREATE TABLE test_sp (id SERIAL PRIMARY KEY, valor VARCHAR(50))")
+        await _reset(
+            db, "test_sp", "CREATE TABLE test_sp (id SERIAL PRIMARY KEY, valor VARCHAR(50))"
+        )
 
         async with db.transaction():
             await db.execute(db.insert("test_sp", {"valor": "paso1"}))
@@ -133,7 +137,9 @@ class TestPostgresBuildersAndQueries:
     @pytest.mark.asyncio
     async def test_insert_execute_and_last_id(self, pg_connected_db):
         db = pg_connected_db
-        await _reset(db, "usuarios", "CREATE TABLE usuarios (id SERIAL PRIMARY KEY, nombre VARCHAR(50))")
+        await _reset(
+            db, "usuarios", "CREATE TABLE usuarios (id SERIAL PRIMARY KEY, nombre VARCHAR(50))"
+        )
 
         assert await db.execute(db.insert("usuarios", {"nombre": "Héctor"})) == 1
         assert await db.last_id() == 1

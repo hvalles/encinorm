@@ -32,8 +32,14 @@ class TestIndexesDdl:
             _indexes = [Index("rfc", unique=True), Index("nombre")]
 
         result = indexes_ddl(C, "sqlite")
-        assert ("idx_clientes_rfc", "CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_rfc ON clientes (rfc)") in result
-        assert ("idx_clientes_nombre", "CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes (nombre)") in result
+        assert (
+            "idx_clientes_rfc",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_rfc ON clientes (rfc)",
+        ) in result
+        assert (
+            "idx_clientes_nombre",
+            "CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes (nombre)",
+        ) in result
 
     def test_custom_name(self):
         class C(Model):

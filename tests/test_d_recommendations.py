@@ -10,7 +10,9 @@ from encino_orm.model import Column, Model
 
 class Agente(Model):
     _table = "agentes"
-    agente: Annotated[str | None, Column(name="nombre")] = Field(default=None, min_length=3, max_length=50)
+    agente: Annotated[str | None, Column(name="nombre")] = Field(
+        default=None, min_length=3, max_length=50
+    )
     monto: Annotated[float, Column(datatype="numeric")] = Field(ge=0, default=0.0)
 
 
@@ -70,7 +72,9 @@ class TestD3LastIdStandalone:
 
     @pytest.mark.asyncio
     async def test_last_id_after_standalone_insert(self, pool):
-        await pool.execute(Query("CREATE TABLE u (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", []))
+        await pool.execute(
+            Query("CREATE TABLE u (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", [])
+        )
         await pool.execute(pool.insert("u", {"nombre": "x"}))
         assert await pool.last_id() == 1
         await pool.execute(pool.insert("u", {"nombre": "y"}))
@@ -161,30 +165,49 @@ class TestD4AutoRetry:
 
             async def connect(self, **kw): ...
             async def close(self): ...
-            async def is_alive(self): return True
-            async def in_transaction(self): return False
+            async def is_alive(self):
+                return True
+
+            async def in_transaction(self):
+                return False
+
             async def commit(self): ...
             async def rollback(self, save_point=None): ...
             async def save_point(self, name): ...
             def insert(self, tabla, data, ignore_duplicated=False, replace=False):
                 return ("INSERT", tabla, data)
+
             def delete(self, tabla, keys):
                 return ("DELETE", tabla)
+
             def update(self, tabla, keys, values):
                 return ("UPDATE", tabla)
+
             async def execute(self, qry):
                 self.executes += 1
                 if self.executes == 1:
                     raise Exception("database is locked")
                 self.last = 7
                 return 1
-            async def fetch_all(self, qry): return []
-            async def fetch_one(self, qry): return None
-            async def fetch_many(self, qry, limit, page): return []
-            async def exists(self, qry): return False
-            async def last_id(self): return self.last
+
+            async def fetch_all(self, qry):
+                return []
+
+            async def fetch_one(self, qry):
+                return None
+
+            async def fetch_many(self, qry, limit, page):
+                return []
+
+            async def exists(self, qry):
+                return False
+
+            async def last_id(self):
+                return self.last
+
             async def migrate(self, name, qry): ...
-            async def migrate_status(self): return []
+            async def migrate_status(self):
+                return []
 
         db = LockDb()
 

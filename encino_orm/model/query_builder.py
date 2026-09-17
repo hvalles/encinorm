@@ -11,9 +11,7 @@ _COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 
 def _shift(sql: str, offset: int) -> str:
-    return _PLACEHOLDER.sub(
-        lambda m: "{" + str(int(m.group(1)) + offset) + "}", sql
-    )
+    return _PLACEHOLDER.sub(lambda m: "{" + str(int(m.group(1)) + offset) + "}", sql)
 
 
 def _safe_column(expr: str) -> str:
@@ -85,9 +83,7 @@ class QueryBuilder:
 
     def join(self, other, alias: str, on: Filter) -> "QueryBuilder":
         if other is self._model_class:
-            raise DuplicateAliasError(
-                "self-join no permitido en join(); usa join_subquery()"
-            )
+            raise DuplicateAliasError("self-join no permitido en join(); usa join_subquery()")
         if alias in self._aliases:
             raise DuplicateAliasError(f"alias '{alias}' duplicado")
         self._aliases.add(alias)
@@ -95,7 +91,9 @@ class QueryBuilder:
         self._joins.append({"type": "table", "model_class": other, "alias": alias, "on": on})
         return self
 
-    def join_subquery(self, subquery: "QueryBuilder", alias: str | None, on: Filter) -> "QueryBuilder":
+    def join_subquery(
+        self, subquery: "QueryBuilder", alias: str | None, on: Filter
+    ) -> "QueryBuilder":
         if alias is None:
             alias = self._next_subquery_alias()
         if alias in self._aliases:

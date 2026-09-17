@@ -99,29 +99,36 @@ async def test_fn_date_arithmetic_integration():
             await db.execute(db.insert("ev", {"fecha": f"{fecha} 00:00:00"}))
 
         # date_sub sobre una columna real
-        rows = await db.fetch_all(Query(
-            f"SELECT id, {db.fn.date_sub('fecha', 1, 'month')} AS prev FROM ev ORDER BY id", []
-        ))
+        rows = await db.fetch_all(
+            Query(
+                f"SELECT id, {db.fn.date_sub('fecha', 1, 'month')} AS prev FROM ev ORDER BY id", []
+            )
+        )
         assert [r["prev"] for r in rows] == [
-            "2025-12-01 00:00:00", "2026-01-01 00:00:00", "2026-02-01 00:00:00"
+            "2025-12-01 00:00:00",
+            "2026-01-01 00:00:00",
+            "2026-02-01 00:00:00",
         ]
 
         # date_add sobre una columna real
-        rows = await db.fetch_all(Query(
-            f"SELECT id, {db.fn.date_add('fecha', 1, 'day')} AS nxt FROM ev WHERE id = 1", []
-        ))
+        rows = await db.fetch_all(
+            Query(f"SELECT id, {db.fn.date_add('fecha', 1, 'day')} AS nxt FROM ev WHERE id = 1", [])
+        )
         assert rows[0]["nxt"] == "2026-01-02 00:00:00"
 
         # weekday normalizado (0=lunes)
-        rows = await db.fetch_all(Query(
-            f"SELECT {db.fn.weekday('fecha')} AS wd FROM ev WHERE id = 1", []
-        ))
+        rows = await db.fetch_all(
+            Query(f"SELECT {db.fn.weekday('fecha')} AS wd FROM ev WHERE id = 1", [])
+        )
         assert rows[0]["wd"] == datetime(2026, 1, 1).weekday()
 
         # partes de fecha
-        rows = await db.fetch_all(Query(
-            f"SELECT {db.fn.year('fecha')} AS y, {db.fn.month('fecha')} AS m FROM ev WHERE id = 1", []
-        ))
+        rows = await db.fetch_all(
+            Query(
+                f"SELECT {db.fn.year('fecha')} AS y, {db.fn.month('fecha')} AS m FROM ev WHERE id = 1",
+                [],
+            )
+        )
         assert rows[0]["y"] == 2026
         assert rows[0]["m"] == 1
     finally:
@@ -168,11 +175,17 @@ def test_mssql_substring_requires_length():
 
 
 def test_date_diff():
-    assert _f("sqlite").date_diff("a", "b", "day") == "((strftime('%s', a) - strftime('%s', b)) / 86400)"
+    assert (
+        _f("sqlite").date_diff("a", "b", "day")
+        == "((strftime('%s', a) - strftime('%s', b)) / 86400)"
+    )
     assert _f("mysql").date_diff("a", "b", "day") == "(TIMESTAMPDIFF(SECOND, b, a) / 86400)"
     assert _f("postgresql").date_diff("a", "b") == "(EXTRACT(EPOCH FROM (a - b)) / 86400)"
     assert _f("mssql").date_diff("a", "b", "hour") == "(DATEDIFF(SECOND, b, a) / 3600)"
-    assert _f("oracle").date_diff("a", "b", "day") == "(((CAST(a AS DATE) - CAST(b AS DATE)) * 86400) / 86400)"
+    assert (
+        _f("oracle").date_diff("a", "b", "day")
+        == "(((CAST(a AS DATE) - CAST(b AS DATE)) * 86400) / 86400)"
+    )
     assert _f("sqlite").date_diff("a", "b", "second") == "(strftime('%s', a) - strftime('%s', b))"
 
 
@@ -181,7 +194,10 @@ def test_date_diff_calendar():
     assert _f("mssql").date_diff("a", "b", "year") == "DATEDIFF(YEAR, b, a)"
     assert _f("oracle").date_diff("a", "b", "month") == "MONTHS_BETWEEN(a, b)"
     assert _f("oracle").date_diff("a", "b", "year") == "(MONTHS_BETWEEN(a, b) / 12)"
-    assert _f("sqlite").date_diff("a", "b", "month") == "CAST((julianday(a) - julianday(b)) / 30.44 AS INTEGER)"
+    assert (
+        _f("sqlite").date_diff("a", "b", "month")
+        == "CAST((julianday(a) - julianday(b)) / 30.44 AS INTEGER)"
+    )
     assert _f("postgresql").date_diff("a", "b", "year") == "EXTRACT(YEAR FROM AGE(a, b))"
 
 
@@ -219,7 +235,10 @@ def test_geo_distance_native():
     assert _f("mssql").geo_distance(1, 2, 3, 4) == (
         "geography::Point(1, 2, 4326).STDistance(geography::Point(3, 4, 4326))"
     )
-    assert _f("mysql").geo_distance(1, 2, 3, 4, "km") == "(ST_Distance_Sphere(POINT(2, 1), POINT(4, 3)) / 1000)"
+    assert (
+        _f("mysql").geo_distance(1, 2, 3, 4, "km")
+        == "(ST_Distance_Sphere(POINT(2, 1), POINT(4, 3)) / 1000)"
+    )
 
 
 def test_geo_distance_haversine():
@@ -273,4 +292,3 @@ async def test_geo_distance_integration_sqlite():
         assert abs(rows[0]["d"] - 111.195) < 0.5
     finally:
         await db.close()
-

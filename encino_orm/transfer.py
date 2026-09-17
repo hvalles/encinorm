@@ -128,15 +128,16 @@ async def _set_fk(db, enabled: bool):
         await db.execute(Query(f"SET FOREIGN_KEY_CHECKS={'1' if enabled else '0'}", []))
     elif engine is Engine.POSTGRESQL:
         try:
-            await db.execute(Query(
-                f"SET session_replication_role = {'origin' if enabled else 'replica'}", []
-            ))
+            await db.execute(
+                Query(f"SET session_replication_role = {'origin' if enabled else 'replica'}", [])
+            )
         except Exception:
             pass
 
 
-async def copy_table(src, dst, table: str, *, create: bool = False,
-                     truncate: bool = False, preserve_ids: bool = True) -> int:
+async def copy_table(
+    src, dst, table: str, *, create: bool = False, truncate: bool = False, preserve_ids: bool = True
+) -> int:
     """Copia una tabla completa del origen al destino. Devuelve filas copiadas."""
     from .introspection import columns_of
 
@@ -167,9 +168,16 @@ async def copy_table(src, dst, table: str, *, create: bool = False,
     return total
 
 
-async def copy_database(src, dst, tables: list[str] | None = None, *,
-                        create: bool = False, truncate: bool = False,
-                        preserve_ids: bool = True, disable_fk: bool = True) -> dict[str, int]:
+async def copy_database(
+    src,
+    dst,
+    tables: list[str] | None = None,
+    *,
+    create: bool = False,
+    truncate: bool = False,
+    preserve_ids: bool = True,
+    disable_fk: bool = True,
+) -> dict[str, int]:
     """Copia todas (o una selección de) las tablas. Devuelve ``{tabla: filas}``."""
     from .introspection import list_tables
 
@@ -182,8 +190,12 @@ async def copy_database(src, dst, tables: list[str] | None = None, *,
     try:
         for table in tables:
             result[table] = await copy_table(
-                src, dst, table,
-                create=create, truncate=truncate, preserve_ids=preserve_ids,
+                src,
+                dst,
+                table,
+                create=create,
+                truncate=truncate,
+                preserve_ids=preserve_ids,
             )
     finally:
         if disable_fk:

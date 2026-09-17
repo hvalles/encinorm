@@ -35,11 +35,15 @@ class TestF4Timezone:
         await Evento(connected_db).create_table()
 
         # aware en otra zona -> se guarda normalizado a UTC
-        dt = datetime(2026, 1, 1, 9, 0, 0, tzinfo=timezone(offset=__import__("datetime").timedelta(hours=-5)))
+        dt = datetime(
+            2026, 1, 1, 9, 0, 0, tzinfo=timezone(offset=__import__("datetime").timedelta(hours=-5))
+        )
         e = Evento(connected_db, cuando=dt)
         await e.insert()
 
-        row = await connected_db.fetch_one(Query("SELECT cuando FROM eventos WHERE id = {0}", [e.id]))
+        row = await connected_db.fetch_one(
+            Query("SELECT cuando FROM eventos WHERE id = {0}", [e.id])
+        )
         assert row["cuando"] == "2026-01-01 14:00:00"  # -05:00 -> UTC
 
         loaded = await Evento(connected_db, id=e.id).load()

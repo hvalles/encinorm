@@ -18,8 +18,9 @@ from encino_orm.transfer import (
 
 
 def _col(name, datatype, pk=False):
-    return ColumnSpec(name=name, raw_type=datatype, datatype=datatype,
-                      nullable=True, primary_key=pk)
+    return ColumnSpec(
+        name=name, raw_type=datatype, datatype=datatype, nullable=True, primary_key=pk
+    )
 
 
 class TestBuildDdl:
@@ -118,16 +119,25 @@ async def dst():
 class TestCopyTable:
     @pytest.mark.asyncio
     async def test_copy_creates_and_copies(self, src, dst):
-        await src.execute(Query(
-            "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "nombre TEXT, edad INTEGER, activo INTEGER, creado TEXT)", []
-        ))
-        await src.execute(Query(
-            "INSERT INTO users (nombre, edad, activo, creado) VALUES ('Ana', 30, 1, '2026-09-07')", []
-        ))
-        await src.execute(Query(
-            "INSERT INTO users (nombre, edad, activo, creado) VALUES ('Bob', 25, 0, '2026-09-08')", []
-        ))
+        await src.execute(
+            Query(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "nombre TEXT, edad INTEGER, activo INTEGER, creado TEXT)",
+                [],
+            )
+        )
+        await src.execute(
+            Query(
+                "INSERT INTO users (nombre, edad, activo, creado) VALUES ('Ana', 30, 1, '2026-09-07')",
+                [],
+            )
+        )
+        await src.execute(
+            Query(
+                "INSERT INTO users (nombre, edad, activo, creado) VALUES ('Bob', 25, 0, '2026-09-08')",
+                [],
+            )
+        )
 
         assert await copy_table(src, dst, "users", create=True) == 2
 
@@ -139,9 +149,13 @@ class TestCopyTable:
 
     @pytest.mark.asyncio
     async def test_truncate(self, src, dst):
-        await src.execute(Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", []))
+        await src.execute(
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", [])
+        )
         await src.execute(Query("INSERT INTO t (v) VALUES ('x')", []))
-        await dst.execute(Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", []))
+        await dst.execute(
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", [])
+        )
         await dst.execute(Query("INSERT INTO t (v) VALUES ('old')", []))
 
         await copy_table(src, dst, "t", truncate=True)
@@ -150,9 +164,9 @@ class TestCopyTable:
 
     @pytest.mark.asyncio
     async def test_copy_json_column(self, src, dst):
-        await src.execute(Query(
-            "CREATE TABLE docs (id INTEGER PRIMARY KEY AUTOINCREMENT, payload JSON)", []
-        ))
+        await src.execute(
+            Query("CREATE TABLE docs (id INTEGER PRIMARY KEY AUTOINCREMENT, payload JSON)", [])
+        )
         await src.execute(Query("INSERT INTO docs (payload) VALUES ('{\"a\": 1}')", []))
 
         assert await copy_table(src, dst, "docs", create=True) == 1
@@ -161,9 +175,13 @@ class TestCopyTable:
 
     @pytest.mark.asyncio
     async def test_preserve_ids_false_drops_auto_pk(self, src, dst):
-        await src.execute(Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", []))
+        await src.execute(
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", [])
+        )
         await src.execute(Query("INSERT INTO t (v) VALUES ('x')", []))
-        await dst.execute(Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", []))
+        await dst.execute(
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", [])
+        )
 
         await copy_table(src, dst, "t", preserve_ids=False)
         rows = await dst.fetch_all(Query("SELECT * FROM t", []))
@@ -174,8 +192,12 @@ class TestCopyTable:
 class TestCopyDatabase:
     @pytest.mark.asyncio
     async def test_copies_all_tables(self, src, dst):
-        await src.execute(Query("CREATE TABLE a (id INTEGER PRIMARY KEY AUTOINCREMENT, x TEXT)", []))
-        await src.execute(Query("CREATE TABLE b (id INTEGER PRIMARY KEY AUTOINCREMENT, y INTEGER)", []))
+        await src.execute(
+            Query("CREATE TABLE a (id INTEGER PRIMARY KEY AUTOINCREMENT, x TEXT)", [])
+        )
+        await src.execute(
+            Query("CREATE TABLE b (id INTEGER PRIMARY KEY AUTOINCREMENT, y INTEGER)", [])
+        )
         await src.execute(Query("INSERT INTO a (x) VALUES ('uno')", []))
         await src.execute(Query("INSERT INTO b (y) VALUES (7)", []))
 
@@ -187,8 +209,12 @@ class TestCopyDatabase:
 
     @pytest.mark.asyncio
     async def test_subset_of_tables(self, src, dst):
-        await src.execute(Query("CREATE TABLE a (id INTEGER PRIMARY KEY AUTOINCREMENT, x TEXT)", []))
-        await src.execute(Query("CREATE TABLE b (id INTEGER PRIMARY KEY AUTOINCREMENT, y INTEGER)", []))
+        await src.execute(
+            Query("CREATE TABLE a (id INTEGER PRIMARY KEY AUTOINCREMENT, x TEXT)", [])
+        )
+        await src.execute(
+            Query("CREATE TABLE b (id INTEGER PRIMARY KEY AUTOINCREMENT, y INTEGER)", [])
+        )
         await src.execute(Query("INSERT INTO a (x) VALUES ('uno')", []))
         await src.execute(Query("INSERT INTO b (y) VALUES (7)", []))
 
@@ -209,21 +235,27 @@ class TestCliCopy:
         async def _setup():
             d = SqliteDb()
             await d.connect(database=str(src_file))
-            await d.execute(Query(
-                "CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", []
-            ))
+            await d.execute(
+                Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", [])
+            )
             await d.execute(Query("INSERT INTO t (nombre) VALUES ('Héctor')", []))
             await d.commit()
             await d.close()
 
         asyncio.run(_setup())
 
-        code = main([
-            "copy", "sqlite", "sqlite",
-            "--src-database", str(src_file),
-            "--dst-database", str(dst_file),
-            "--create",
-        ])
+        code = main(
+            [
+                "copy",
+                "sqlite",
+                "sqlite",
+                "--src-database",
+                str(src_file),
+                "--dst-database",
+                str(dst_file),
+                "--create",
+            ]
+        )
         assert code == 0
 
         async def _check():

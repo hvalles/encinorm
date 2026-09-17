@@ -45,11 +45,19 @@ def _build_parser() -> argparse.ArgumentParser:
     copy.add_argument("dst_engine", choices=_ENGINE_CHOICES)
     copy.add_argument("tables", nargs="*", help="tablas a copiar (default: todas)")
     copy.add_argument("--create", action="store_true", help="crea las tablas en destino")
-    copy.add_argument("--truncate", action="store_true", help="vacía cada tabla destino antes de copiar")
-    copy.add_argument("--no-preserve-ids", action="store_true",
-                      help="no copiar la PK auto-incremental (dejar que el destino la asigne)")
-    copy.add_argument("--no-disable-fk", action="store_true",
-                      help="no desactivar las restricciones de FK durante la copia")
+    copy.add_argument(
+        "--truncate", action="store_true", help="vacía cada tabla destino antes de copiar"
+    )
+    copy.add_argument(
+        "--no-preserve-ids",
+        action="store_true",
+        help="no copiar la PK auto-incremental (dejar que el destino la asigne)",
+    )
+    copy.add_argument(
+        "--no-disable-fk",
+        action="store_true",
+        help="no desactivar las restricciones de FK durante la copia",
+    )
     _add_conn_args(copy, "src", "origen")
     _add_conn_args(copy, "dst", "destino")
 
@@ -106,8 +114,11 @@ async def _copy(args) -> int:
         dst = await create_db(args.dst_engine, **_conn_kwargs_prefixed(args, "dst_engine", "dst"))
         try:
             result = await copy_database(
-                src, dst, tables=args.tables or None,
-                create=args.create, truncate=args.truncate,
+                src,
+                dst,
+                tables=args.tables or None,
+                create=args.create,
+                truncate=args.truncate,
                 preserve_ids=not args.no_preserve_ids,
                 disable_fk=not args.no_disable_fk,
             )

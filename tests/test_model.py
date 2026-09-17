@@ -9,7 +9,9 @@ from encino_orm.model import Column, FailOnUpdate, Filter, Model, ValidationErro
 
 class Agente(Model):
     _table = "agentes"
-    agente: Annotated[str | None, Column(name="nombre")] = Field(default=None, min_length=3, max_length=50)
+    agente: Annotated[str | None, Column(name="nombre")] = Field(
+        default=None, min_length=3, max_length=50
+    )
     monto: Annotated[float, Column(datatype="numeric")] = Field(ge=0, default=0.0)
 
 
@@ -188,8 +190,8 @@ class TestValidate:
     @pytest.mark.asyncio
     async def test_validate_reports_errors(self, agentes):
         a = Agente(agentes, agente="Héctor", monto=10)
-        object.__setattr__(a, "agente", "ab")   # viola min_length=3
-        object.__setattr__(a, "monto", -5.0)    # viola ge=0
+        object.__setattr__(a, "agente", "ab")  # viola min_length=3
+        object.__setattr__(a, "monto", -5.0)  # viola ge=0
         errs = await a.validate()
         assert errs is not None
         assert "agente" in errs
@@ -198,7 +200,7 @@ class TestValidate:
     @pytest.mark.asyncio
     async def test_insert_rejects_invalid(self, agentes):
         a = Agente(agentes, agente="Héctor", monto=10)
-        object.__setattr__(a, "agente", "ab")   # viola min_length=3 (soft)
-        object.__setattr__(a, "monto", -5.0)    # viola ge=0 (soft)
+        object.__setattr__(a, "agente", "ab")  # viola min_length=3 (soft)
+        object.__setattr__(a, "monto", -5.0)  # viola ge=0 (soft)
         with pytest.raises(ValidationError):
             await a.insert()

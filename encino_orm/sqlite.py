@@ -15,8 +15,14 @@ _MIGRATIONS_TABLE = "_encino_orm_migrations"
 
 
 def _log(method, sql, values, elapsed):
-    logger.debug("sqlite %s (%.4fs) trace_id=%r sql=%r params=%r",
-                 method, elapsed, current_trace_id(), sql, values)
+    logger.debug(
+        "sqlite %s (%.4fs) trace_id=%r sql=%r params=%r",
+        method,
+        elapsed,
+        current_trace_id(),
+        sql,
+        values,
+    )
 
 
 def _to_positional(sql: str, params: dict) -> tuple[str, list]:
@@ -124,8 +130,14 @@ class SqliteDb(Db):
 
     # --- Builders (construyen Query, no ejecutan) ---
 
-    def insert(self, tabla: str, data: dict, ignore_duplicated=False, replace=False,
-               conflict: list[str] | None = None):
+    def insert(
+        self,
+        tabla: str,
+        data: dict,
+        ignore_duplicated=False,
+        replace=False,
+        conflict: list[str] | None = None,
+    ):
         columns = list(data.keys())
         values = list(data.values())
         placeholders = ",".join("{%d}" % i for i in range(len(columns)))
@@ -154,9 +166,7 @@ class SqliteDb(Db):
         key_cols = list(keys.keys())
         key_vals = list(keys.values())
         offset = len(set_cols)
-        where = " AND ".join(
-            f"{col} = {{{offset + i}}}" for i, col in enumerate(key_cols)
-        )
+        where = " AND ".join(f"{col} = {{{offset + i}}}" for i, col in enumerate(key_cols))
 
         sql = f"UPDATE {tabla} SET {set_clause} WHERE {where}"
         return Query(sql, set_vals + key_vals)
@@ -198,9 +208,7 @@ class SqliteDb(Db):
         sql = sql.rstrip().rstrip(";")
         offset = (page - 1) * limit
         t0 = time.monotonic()
-        cursor = await self._connection.execute(
-            f"{sql} LIMIT {limit} OFFSET {offset}", values
-        )
+        cursor = await self._connection.execute(f"{sql} LIMIT {limit} OFFSET {offset}", values)
         rows = await cursor.fetchall()
         await cursor.close()
         _log("fetch_many", sql, values, time.monotonic() - t0)
@@ -227,17 +235,13 @@ class SqliteDb(Db):
             return
 
         await self.execute(qry)
-        await self.execute(
-            self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.query[0]})
-        )
+        await self.execute(self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.query[0]}))
         await self.commit()
 
     async def migrate_status(self) -> list[dict]:
         self._ensure_connected()
         await self._ensure_migrations_table()
-        return await self.fetch_all(
-            Query(f"SELECT * FROM {_MIGRATIONS_TABLE} ORDER BY id", [])
-        )
+        return await self.fetch_all(Query(f"SELECT * FROM {_MIGRATIONS_TABLE} ORDER BY id", []))
 
     async def _ensure_migrations_table(self):
         self._ensure_connected()

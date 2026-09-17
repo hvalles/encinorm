@@ -13,18 +13,59 @@ _INHERITED = ("id", "enabled", "created_at", "updated_at")
 # SQL: al detectarlos se les añade `_` y se mapea con `name="columna"`.
 _RESERVED = {
     # campos heredados de Model
-    "id", "enabled", "created_at", "updated_at",
+    "id",
+    "enabled",
+    "created_at",
+    "updated_at",
     # métodos ORM
-    "insert", "update", "delete", "load", "search", "count", "paginate",
-    "query", "validate", "add_reference", "create_table", "sync_schema",
+    "insert",
+    "update",
+    "delete",
+    "load",
+    "search",
+    "count",
+    "paginate",
+    "query",
+    "validate",
+    "add_reference",
+    "create_table",
+    "sync_schema",
     "batch_reference",
     # pydantic / Model internos
-    "dict", "json", "copy", "model_construct", "model_dump", "model_fields",
-    "model_config", "_table", "_db",
+    "dict",
+    "json",
+    "copy",
+    "model_construct",
+    "model_dump",
+    "model_fields",
+    "model_config",
+    "_table",
+    "_db",
     # palabras reservadas SQL comunes
-    "create", "select", "insert", "drop", "alter", "table", "index", "order",
-    "group", "where", "join", "on", "primary", "key", "references", "default",
-    "limit", "offset", "desc", "asc", "between", "like", "is", "in",
+    "create",
+    "select",
+    "insert",
+    "drop",
+    "alter",
+    "table",
+    "index",
+    "order",
+    "group",
+    "where",
+    "join",
+    "on",
+    "primary",
+    "key",
+    "references",
+    "default",
+    "limit",
+    "offset",
+    "desc",
+    "asc",
+    "between",
+    "like",
+    "is",
+    "in",
 }
 
 _DOMAIN_IMPORT = (
@@ -57,8 +98,7 @@ def _field_name(col_name: str) -> str:
     return name
 
 
-async def generate_model(db, table: str, *, folder: str,
-                         class_name: str | None = None) -> Path:
+async def generate_model(db, table: str, *, folder: str, class_name: str | None = None) -> Path:
     """Genera `folder/<archivo>.py` con el `Model` de la tabla.
 
     Devuelve la ruta del archivo generado. Los tipos que coinciden con el

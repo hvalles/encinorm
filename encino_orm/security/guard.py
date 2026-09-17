@@ -11,8 +11,8 @@ from .jwt import verify_token
 from .permissions import PermissionSet
 
 # Configuración global que la aplicación sobreescribe en su arranque:
-SECRET: str | None = None      # p. ej. os.environ["SECRET_KEY"]
-GET_DB = None                  # dependency de conexión (session(pool) de docs/design/4-crud.md)
+SECRET: str | None = None  # p. ej. os.environ["SECRET_KEY"]
+GET_DB = None  # dependency de conexión (session(pool) de docs/design/4-crud.md)
 
 
 @dataclass
@@ -38,8 +38,9 @@ def get_current_user(secret: str | None = None, get_db=None):
 
     secret, db_dep = _resolve(secret, get_db)
 
-    async def _dep(authorization=Depends(HTTPBearer(auto_error=False)),
-                   db=Depends(db_dep)) -> CurrentUser:
+    async def _dep(
+        authorization=Depends(HTTPBearer(auto_error=False)), db=Depends(db_dep)
+    ) -> CurrentUser:
         if authorization is None:
             # anónimo -> rol Público
             return CurrentUser(None, await PermissionSet.for_user(db, None))

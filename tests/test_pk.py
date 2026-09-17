@@ -130,10 +130,7 @@ class TestCompositeFk:
     @pytest.mark.asyncio
     async def test_fk_ddl(self):
         ddl = to_ddl(AuditLog, "sqlite")
-        assert (
-            "FOREIGN KEY (tenant_id, code) REFERENCES memberships (tenant_id, code)"
-            in ddl
-        )
+        assert "FOREIGN KEY (tenant_id, code) REFERENCES memberships (tenant_id, code)" in ddl
 
     @pytest.mark.asyncio
     async def test_has_many_composite(self, db):
@@ -214,10 +211,13 @@ class TestGraphqlComposite:
 class TestCodegen:
     @pytest.mark.asyncio
     async def test_generate_composite_pk(self, db, tmp_path):
-        await db.execute(Query(
-            "CREATE TABLE memberships (tenant_id INTEGER NOT NULL, code TEXT NOT NULL, "
-            "role TEXT, PRIMARY KEY (tenant_id, code))", []
-        ))
+        await db.execute(
+            Query(
+                "CREATE TABLE memberships (tenant_id INTEGER NOT NULL, code TEXT NOT NULL, "
+                "role TEXT, PRIMARY KEY (tenant_id, code))",
+                [],
+            )
+        )
         path = await generate_model(db, "memberships", folder=str(tmp_path))
         text = path.read_text(encoding="utf-8")
         assert "_primary_key = ('tenant_id', 'code')" in text

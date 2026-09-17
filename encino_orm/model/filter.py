@@ -106,9 +106,8 @@ class Filter:
         dlat = radius_km / 111.0
         cos_lat = math.cos(math.radians(lat))
         dlon = radius_km / (111.0 * cos_lat) if cos_lat else radius_km / 111.0
-        return (
-            Filter.between(lat_field, lat - dlat, lat + dlat)
-            & Filter.between(lon_field, lon - dlon, lon + dlon)
+        return Filter.between(lat_field, lat - dlat, lat + dlat) & Filter.between(
+            lon_field, lon - dlon, lon + dlon
         )
 
     @staticmethod

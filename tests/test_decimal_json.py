@@ -11,8 +11,8 @@ from encino_orm.sqlite import SqliteDb
 class Doc(Model):
     _table = "docs"
     total: DECIMAL()
-    payload: JSON()                  # dict | None -> columna JSON
-    items: make_constraint(list)()   # list | None -> columna JSON
+    payload: JSON()  # dict | None -> columna JSON
+    items: make_constraint(list)()  # list | None -> columna JSON
 
 
 @pytest.fixture

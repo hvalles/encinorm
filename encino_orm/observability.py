@@ -83,7 +83,13 @@ class QueryTracer:
         self.logger.log(
             self.level,
             "%s %s (%.4fs) trace_id=%r sql=%r params=%r%s",
-            engine, method, elapsed, current_trace_id(), sql, params, extra,
+            engine,
+            method,
+            elapsed,
+            current_trace_id(),
+            sql,
+            params,
+            extra,
         )
 
     @property
@@ -126,8 +132,7 @@ class OtelQueryTracer:
                 from opentelemetry import trace as otel_trace
             except ImportError as exc:  # pragma: no cover - depende del entorno
                 raise ImportError(
-                    "opentelemetry-api no está instalado; agrégalo para usar "
-                    "OtelQueryTracer"
+                    "opentelemetry-api no está instalado; agrégalo para usar OtelQueryTracer"
                 ) from exc
             self._tracer = otel_trace.get_tracer(self._name)
         return self._tracer

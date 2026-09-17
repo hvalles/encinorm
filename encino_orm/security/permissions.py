@@ -17,13 +17,13 @@ class PermissionSet:
 
     def __init__(self, user_id: str | None, rules: dict[str, dict[str, bool]]):
         self.user_id = user_id
-        self._rules = rules          # {modelo: {op: True|False}}
+        self._rules = rules  # {modelo: {op: True|False}}
 
     def can(self, modelo: str, op: str) -> bool:
         rule = self._rules.get(modelo) or self._rules.get("*")
         if rule is None:
             return False
-        return bool(rule.get(op, False))     # negación por defecto
+        return bool(rule.get(op, False))  # negación por defecto
 
     def require(self, modelo: str, op: str) -> None:
         if not self.can(modelo, op):
@@ -32,7 +32,7 @@ class PermissionSet:
     @classmethod
     async def for_user(cls, db, user_id: str | None) -> "PermissionSet":
         if user_id is None:
-            user_id = PUBLIC_USER_ID        # rol Público para anónimos (str)
+            user_id = PUBLIC_USER_ID  # rol Público para anónimos (str)
         # 1) roles del usuario, ordenados por `orden` asc
         roles = await RolUsuario.cursor(db).search(
             Filter.eq("user_id", user_id) & Filter.eq("enabled", True),
@@ -52,5 +52,5 @@ class PermissionSet:
             slot = rules.setdefault(m, {})
             for op in OPS:
                 if op not in slot and getattr(d, f"perm_{op}") is not None:
-                    slot[op] = bool(getattr(d, f"perm_{op}"))     # primer valor explícito
+                    slot[op] = bool(getattr(d, f"perm_{op}"))  # primer valor explícito
         return cls(user_id, rules)

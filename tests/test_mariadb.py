@@ -16,6 +16,7 @@ MARIADB_CONFIG = {
 
 def test_mariadb_is_mysql_subclass():
     from encino_orm.mysql import MysqlDb
+
     assert issubclass(MariadbDb, MysqlDb)
     assert MariadbDb.dialect == "mariadb"
 
@@ -62,9 +63,11 @@ class TestMariadbLifecycle:
     async def test_insert_and_last_id(self, mariadb_connected_db):
         db = mariadb_connected_db
         await db.execute(Query("DROP TABLE IF EXISTS usuarios", []))
-        await db.execute(Query(
-            "CREATE TABLE usuarios (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50))", []
-        ))
+        await db.execute(
+            Query(
+                "CREATE TABLE usuarios (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50))", []
+            )
+        )
 
         assert await db.execute(db.insert("usuarios", {"nombre": "Héctor"})) == 1
         assert await db.last_id() == 1

@@ -204,9 +204,7 @@ class TestHasManyFilter:
         r.add_has_many("orders", Order, "region_id")
         agosto = await r.has_many(
             "orders",
-            filter=Filter.between(
-                "fecha", datetime(2026, 8, 1), datetime(2026, 8, 31, 23, 59, 59)
-            ),
+            filter=Filter.between("fecha", datetime(2026, 8, 1), datetime(2026, 8, 31, 23, 59, 59)),
         )
         assert {o.codigo for o in agosto} == {"ago1", "ago2"}
 
@@ -263,6 +261,9 @@ class TestHasManyFilter:
         await Region.batch_has_many(regiones, "agentes", extra=Filter.startswith("agente", "a"))
 
         by_id = {r.id: r for r in regiones}
-        assert {x.agente for x in await by_id[rid1].has_many("agentes", filter=Filter.startswith("agente", "a"))} == {"a1", "a2"}
+        assert {
+            x.agente
+            for x in await by_id[rid1].has_many("agentes", filter=Filter.startswith("agente", "a"))
+        } == {"a1", "a2"}
         # el filtro no cachea por padre, así que la carga completa sigue intacta
         assert len(await by_id[rid2]["agentes"]) == 2

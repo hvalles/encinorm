@@ -28,18 +28,18 @@ STR_50 = make_constraint(str, max_length=50)
 STR_100 = make_constraint(str, max_length=100)
 STR_255 = make_constraint(str, max_length=255)
 STR_500 = make_constraint(str, max_length=500)
-TEXT = make_constraint(str)                       # sin límite de longitud
+TEXT = make_constraint(str)  # sin límite de longitud
 INT = make_constraint(int)
-INT_POS = make_constraint(int, ge=0)              # no negativo
-CURRENCY = make_constraint(float, ge=0)           # datatype "numeric"
+INT_POS = make_constraint(int, ge=0)  # no negativo
+CURRENCY = make_constraint(float, ge=0)  # datatype "numeric"
 FLOAT = make_constraint(float, datatype="float")
 FLOAT_POS = make_constraint(float, datatype="float", ge=0)
 BOOL = make_constraint(bool)
 DATE = make_constraint(date)
 DATETIME = make_constraint(datetime, validators=(_coerce_datetime,))
-BLOB = make_constraint(bytes)                     # datatype "blob"
-DECIMAL = make_constraint(Decimal)                # datatype "decimal" (dinero exacto)
-JSON = make_constraint(dict, datatype="json")     # dict | None -> columna JSON
+BLOB = make_constraint(bytes)  # datatype "blob"
+DECIMAL = make_constraint(Decimal)  # datatype "decimal" (dinero exacto)
+JSON = make_constraint(dict, datatype="json")  # dict | None -> columna JSON
 
 __all__ = [
     "STR_10",

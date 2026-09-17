@@ -32,26 +32,21 @@ def _graphql_annotation(model, field):
 def build_type(model, module_name: str):
     """Devuelve un `strawberry.ObjectType` con campos escalares y relaciones."""
     annotations = {
-        f: _graphql_annotation(model, f)
-        for f in model.model_fields if not f.startswith("_")
+        f: _graphql_annotation(model, f) for f in model.model_fields if not f.startswith("_")
     }
     namespace = {"__annotations__": annotations}
 
     for name, spec in model._references_def.items():
         child = spec["model"]
-        annotations[name] = Optional[
-            Annotated[child.__name__, strawberry.lazy(module_name)]
-        ]
-        namespace[name] = strawberry.field(
-            resolver=_ref_resolver(model, name, child, module_name))
+        annotations[name] = Optional[Annotated[child.__name__, strawberry.lazy(module_name)]]
+        namespace[name] = strawberry.field(resolver=_ref_resolver(model, name, child, module_name))
 
     for name, spec in model._has_many_def.items():
         child = spec["model"]
-        annotations[name] = Optional[
-            list[Annotated[child.__name__, strawberry.lazy(module_name)]]
-        ]
+        annotations[name] = Optional[list[Annotated[child.__name__, strawberry.lazy(module_name)]]]
         namespace[name] = strawberry.field(
-            resolver=_has_many_resolver(model, name, child, module_name))
+            resolver=_has_many_resolver(model, name, child, module_name)
+        )
 
     cls = type(model.__name__ or model._table, (), namespace)
     return strawberry.type(cls)

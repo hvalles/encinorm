@@ -44,11 +44,12 @@ def _ref_resolver(model, name, child, module_name):
         await model.batch_reference(parents, name)
         return [await p[name] for p in parents]
 
-    async def resolver(root: Any, info: Info) -> Optional[
-        Annotated[child.__name__, strawberry.lazy(module_name)]
-    ]:
+    async def resolver(
+        root: Any, info: Info
+    ) -> Optional[Annotated[child.__name__, strawberry.lazy(module_name)]]:
         loader = _dataloader(info, f"_encino_orm_ref:{model.__name__}:{name}", load_fn)
         return await loader.load(root)
+
     return resolver
 
 
@@ -57,9 +58,10 @@ def _has_many_resolver(model, name, child, module_name):
         await model.batch_has_many(parents, name)
         return [await p[name] for p in parents]
 
-    async def resolver(root: Any, info: Info) -> Optional[
-        list[Annotated[child.__name__, strawberry.lazy(module_name)]]
-    ]:
+    async def resolver(
+        root: Any, info: Info
+    ) -> Optional[list[Annotated[child.__name__, strawberry.lazy(module_name)]]]:
         loader = _dataloader(info, f"_encino_orm_hm:{model.__name__}:{name}", load_fn)
         return await loader.load(root)
+
     return resolver

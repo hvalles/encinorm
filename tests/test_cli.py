@@ -9,9 +9,7 @@ from encino_orm.sqlite import SqliteDb
 
 class TestConnKwargs:
     def test_sqlite(self):
-        args = _build_parser().parse_args(
-            ["generate", "models", "sqlite", "--database", "app.db"]
-        )
+        args = _build_parser().parse_args(["generate", "models", "sqlite", "--database", "app.db"])
         assert _conn_kwargs(args) == {"database": "app.db"}
 
     def test_sqlite_default_memory(self):
@@ -20,8 +18,19 @@ class TestConnKwargs:
 
     def test_mysql(self):
         args = _build_parser().parse_args(
-            ["generate", "models", "mysql", "--host", "h", "--user", "u",
-             "--password", "p", "--database", "d"]
+            [
+                "generate",
+                "models",
+                "mysql",
+                "--host",
+                "h",
+                "--user",
+                "u",
+                "--password",
+                "p",
+                "--database",
+                "d",
+            ]
         )
         assert _conn_kwargs(args) == {"host": "h", "user": "u", "password": "p", "db": "d"}
 
@@ -39,19 +48,29 @@ class TestGenerateModels:
         async def _setup():
             d = SqliteDb()
             await d.connect(database=str(db_file))
-            await d.execute(Query(
-                "CREATE TABLE agentes (id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "agente VARCHAR(50) NOT NULL, rfc VARCHAR(13))", []
-            ))
+            await d.execute(
+                Query(
+                    "CREATE TABLE agentes (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "agente VARCHAR(50) NOT NULL, rfc VARCHAR(13))",
+                    [],
+                )
+            )
             await d.close()
 
         asyncio.run(_setup())
 
         out = tmp_path / "out"
-        code = main([
-            "generate", "models", "sqlite",
-            "--database", str(db_file), "--folder", str(out),
-        ])
+        code = main(
+            [
+                "generate",
+                "models",
+                "sqlite",
+                "--database",
+                str(db_file),
+                "--folder",
+                str(out),
+            ]
+        )
         assert code == 0
         text = (out / "agentes.py").read_text(encoding="utf-8")
         assert "class Agentes(Model):" in text

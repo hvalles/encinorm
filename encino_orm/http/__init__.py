@@ -10,8 +10,7 @@ from .routes import register_crud
 from .parsing import filter_from_str, sort_from_str
 
 
-def create_crud(pool, models, *, get_db=None, prefix="/api",
-                registry=None, tags=("Model",)):
+def create_crud(pool, models, *, get_db=None, prefix="/api", registry=None, tags=("Model",)):
     """Monta CRUD + introspección para `models` en un solo router.
 
     Si no se pasa `get_db`, se deriva de `session(pool)`. El `registry` se crea
@@ -21,6 +20,7 @@ def create_crud(pool, models, *, get_db=None, prefix="/api",
     from encino_orm import session
 
     if get_db is None:
+
         async def get_db():
             async with session(pool) as conn:
                 yield conn

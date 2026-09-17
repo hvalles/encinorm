@@ -58,7 +58,11 @@ class TestMysqlLifecycle:
     @pytest.mark.asyncio
     async def test_in_transaction(self, mysql_connected_db):
         db = mysql_connected_db
-        await _reset(db, "test_tx_state", "CREATE TABLE test_tx_state (id INT PRIMARY KEY, valor VARCHAR(50))")
+        await _reset(
+            db,
+            "test_tx_state",
+            "CREATE TABLE test_tx_state (id INT PRIMARY KEY, valor VARCHAR(50))",
+        )
 
         assert await db.in_transaction() is False
 
@@ -89,7 +93,11 @@ class TestMysqlLifecycle:
     @pytest.mark.asyncio
     async def test_save_point_and_rollback_to_savepoint(self, mysql_connected_db):
         db = mysql_connected_db
-        await _reset(db, "test_sp", "CREATE TABLE test_sp (id INT AUTO_INCREMENT PRIMARY KEY, valor VARCHAR(50))")
+        await _reset(
+            db,
+            "test_sp",
+            "CREATE TABLE test_sp (id INT AUTO_INCREMENT PRIMARY KEY, valor VARCHAR(50))",
+        )
 
         await db.execute(db.insert("test_sp", {"valor": "paso1"}))
         await db.save_point("antes_paso2")
@@ -111,7 +119,11 @@ class TestMysqlBuildersAndQueries:
     @pytest.mark.asyncio
     async def test_insert_execute_and_last_id(self, mysql_connected_db):
         db = mysql_connected_db
-        await _reset(db, "usuarios", "CREATE TABLE usuarios (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50))")
+        await _reset(
+            db,
+            "usuarios",
+            "CREATE TABLE usuarios (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50))",
+        )
 
         q = db.insert("usuarios", {"nombre": "Héctor"})
         assert await db.execute(q) == 1
@@ -131,9 +143,7 @@ class TestMysqlBuildersAndQueries:
 
         await db.execute(db.insert("g", {"id": 1, "nombre": "a"}))
 
-        result = await db.execute(
-            db.insert("g", {"id": 1, "nombre": "b"}, ignore_duplicated=True)
-        )
+        result = await db.execute(db.insert("g", {"id": 1, "nombre": "b"}, ignore_duplicated=True))
         assert result == 0
 
         rows = await db.fetch_all(Query("SELECT * FROM g", []))
@@ -194,7 +204,9 @@ class TestMysqlBuildersAndQueries:
     @pytest.mark.asyncio
     async def test_fetch_many_pagination(self, mysql_connected_db):
         db = mysql_connected_db
-        await _reset(db, "p", "CREATE TABLE p (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50))")
+        await _reset(
+            db, "p", "CREATE TABLE p (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50))"
+        )
 
         for nombre in ["a", "b", "c", "d", "e"]:
             await db.execute(db.insert("p", {"nombre": nombre}))

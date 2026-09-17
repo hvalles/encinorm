@@ -92,7 +92,7 @@ def _filter_type_for(dt: str, field: str):
         return DateTimeFilter
     if dt == "date":
         return DateFilter
-    return StringFilter          # str, blob, json
+    return StringFilter  # str, blob, json
 
 
 def build_filter_input(model, module_name: str):

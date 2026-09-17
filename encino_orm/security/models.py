@@ -15,27 +15,27 @@ SEED_ROLES = ["Administrador", "Usuario Interno", "Público"]
 
 class Rol(Model):
     _table = "roles"
-    rol: STR_100(required=True)      # 1:Administrador, 2:Usuario Interno, 3:Público
+    rol: STR_100(required=True)  # 1:Administrador, 2:Usuario Interno, 3:Público
 
 
 class Roldet(Model):
     _table = "roles_det"
     rol_id: int | None = None
-    modelo: STR_100(required=True)          # nombre de tabla (`_table`) o "*"
+    modelo: STR_100(required=True)  # nombre de tabla (`_table`) o "*"
     # Prefijo `perm_` para no colisionar con los métodos de `Model`
     # (`update`/`delete`) ni con palabras reservadas SQL (`create`).
     perm_read: bool | None = None
     perm_create: bool | None = None
     perm_update: bool | None = None
-    perm_delete: bool | None = None         # borrado lógico
-    perm_remove: bool | None = None         # borrado físico
+    perm_delete: bool | None = None  # borrado lógico
+    perm_remove: bool | None = None  # borrado físico
 
 
 class RolUsuario(Model):
     _table = "roles_usuario"
     rol_id: int | None = None
-    user_id: STR_50(required=True)          # identidad externa (claim `sub` del JWT)
-    orden: int | None = None                # prioridad; menor = primero
+    user_id: STR_50(required=True)  # identidad externa (claim `sub` del JWT)
+    orden: int | None = None  # prioridad; menor = primero
 
 
 async def create_tables(db, engine: str | None = None) -> None:

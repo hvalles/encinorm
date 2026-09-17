@@ -57,9 +57,7 @@ class TestSqliteLifecycle:
         )
         await connected_db.commit()
 
-        cursor = await connected_db._connection.execute(
-            "SELECT valor FROM test_lifecycle"
-        )
+        cursor = await connected_db._connection.execute("SELECT valor FROM test_lifecycle")
         rows = await cursor.fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "commit_test"
@@ -77,9 +75,7 @@ class TestSqliteLifecycle:
 
         await connected_db.rollback()
 
-        cursor = await connected_db._connection.execute(
-            "SELECT valor FROM test_tx"
-        )
+        cursor = await connected_db._connection.execute("SELECT valor FROM test_tx")
         rows = await cursor.fetchall()
         assert len(rows) == 0
 
@@ -90,28 +86,20 @@ class TestSqliteLifecycle:
         )
         await connected_db.commit()
 
-        await connected_db._connection.execute(
-            "INSERT INTO test_sp (valor) VALUES (?)", ("paso1",)
-        )
+        await connected_db._connection.execute("INSERT INTO test_sp (valor) VALUES (?)", ("paso1",))
         await connected_db.commit()
 
         await connected_db.save_point("antes_paso2")
 
-        await connected_db._connection.execute(
-            "INSERT INTO test_sp (valor) VALUES (?)", ("paso2",)
-        )
+        await connected_db._connection.execute("INSERT INTO test_sp (valor) VALUES (?)", ("paso2",))
 
-        cursor = await connected_db._connection.execute(
-            "SELECT valor FROM test_sp"
-        )
+        cursor = await connected_db._connection.execute("SELECT valor FROM test_sp")
         rows = await cursor.fetchall()
         assert len(rows) == 2
 
         await connected_db.rollback(save_point="antes_paso2")
 
-        cursor = await connected_db._connection.execute(
-            "SELECT valor FROM test_sp"
-        )
+        cursor = await connected_db._connection.execute("SELECT valor FROM test_sp")
         rows = await cursor.fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "paso1"
@@ -141,24 +129,16 @@ class TestSqliteMigrations:
 
     @pytest.mark.asyncio
     async def test_migrate_is_idempotent(self, connected_db):
-        await connected_db.migrate(
-            "v1", Query("CREATE TABLE t1 (id INTEGER PRIMARY KEY)", [])
-        )
-        await connected_db.migrate(
-            "v1", Query("CREATE TABLE t1 (id INTEGER PRIMARY KEY)", [])
-        )
+        await connected_db.migrate("v1", Query("CREATE TABLE t1 (id INTEGER PRIMARY KEY)", []))
+        await connected_db.migrate("v1", Query("CREATE TABLE t1 (id INTEGER PRIMARY KEY)", []))
 
         status = await connected_db.migrate_status()
         assert len(status) == 1
 
     @pytest.mark.asyncio
     async def test_migrate_status_returns_history_in_order(self, connected_db):
-        await connected_db.migrate(
-            "v1", Query("CREATE TABLE a (id INTEGER PRIMARY KEY)", [])
-        )
-        await connected_db.migrate(
-            "v2", Query("CREATE TABLE b (id INTEGER PRIMARY KEY)", [])
-        )
+        await connected_db.migrate("v1", Query("CREATE TABLE a (id INTEGER PRIMARY KEY)", []))
+        await connected_db.migrate("v2", Query("CREATE TABLE b (id INTEGER PRIMARY KEY)", []))
 
         status = await connected_db.migrate_status()
         assert [s["name"] for s in status] == ["v1", "v2"]
@@ -235,15 +215,19 @@ class TestSqliteBuildersAndQueries:
         await connected_db.execute(
             Query("CREATE TABLE u (id INTEGER PRIMARY KEY, nombre TEXT, email TEXT)", [])
         )
-        await connected_db.execute(connected_db.insert("u", {"id": 1, "nombre": "a", "email":"info@gmail.com"}))
+        await connected_db.execute(
+            connected_db.insert("u", {"id": 1, "nombre": "a", "email": "info@gmail.com"})
+        )
 
         result = await connected_db.execute(
-            connected_db.update("u", {"id": 1}, {"nombre": "modificado","email":"correo@gmail.com"})
+            connected_db.update(
+                "u", {"id": 1}, {"nombre": "modificado", "email": "correo@gmail.com"}
+            )
         )
         assert result == 1
 
         row = await connected_db.fetch_one(Query("SELECT * FROM u WHERE id = 1", []))
-        assert row["nombre"] == "modificado" and row['email']=="correo@gmail.com"
+        assert row["nombre"] == "modificado" and row["email"] == "correo@gmail.com"
 
     @pytest.mark.asyncio
     async def test_fetch_one_and_exists(self, connected_db):
@@ -265,9 +249,15 @@ class TestSqliteBuildersAndQueries:
         for nombre in ["a", "b", "c", "d", "e"]:
             await connected_db.execute(connected_db.insert("p", {"nombre": nombre}))
 
-        page1 = await connected_db.fetch_many(Query("SELECT * FROM p ORDER BY id", []), limit=2, page=1)
-        page2 = await connected_db.fetch_many(Query("SELECT * FROM p ORDER BY id", []), limit=2, page=2)
-        page3 = await connected_db.fetch_many(Query("SELECT * FROM p ORDER BY id", []), limit=2, page=3)
+        page1 = await connected_db.fetch_many(
+            Query("SELECT * FROM p ORDER BY id", []), limit=2, page=1
+        )
+        page2 = await connected_db.fetch_many(
+            Query("SELECT * FROM p ORDER BY id", []), limit=2, page=2
+        )
+        page3 = await connected_db.fetch_many(
+            Query("SELECT * FROM p ORDER BY id", []), limit=2, page=3
+        )
 
         assert [r["nombre"] for r in page1] == ["a", "b"]
         assert [r["nombre"] for r in page2] == ["c", "d"]

@@ -95,8 +95,13 @@ class TestResolveFieldType:
         assert resolve_field_type(self._col("str", 100)) == "STR_100"
 
     def test_preset_str_lengths(self):
-        for n, name in [(10, "STR_10"), (15, "STR_15"), (20, "STR_20"),
-                        (30, "STR_30"), (500, "STR_500")]:
+        for n, name in [
+            (10, "STR_10"),
+            (15, "STR_15"),
+            (20, "STR_20"),
+            (30, "STR_30"),
+            (500, "STR_500"),
+        ]:
             assert resolve_field_type(self._col("str", n)) == name
 
     def test_preset_text(self):
@@ -153,10 +158,13 @@ class TestIntrospection:
 
     @pytest.mark.asyncio
     async def test_columns_of(self, db):
-        await db.execute(Query(
-            "CREATE TABLE agentes (id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "agente VARCHAR(50) NOT NULL, rfc VARCHAR(13))", []
-        ))
+        await db.execute(
+            Query(
+                "CREATE TABLE agentes (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "agente VARCHAR(50) NOT NULL, rfc VARCHAR(13))",
+                [],
+            )
+        )
         cols = await columns_of(db, "agentes")
         by_name = {c.name: c for c in cols}
         assert by_name["agente"].datatype == "str"
@@ -169,10 +177,13 @@ class TestIntrospection:
 class TestGenerateModel:
     @pytest.mark.asyncio
     async def test_roundtrip(self, db, tmp_path):
-        await db.execute(Query(
-            "CREATE TABLE agentes (id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "agente VARCHAR(50) NOT NULL, rfc VARCHAR(13), monto DECIMAL(10,2))", []
-        ))
+        await db.execute(
+            Query(
+                "CREATE TABLE agentes (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "agente VARCHAR(50) NOT NULL, rfc VARCHAR(13), monto DECIMAL(10,2))",
+                [],
+            )
+        )
         path = await generate_model(db, "agentes", folder=str(tmp_path))
 
         assert path.name == "agentes.py"
@@ -198,10 +209,13 @@ class TestGenerateModel:
 
     @pytest.mark.asyncio
     async def test_json_column(self, db, tmp_path):
-        await db.execute(Query(
-            "CREATE TABLE docs (id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "payload JSON, extra JSONB)", []
-        ))
+        await db.execute(
+            Query(
+                "CREATE TABLE docs (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "payload JSON, extra JSONB)",
+                [],
+            )
+        )
         path = await generate_model(db, "docs", folder=str(tmp_path))
 
         text = path.read_text(encoding="utf-8")
@@ -211,9 +225,12 @@ class TestGenerateModel:
 
     @pytest.mark.asyncio
     async def test_custom_class_name_and_reserved_column(self, db, tmp_path):
-        await db.execute(Query(
-            "CREATE TABLE detalle (id INTEGER PRIMARY KEY, \"order\" INTEGER, descripcion TEXT)", []
-        ))
+        await db.execute(
+            Query(
+                'CREATE TABLE detalle (id INTEGER PRIMARY KEY, "order" INTEGER, descripcion TEXT)',
+                [],
+            )
+        )
         path = await generate_model(db, "detalle", folder=str(tmp_path), class_name="LineaDetalle")
 
         assert path.name == "linea_detalle.py"

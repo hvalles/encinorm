@@ -92,8 +92,14 @@ class Db(ABC):
         raise last_exc
 
     @abstractmethod
-    def insert(self, tabla: str, data: dict, ignore_duplicated=False, replace=False,
-               conflict: list[str] | None = None): ...
+    def insert(
+        self,
+        tabla: str,
+        data: dict,
+        ignore_duplicated=False,
+        replace=False,
+        conflict: list[str] | None = None,
+    ): ...
 
     @abstractmethod
     def delete(self, tabla: str, keys: dict): ...
@@ -165,9 +171,7 @@ class Db(ABC):
 
         rows = await self.fetch_many(qry, limit, page)
         sql = qry.sql_template.strip().rstrip(";")
-        count_qry = Query(
-            f"SELECT COUNT(*) AS n FROM ({sql}) _encino_orm_count", list(qry.fields)
-        )
+        count_qry = Query(f"SELECT COUNT(*) AS n FROM ({sql}) _encino_orm_count", list(qry.fields))
         row = await self.fetch_one(count_qry)
         total = row["n"] if row else 0
         return Records(rows=rows, total=total, limit=limit, page=page)

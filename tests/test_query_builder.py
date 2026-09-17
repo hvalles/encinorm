@@ -67,7 +67,13 @@ class TestQueryBuilder:
     async def test_order_and_limit_pagination(self, db):
         await _seed(db)
         p1 = await QueryBuilder(Agente, db).select("agente").order_by("agente").limit(1).all()
-        p2 = await QueryBuilder(Agente, db).select("agente").order_by("agente").limit(1, page=2).all()
+        p2 = (
+            await QueryBuilder(Agente, db)
+            .select("agente")
+            .order_by("agente")
+            .limit(1, page=2)
+            .all()
+        )
         assert [r["agente"] for r in p1] == ["Ana"]
         assert [r["agente"] for r in p2] == ["Luis"]
 
@@ -117,7 +123,12 @@ class TestSortBy:
     @pytest.mark.asyncio
     async def test_multiple_fields(self, db):
         await _seed(db)
-        rows = await QueryBuilder(Agente, db).select("region_id", "agente").sort_by("region_id desc", "agente").all()
+        rows = (
+            await QueryBuilder(Agente, db)
+            .select("region_id", "agente")
+            .sort_by("region_id desc", "agente")
+            .all()
+        )
         assert [r["region_id"] for r in rows] == [2, 1]
 
     @pytest.mark.asyncio

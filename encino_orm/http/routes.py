@@ -87,17 +87,20 @@ def register_crud(router, model: type[Model], prefix: str, *, get_db) -> None:
     async def create(data: model, db=Depends(get_db)) -> model:
         obj = model(db, **data.model_dump(exclude_unset=True))
         await obj.insert()
-        return await _cursor(
-            model, db, **{f: getattr(obj, f) for f in model._primary_key}
-        ).load()
+        return await _cursor(model, db, **{f: getattr(obj, f) for f in model._primary_key}).load()
 
     @router.get(prefix + "/", response_model=Records)
-    async def list_(limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
-                    page: int = Query(1, ge=1), sort_by: str = "",
-                    filter: str = "", db=Depends(get_db)):
+    async def list_(
+        limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+        page: int = Query(1, ge=1),
+        sort_by: str = "",
+        filter: str = "",
+        db=Depends(get_db),
+    ):
         return await _cursor(model, db).paginate(
             filter=filter_from_str(filter),
-            limit=limit, page=page,
+            limit=limit,
+            page=page,
             sort_by=sort_from_str(sort_by),
         )
 

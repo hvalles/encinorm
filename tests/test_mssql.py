@@ -152,12 +152,12 @@ class TestMssqlLifecycle:
     @pytest.mark.asyncio
     async def test_insert_execute_and_last_id(self, mssql_connected_db):
         db = mssql_connected_db
-        await db.execute(Query(
-            "IF OBJECT_ID('usuarios', 'U') IS NOT NULL DROP TABLE usuarios", []
-        ))
-        await db.execute(Query(
-            "CREATE TABLE usuarios (id INT IDENTITY(1,1) PRIMARY KEY, nombre NVARCHAR(50))", []
-        ))
+        await db.execute(Query("IF OBJECT_ID('usuarios', 'U') IS NOT NULL DROP TABLE usuarios", []))
+        await db.execute(
+            Query(
+                "CREATE TABLE usuarios (id INT IDENTITY(1,1) PRIMARY KEY, nombre NVARCHAR(50))", []
+            )
+        )
 
         assert await db.execute(db.insert("usuarios", {"nombre": "Héctor"})) == 1
         assert await db.last_id() == 1
@@ -172,11 +172,18 @@ class TestMssqlLifecycle:
     async def test_migrate_applies_and_records(self, mssql_connected_db):
         db = mssql_connected_db
         await db.execute(Query("IF OBJECT_ID('usuarios', 'U') IS NOT NULL DROP TABLE usuarios", []))
-        await db.execute(Query("IF OBJECT_ID('_encino_orm_migrations', 'U') IS NOT NULL DROP TABLE _encino_orm_migrations", []))
+        await db.execute(
+            Query(
+                "IF OBJECT_ID('_encino_orm_migrations', 'U') IS NOT NULL DROP TABLE _encino_orm_migrations",
+                [],
+            )
+        )
 
         await db.migrate(
             "v1_crear_usuarios",
-            Query("CREATE TABLE usuarios (id INT IDENTITY(1,1) PRIMARY KEY, nombre NVARCHAR(50))", []),
+            Query(
+                "CREATE TABLE usuarios (id INT IDENTITY(1,1) PRIMARY KEY, nombre NVARCHAR(50))", []
+            ),
         )
 
         status = await db.migrate_status()

@@ -114,8 +114,12 @@ class SqlFunctions:
     def _date_part(self, column, part):
         column = self._col(column)
         fmt = {
-            "year": "%Y", "month": "%m", "day": "%d",
-            "hour": "%H", "minute": "%M", "second": "%S",
+            "year": "%Y",
+            "month": "%m",
+            "day": "%d",
+            "hour": "%H",
+            "minute": "%M",
+            "second": "%S",
         }[part]
         if self._engine is Engine.SQLITE:
             return f"CAST(strftime('{fmt}', {column}) AS INTEGER)"
@@ -137,16 +141,32 @@ class SqlFunctions:
     def substring(self, column, start: int, length: int | None = None) -> str:
         column = self._col(column)
         if self._engine is Engine.SQLITE:
-            return f"substr({column}, {start})" if length is None else f"substr({column}, {start}, {length})"
+            return (
+                f"substr({column}, {start})"
+                if length is None
+                else f"substr({column}, {start}, {length})"
+            )
         if self._engine in (Engine.MYSQL, Engine.MARIADB):
-            return f"SUBSTRING({column}, {start})" if length is None else f"SUBSTRING({column}, {start}, {length})"
+            return (
+                f"SUBSTRING({column}, {start})"
+                if length is None
+                else f"SUBSTRING({column}, {start}, {length})"
+            )
         if self._engine is Engine.MSSQL:
             if length is None:
                 raise ValueError("substring() en SQL Server requiere `length`")
             return f"SUBSTRING({column}, {start}, {length})"
         if self._engine is Engine.ORACLE:
-            return f"SUBSTR({column}, {start})" if length is None else f"SUBSTR({column}, {start}, {length})"
-        return f"substring({column} from {start})" if length is None else f"substring({column} from {start} for {length})"
+            return (
+                f"SUBSTR({column}, {start})"
+                if length is None
+                else f"SUBSTR({column}, {start}, {length})"
+            )
+        return (
+            f"substring({column} from {start})"
+            if length is None
+            else f"substring({column} from {start} for {length})"
+        )
 
     def concat(self, *parts) -> str:
         if self._engine in (Engine.SQLITE, Engine.ORACLE):
@@ -218,12 +238,14 @@ class SqlFunctions:
         if self._engine is Engine.SQLITE:
             days = f"(julianday({a}) - julianday({b}))"
             return (
-                f"CAST({days} / 30.44 AS INTEGER)" if unit == "month"
+                f"CAST({days} / 30.44 AS INTEGER)"
+                if unit == "month"
                 else f"CAST({days} / 365.25 AS INTEGER)"
             )
         age = f"AGE({a}, {b})"
         return (
-            f"EXTRACT(YEAR FROM {age})" if unit == "year"
+            f"EXTRACT(YEAR FROM {age})"
+            if unit == "year"
             else f"(EXTRACT(YEAR FROM {age}) * 12 + EXTRACT(MONTH FROM {age}))"
         )
 
@@ -273,7 +295,9 @@ class SqlFunctions:
         portable en SQLite/PostgreSQL/Oracle.
         """
         if unit not in _GEO_UNITS:
-            raise ValueError(f"unidad de distancia inválida: {unit!r} (use: {', '.join(_GEO_UNITS)})")
+            raise ValueError(
+                f"unidad de distancia inválida: {unit!r} (use: {', '.join(_GEO_UNITS)})"
+            )
         if self._engine in (Engine.MYSQL, Engine.MARIADB):
             m = f"ST_Distance_Sphere(POINT({lon1}, {lat1}), POINT({lon2}, {lat2}))"
         elif self._engine is Engine.MSSQL:

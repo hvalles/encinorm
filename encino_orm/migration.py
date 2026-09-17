@@ -10,7 +10,7 @@ from .query import Query
 class Migration:
     name: str
     up: Query | str
-    down: Query | str | None = None     # opcional (rollback)
+    down: Query | str | None = None  # opcional (rollback)
 
 
 def _to_query(sql: Query | str) -> Query:

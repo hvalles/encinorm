@@ -15,8 +15,14 @@ _MIGRATIONS_TABLE = "_encino_orm_migrations"
 
 
 def _log(method, sql, values, elapsed):
-    logger.debug("postgresql %s (%.4fs) trace_id=%r sql=%r params=%r",
-                 method, elapsed, current_trace_id(), sql, values)
+    logger.debug(
+        "postgresql %s (%.4fs) trace_id=%r sql=%r params=%r",
+        method,
+        elapsed,
+        current_trace_id(),
+        sql,
+        values,
+    )
 
 
 def _to_postgres(sql: str, params: dict) -> tuple[str, list]:
@@ -121,13 +127,15 @@ class PostgresDb(Db):
         )
 
     async def columns_of(self, table: str) -> list[ColumnSpec]:
-        rows = await self.fetch_all(Query(
-            "SELECT column_name, data_type, is_nullable, "
-            "CASE WHEN column_default LIKE 'nextval%' THEN TRUE ELSE FALSE END AS is_pk "
-            "FROM information_schema.columns WHERE table_name = {0} "
-            "ORDER BY ordinal_position",
-            [table],
-        ))
+        rows = await self.fetch_all(
+            Query(
+                "SELECT column_name, data_type, is_nullable, "
+                "CASE WHEN column_default LIKE 'nextval%' THEN TRUE ELSE FALSE END AS is_pk "
+                "FROM information_schema.columns WHERE table_name = {0} "
+                "ORDER BY ordinal_position",
+                [table],
+            )
+        )
         return [
             ColumnSpec(
                 name=r["column_name"],
@@ -143,8 +151,14 @@ class PostgresDb(Db):
 
     # --- Builders (construyen Query, no ejecutan) ---
 
-    def insert(self, tabla: str, data: dict, ignore_duplicated=False, replace=False,
-               conflict: list[str] | None = None):
+    def insert(
+        self,
+        tabla: str,
+        data: dict,
+        ignore_duplicated=False,
+        replace=False,
+        conflict: list[str] | None = None,
+    ):
         columns = list(data.keys())
         values = list(data.values())
         placeholders = ",".join("{%d}" % i for i in range(len(columns)))
@@ -175,9 +189,7 @@ class PostgresDb(Db):
         key_cols = list(keys.keys())
         key_vals = list(keys.values())
         offset = len(set_cols)
-        where = " AND ".join(
-            f"{col} = {{{offset + i}}}" for i, col in enumerate(key_cols)
-        )
+        where = " AND ".join(f"{col} = {{{offset + i}}}" for i, col in enumerate(key_cols))
 
         sql = f"UPDATE {tabla} SET {set_clause} WHERE {where}"
         return Query(sql, set_vals + key_vals)
@@ -214,9 +226,7 @@ class PostgresDb(Db):
         sql = sql.rstrip().rstrip(";")
         offset = (page - 1) * limit
         t0 = time.monotonic()
-        rows = await self._connection.fetch(
-            f"{sql} LIMIT {limit} OFFSET {offset}", *values
-        )
+        rows = await self._connection.fetch(f"{sql} LIMIT {limit} OFFSET {offset}", *values)
         _log("fetch_many", sql, values, time.monotonic() - t0)
         return [dict(row) for row in rows]
 
@@ -246,9 +256,7 @@ class PostgresDb(Db):
     async def migrate_status(self) -> list[dict]:
         self._ensure_connected()
         await self._ensure_migrations_table()
-        return await self.fetch_all(
-            Query(f"SELECT * FROM {_MIGRATIONS_TABLE} ORDER BY id", [])
-        )
+        return await self.fetch_all(Query(f"SELECT * FROM {_MIGRATIONS_TABLE} ORDER BY id", []))
 
     async def _ensure_migrations_table(self):
         self._ensure_connected()

@@ -14,6 +14,6 @@ DATATYPE_TO_TYPE = {
     "float": float,
     "datetime": datetime,
     "date": date,
-    "blob": str,                      # binario como string (base64/texto)
+    "blob": str,  # binario como string (base64/texto)
     "json": strawberry.scalars.JSON,
 }

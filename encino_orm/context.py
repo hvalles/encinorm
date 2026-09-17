@@ -48,14 +48,12 @@ def resolve_db():
     """Resuelve la conexión actual. Lanza `ConnectionError` si no hay ninguna."""
     from .pool import _current_connection  # lazy: evita import circular
 
-    conn = _current_connection.get()        # 1. transacción activa del pool
+    conn = _current_connection.get()  # 1. transacción activa del pool
     if conn is not None:
         return conn
-    ambient = _ambient_db.get()             # 2. bind()/session()
+    ambient = _ambient_db.get()  # 2. bind()/session()
     if ambient is not None:
         return ambient
-    if _default_db is not None:             # 3. set_default_db()
+    if _default_db is not None:  # 3. set_default_db()
         return _default_db
-    raise ConnectionError(
-        "Sin conexión: pasa `db`, usa `bind()`, `set_default_db()` o `session()`"
-    )
+    raise ConnectionError("Sin conexión: pasa `db`, usa `bind()`, `set_default_db()` o `session()`")

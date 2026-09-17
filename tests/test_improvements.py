@@ -9,7 +9,9 @@ from encino_orm.model import Column, Model
 
 class Agente(Model):
     _table = "agentes"
-    agente: Annotated[str | None, Column(name="nombre")] = Field(default=None, min_length=3, max_length=50)
+    agente: Annotated[str | None, Column(name="nombre")] = Field(
+        default=None, min_length=3, max_length=50
+    )
     monto: Annotated[float, Column(datatype="numeric")] = Field(ge=0, default=0.0)
 
 

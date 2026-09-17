@@ -40,8 +40,16 @@ async def sec_db():
 
 async def _seed_permissions(db):
     """Roles 1 (admin todo), 2 (lee agentes), 3 (niega agentes) + usuarios."""
-    await Roldet(db, rol_id=1, modelo="*", perm_read=True, perm_create=True,
-                 perm_update=True, perm_delete=True, perm_remove=True).insert()
+    await Roldet(
+        db,
+        rol_id=1,
+        modelo="*",
+        perm_read=True,
+        perm_create=True,
+        perm_update=True,
+        perm_delete=True,
+        perm_remove=True,
+    ).insert()
     await Roldet(db, rol_id=2, modelo="agentes", perm_read=True).insert()
     await Roldet(db, rol_id=3, modelo="agentes", perm_read=False).insert()
 

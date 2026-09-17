@@ -6,7 +6,7 @@ from typing import Any
 class Reference:
     name: str
     model_class: type
-    match_keys: dict          # {campo_remoto: campo_local}
+    match_keys: dict  # {campo_remoto: campo_local}
     on_delete: str | None = None
     _cached: Any = field(default=None, init=False, repr=False)
     _cached_keys: Any = field(default=None, init=False, repr=False)
@@ -16,7 +16,7 @@ class Reference:
 class HasMany:
     name: str
     model_class: type
-    foreign_key: str | dict          # str -> {pk[0]: str}; dict -> {campo_padre: campo_hijo}
+    foreign_key: str | dict  # str -> {pk[0]: str}; dict -> {campo_padre: campo_hijo}
     _cache: dict = field(default_factory=dict, init=False, repr=False)
 
     @property
