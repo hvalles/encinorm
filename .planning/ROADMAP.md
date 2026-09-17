@@ -90,7 +90,7 @@ backed by a signal that would have caught the `COUNT(*)` bug.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Upgrade `uv` to 0.12.15, land ruff format-only commit (registered in `.git-blame-ignore-revs`), then the narrow `ruff check` ruleset as a blocking CI job — CI-03
+- [x] 01-01-PLAN.md — Upgrade `uv` to 0.12.15, land ruff format-only commit (registered in `.git-blame-ignore-revs`), then the narrow `ruff check` ruleset as a blocking CI job — CI-03
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -329,7 +329,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Net — CI Gates & Test Infrastructure | 0/5 | Not started | - |
+| 1. Safety Net — CI Gates & Test Infrastructure | 1/5 | In Progress|  |
 | 2. Dialect Seam & Engine Parity | 0/5 | Not started | - |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |

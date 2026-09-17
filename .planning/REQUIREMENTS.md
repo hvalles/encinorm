@@ -11,7 +11,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 - [ ] **CI-01**: Un interruptor `ENCINO_ORM_REQUIRE_ENGINES` hace que un motor requerido ausente **falle** la suite en lugar de omitirla con `skip`
 - [ ] **CI-02**: Un gate post-run sobre JUnit-XML falla el job de CI si `skipped > 0`
-- [ ] **CI-03**: `ruff` (lint + format) está configurado y es un job bloqueante de CI
+- [x] **CI-03**: `ruff` (lint + format) está configurado y es un job bloqueante de CI
 - [ ] **CI-04**: `mypy` (no estricto, con ratchet) pasa y existe el marcador `py.typed`
 - [ ] **CI-05**: `pytest-cov` reporta con `parallel = true` + `coverage combine` por motor y un umbral ratchet bajo
 - [ ] **CI-06**: La configuración de pytest se endurece (`--strict-markers`, `xfail_strict`, `filterwarnings = ["error"]`, ambos loop scopes, markers declarados)
@@ -132,7 +132,7 @@ Qué fase cubre cada requisito.
 |-------------|-------|--------|
 | CI-01 | Phase 1 | Pending |
 | CI-02 | Phase 1 | Pending |
-| CI-03 | Phase 1 | Pending |
+| CI-03 | Phase 1 | Complete |
 | CI-04 | Phase 1 | Pending |
 | CI-05 | Phase 1 | Pending |
 | CI-06 | Phase 1 | Pending |

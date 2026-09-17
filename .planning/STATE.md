@@ -4,13 +4,13 @@ milestone: v0.2.6
 milestone_name: milestone
 status: executing
 stopped_at: Phase 1 context gathered
-last_updated: "2026-09-17T22:54:52.811Z"
-last_activity: 2026-09-17 -- Phase 01 execution started
+last_updated: "2026-09-17T23:02:47.887Z"
+last_activity: 2026-09-17
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 5
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 01 (Safety Net — CI Gates & Test Infrastructure) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 01
-Last activity: 2026-09-17 -- Phase 01 execution started
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-09-17
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P01 | 6 min | 4 tasks | 60 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - [Roadmap]: DATA (Phase 3) runs parallel to DIAL (Phase 2) — disjoint modules, no file overlap.
 - [Roadmap]: TS-37 placeholder caching deferred to v2 as DATA-07; re-open only if profiling shows it in the top 5 hot paths.
 - [Roadmap]: 0.2.7 is cut from the `v0.2.6` maintenance line, not from hardened `main`, so deprecation warnings describe behavior that still exists.
+- [Phase ?]: line-length = 100 es la fuente de verdad para ruff (desviación consciente de AGENTS.md §Code Style; baseline medido 195 hallazgos a 88 vs 128 a 100). — Menor churn mecánico y menos hallazgos reales enterrados; el valor de config prevalece sobre la convención textual.
+- [Phase 01]: PERF203 se ignora por fichero en encino_orm/base.py y encino_orm/pool.py. — El try/except debe permanecer dentro de bucles acotados (reintentos de deadlock y adquisición del pool); sacarlo cambia la semántica. Desviación documentada del plan, que esperaba corregirlo a mano.
+- [Phase 01]: El F821 de encino_orm/model/query_builder.py se corrige con un import TYPE_CHECKING, no con supresión. — Erased en runtime, preserva el contrato de importación diferida de AGENTS.md; se verificó que F821 no aparece en ninguna lista de per-file-ignores.
 
 ### Pending Todos
 
@@ -88,6 +92,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-17T21:19:10.260Z
+Last session: 2026-09-17T23:01:57.577Z
 Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-safety-net-ci-gates-test-infrastructure/01-CONTEXT.md
+Resume file: None
