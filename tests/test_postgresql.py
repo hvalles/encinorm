@@ -5,6 +5,7 @@ import pytest
 
 from encino_orm import PostgresDb, Query
 from encino_orm.postgresql import _rowcount, _to_postgres
+from tests.conftest import engine_unavailable
 
 POSTGRES_CONFIG = {
     "host": os.getenv("ENCINO_ORM_POSTGRES_HOST", "127.0.0.1"),
@@ -65,7 +66,7 @@ async def pg_connected_db():
     try:
         await admin.connect(**cfg, database="postgres")
     except Exception as e:
-        pytest.skip(f"PostgreSQL no disponible: {e}")
+        engine_unavailable("postgresql", e)
 
     with contextlib.suppress(Exception):
         await admin.execute(Query(f"CREATE DATABASE {db_name}", []))

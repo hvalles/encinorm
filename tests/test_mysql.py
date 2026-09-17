@@ -3,6 +3,7 @@ import os
 import pytest
 
 from encino_orm import MysqlDb, Query
+from tests.conftest import engine_unavailable
 
 # Todas las clases de este modulo necesitan un MySQL vivo (D-08): el marker se
 # aplica a nivel de modulo. MySQL es motor requerido en Fase 1 (D-01).
@@ -26,7 +27,7 @@ async def mysql_connected_db():
     try:
         await admin.connect(**cfg)
     except Exception as e:
-        pytest.skip(f"MySQL no disponible: {e}")
+        engine_unavailable("mysql", e)
 
     await admin.execute(Query(f"CREATE DATABASE IF NOT EXISTS `{db_name}`", []))
     await admin.close()
