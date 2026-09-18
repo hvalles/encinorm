@@ -89,3 +89,34 @@ class CachedModel(Model):
         count = await super().upsert(conflict=conflict, values=values)
         await self._invalidate(conflict)
         return count
+
+    @classmethod
+    async def insert_many(
+        cls,
+        db=None,
+        rows: list[dict] | None = None,
+        *,
+        chunk: int | None = None,
+        cache=None,
+    ) -> int:
+        """Inserta varias filas e invalida opcionalmente las claves afectadas (D-16).
+
+        Sin `cache=` no se invalida: un INSERT puro no puede dejar obsoleta una
+        clave existente sin violar la restricción UNIQUE de la PK. Con `cache=`,
+        se invalida la clave de la PK del modelo presente en cada fila — el MISMO
+        dominio con el que `load(keys=<PK>)` escribe. Un fallo de invalidación es
+        fail-open (warning, no propaga; D-12).
+        """
+        total = await super().insert_many(db, rows, chunk=chunk)
+        if cache is None or not rows:
+            return total
+        keys = cls._pk_fields()
+        for row in rows:
+            values = {k: row.get(k) for k in keys}
+            if any(values[k] is None for k in keys):
+                continue
+            try:
+                await cache.delete(cls._cache_key_for(keys, values))
+            except Exception as exc:
+                logger.warning("no se pudo invalidar la caché de %s: %r", cls._table, exc)
+        return total

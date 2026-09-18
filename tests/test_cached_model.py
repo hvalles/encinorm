@@ -7,6 +7,7 @@ from encino_orm.query import Query
 
 class Cliente(CachedModel):
     _table = "clientes"
+    _primary_key = ("rfc",)
     rfc: str | None = Field(default=None)
     nombre: str | None = Field(default=None)
 
@@ -129,3 +130,23 @@ class TestCachedModel:
             Query("SELECT nombre FROM clientes WHERE rfc = {0}", ["XAXX010101000"])
         )
         assert row["nombre"] == "Nuevo"
+
+    @pytest.mark.asyncio
+    async def test_insert_many_invalidates(self, db):
+        nuevo_rfc = "XAXX010101001"
+        cache = MemoryCacheBackend()
+        key = Cliente._cache_key_for(("rfc",), {"rfc": nuevo_rfc})
+        await cache.set(key, b"x", 60)
+
+        await Cliente.insert_many(db, [{"rfc": nuevo_rfc, "nombre": "Nuevo"}], cache=cache)
+        assert await cache.get(key) is None
+
+    @pytest.mark.asyncio
+    async def test_insert_many_without_cache_does_not_invalidate(self, db):
+        otro_rfc = "XAXX010101002"
+        cache = MemoryCacheBackend()
+        key = Cliente._cache_key_for(("rfc",), {"rfc": otro_rfc})
+        await cache.set(key, b"x", 60)
+
+        await Cliente.insert_many(db, [{"rfc": otro_rfc, "nombre": "Sin cache"}])
+        assert await cache.get(key) is not None

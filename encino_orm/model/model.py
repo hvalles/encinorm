@@ -542,7 +542,12 @@ class Model(BaseModel):
 
     @classmethod
     async def insert_many(
-        cls, db=None, rows: list[dict] | None = None, *, chunk: int | None = None
+        cls,
+        db=None,
+        rows: list[dict] | None = None,
+        *,
+        chunk: int | None = None,
+        cache=None,
     ) -> int:
         """Inserta varios registros en una transacción (multi-filas `VALUES`).
 
@@ -551,6 +556,10 @@ class Model(BaseModel):
         `None` se deriva del motor resuelto: `min(MAX_PARAMS // n_columnas,
         MAX_ROWS)`, con `500` como último recurso para objetos que no exponen las
         constantes. Un `chunk` explícito del llamador se respeta tal cual.
+
+        `cache` existe solo para que `CachedModel` pueda sobreescribir el método
+        con la misma firma; `Model` lo ignora (un INSERT puro no tiene caché que
+        invalidar).
         """
         if not rows:
             return 0
