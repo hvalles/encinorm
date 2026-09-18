@@ -70,6 +70,26 @@ DDL_SCOPE = (
 )
 
 
+class ClientePkLista(CachedModel):
+    """Modelo con PK de tipo `list` (no hashable; la columna se almacena como JSON).
+
+    Regresión WR-R3-02: la invalidación post-escritura debe ser fail-open aunque la
+    unión de sondas no pueda hashear el valor de la PK.
+    """
+
+    _table = "clientes_pk_lista"
+    _primary_key = ("k",)
+    k: list | None = Field(default=None)
+    grupo: str | None = Field(default=None)
+    nombre: str | None = Field(default=None)
+
+
+DDL_PK_LISTA = (
+    "CREATE TABLE clientes_pk_lista (id INTEGER PRIMARY KEY AUTOINCREMENT, k TEXT, "
+    "grupo TEXT, nombre TEXT, enabled INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)"
+)
+
+
 def _pk_key() -> str:
     """Clave del dominio canónico (`id=1`) que `load()` debe escribir SIEMPRE."""
     return ClientePK._cache_key_for(("id",), {"id": 1})
@@ -100,6 +120,12 @@ async def db_pk(connected_db):
 @pytest.fixture
 async def db_scope(connected_db):
     await connected_db.execute(Query(DDL_SCOPE, []))
+    return connected_db
+
+
+@pytest.fixture
+async def db_pk_lista(connected_db):
+    await connected_db.execute(Query(DDL_PK_LISTA, []))
     return connected_db
 
 
@@ -426,3 +452,33 @@ class TestCachedModel:
         assert k_a != k_out
         assert k_a != k_b
         assert k_b != k_out
+
+    @pytest.mark.asyncio
+    async def test_wr_r3_02_union_no_rompe_fail_open(self, db_pk_lista):
+        """WR-R3-02: una PK no hashable (`list`) no puede romper la invalidación
+        post-escritura. `_union` deduplica por huella hashable y la unión se ejecuta
+        dentro de un `try/except` (D-12 fail-open), así que la escritura commiteada
+        nunca se reporta como fallida. HOY lanza `TypeError: unhashable type: 'list'`
+        DESPUÉS del commit."""
+        cache = MemoryCacheBackend()
+        await ClientePkLista(
+            db_pk_lista, cache=cache, k=[1, 2], grupo="G", nombre="Viejo"
+        ).insert()
+
+        loaded = await ClientePkLista(db_pk_lista, cache=cache, k=[1, 2]).load()
+        assert loaded.nombre == "Viejo"
+        pk_key = loaded._cache_key(list(ClientePkLista._pk_fields()))
+        assert await cache.get(pk_key) is not None
+
+        # La sonda resuelve la PK real (`k=[1, 2]`, no hashable) y la unión debe
+        # poder deduplicarla sin propagar una excepción tras el commit.
+        count = await ClientePkLista(
+            db_pk_lista, cache=cache, grupo="G", nombre="Nuevo"
+        ).update(keys=["grupo"], data=["nombre"])
+        assert count == 1
+
+        row = await db_pk_lista.fetch_one(
+            Query("SELECT nombre, k FROM clientes_pk_lista WHERE grupo = {0}", ["G"])
+        )
+        assert row["nombre"] == "Nuevo"
+        assert await cache.get(pk_key) is None
