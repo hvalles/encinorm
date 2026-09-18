@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-11-PLAN.md
-last_updated: "2026-09-18T14:41:09.181Z"
+stopped_at: Completed 02-12-PLAN.md
+last_updated: "2026-09-18T14:45:05.961Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 17
-  completed_plans: 16
-  percent: 13
+  completed_plans: 17
+  percent: 25
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 02 (Dialect Seam & Engine Parity) — EXECUTING
-Plan: 11 of 12 (gap closure ronda 2: 02-06…02-10 completos; 02-11 y 02-12 pendientes)
-Status: Ready to execute
+Plan: 12 of 12 (gap closure rondas 2 y 3 completas: 02-06…02-12)
+Status: All Phase 2 plans complete; ready for phase verification
 Last activity: 2026-09-18
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [█████████░] 94%
 | Phase 02 P09 | 3 min | 2 tasks | 10 files |
 | Phase 02 P10 | 4 min | 2 tasks | 2 files |
 | Phase 02 P11 | 4 min | 2 tasks | 6 files |
+| Phase 02 P12 | 2 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -128,6 +129,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 02-10: el barrido confirma que _table era el ultimo punto de interpolacion que necesitaba la allowlist estricta; las posiciones de expresion (select/group_by/order_by/sort_by/agregados) conservan _COLUMN_RE tolerante a puntos por decision (Pitfall 10) y se fijan con tests de caracterizacion + guard de fuente
 - [Phase 02]: 02-11: el render merge falla CERRADO en _merge_sql (punto unico de build_insert/build_upsert) cuando una columna de conflicto no esta en el INSERT; cierra CR-02 sin derivar un default silencioso — En un modelo de PK autoincremental el id no viaja en data, asi que ON (dst.id = src.id) referenciaba una columna inexistente (MSSQL 207 / ORA-00904); elegir una columna representativa en silencio reintroduciria el mismo defecto semantico
 - [Phase 02]: 02-11: Model.insert deja de consumir/asignar last_id() cuando la sentencia ejecutada es un MERGE (devuelve 0 y deja obj.id intacto); cierra CR-03 — MssqlDb.execute solo refresca _last_id para INSERT y OracleDb.execute solo con RETURNING; consumir el cache devolvia el id de OTRA fila (regresion de 02-08). La captura real del id (OUTPUT INSERTED.id) pertenece a la Fase 4 / POOL-03
+- [Phase 02]: 02-12: extiende la seccion [Unreleased] ### Corregido EXISTENTE (sin encabezado duplicado) con el contrato de cardinalidad de Query y los cambios de CR-01/CR-02/CR-03; la enumeracion completa de breaking changes del milestone sigue siendo de la Fase 8 (08-04)
+- [Phase 02]: 02-12: el fallback columns[0] del MERGE (familia ORA-38104) se documenta como NO corregido y con dueno; el render merge se documenta como fail-closed, no como mejora semantica del upsert (un upsert por PK autoincremental es inexpresable en MSSQL/Oracle por construccion)
+- [Phase 02]: 02-12: ORA-38104 y la captura real de last_id quedan con dueno explicito Fase 4 / plan 04-02 / POOL-03, registrado en los TRES artefactos (deferred-items.md, ROADMAP.md, REQUIREMENTS.md); se elimina la afirmacion falsa de que no quedaba ningun item sin dueno
 
 ### Pending Todos
 
@@ -152,6 +156,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T14:41:09.169Z
-Stopped at: Completed 02-11-PLAN.md
+Last session: 2026-09-18T14:44:48.600Z
+Stopped at: Completed 02-12-PLAN.md
 Resume file: None

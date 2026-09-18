@@ -176,7 +176,7 @@ Plans:
 - [x] 02-09-PLAN.md — Fix `Db.list_tables(name=)` on the four engines where it is dead (filter on a real column of a derived table, value bound, `LOWER()` on both sides), with a per-engine test and a DB-free dialect snapshot — closes GAP 4 and leaves no unowned deferral — DIAL-03, DIAL-09
 - [x] 02-10-PLAN.md — Validate `QueryBuilder`'s `_table` (constructor) and each join target's `_table` with the strict allowlist, and sweep every remaining interpolation point — closes GAP A / CR-01 — DIAL-01, DIAL-02
 - [x] 02-11-PLAN.md — Fail closed in `_merge_sql` when a conflict column is absent from the INSERT columns (CR-02, `Model.upsert` on MSSQL/Oracle), and stop `Model.insert` consuming a stale `last_id()` on a MERGE (CR-03, the regression 02-08 introduced) — DIAL-02, DIAL-09
-- [ ] 02-12-PLAN.md — Document the 02-07 `Query` cardinality change in `CHANGELOG.md` and correct the false "no unowned items" claim in `deferred-items.md`, assigning the Oracle ORA-38104 limitation to Phase 4 / `04-02` / POOL-03 — DIAL-02, DIAL-05
+- [x] 02-12-PLAN.md — Document the 02-07 `Query` cardinality change in `CHANGELOG.md` and correct the false "no unowned items" claim in `deferred-items.md`, assigning the Oracle ORA-38104 limitation to Phase 4 / `04-02` / POOL-03 — DIAL-02, DIAL-05
 
 **Gap-closure waves (round 1):** 1 → `02-06`, `02-07`; 2 → `02-08`; 3 → `02-09`. **Round 2:** 1 → `02-10`, `02-11`; 2 → `02-12`. GAP 5 (per-adapter coverage floors) stays deferred pending a green `engine-heavy` run and is NOT planned here; the gap-closure plans do not contradict it.
 
@@ -409,7 +409,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 11/12 | In Progress|  |
+| 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
