@@ -72,15 +72,26 @@ async def _apply(db, name: str, qry: Query) -> None:
 
     En motores con commit implícito del DDL (MySQL/MariaDB/Oracle) la fila
     `pending` puede sobrevivir al fallo; ahí se compensa solo si ESTA llamada
-    insertó la fila y el DDL NO llegó a correr (compare-and-delete sobre
-    `pending`). Si el DDL sí corrió y falló el promote, la fila queda `pending`
-    A PROPÓSITO para que la reconciliación la detecte (Pitfall 8: nada de
-    teatro de atomicidad).
+    insertó la fila y el DDL NO llegó a correr. El borrado usa la IDENTIDAD de la
+    fila (`{id: ledger_id}`, capturada best-effort con `last_id()` tras el
+    INSERT) porque `{name, status}` no prueba propiedad: la fila `pending` que
+    otro runner re-publica tras nuestro rollback sobreviviría al
+    compare-and-delete. Si el motor no expone un `last_id()` útil (Oracle
+    devuelve 0), se cae al compare-and-delete `{name, status='pending'}`,
+    residual estrecho asignado a la Fase 4 / POOL-03 (captura de `last_id`
+    dentro del INSERT). Si el DDL sí corrió y falló el promote, la fila queda
+    `pending` A PROPÓSITO para que la reconciliación la detecte (Pitfall 8: nada
+    de teatro de atomicidad).
+
+    Un fallo de la propia compensación NO reemplaza la excepción original del
+    DDL: se registra un warning y se re-lanza el error raíz (IN-01).
     """
     ddl_done = False
     # Propiedad de la fila: la compensación solo puede borrar lo que ESTA
     # llamada insertó. Un INSERT duplicado pertenece a OTRO proceso.
     inserted = False
+    # Identidad de la fila insertada por ESTA llamada (0 = no utilizable).
+    ledger_id = 0
     try:
         async with db.transaction():
             await db.execute(
@@ -90,6 +101,12 @@ async def _apply(db, name: str, qry: Query) -> None:
                 )
             )
             inserted = True
+            # Best-effort: Oracle devuelve 0, así que un motor sin `last_id()`
+            # útil no debe romper el runner; solo activa el fallback.
+            try:
+                ledger_id = await db.last_id()
+            except Exception:
+                ledger_id = 0
             await db.execute(qry)
             ddl_done = True
             await db.execute(
@@ -100,13 +117,22 @@ async def _apply(db, name: str, qry: Query) -> None:
             # El commit implícito del DDL publicó el `pending` pero el DDL no
             # corrió: limpiar la fila en una transacción nueva. En motores con
             # DDL transaccional el rollback de `db.transaction()` ya la eliminó.
-            # El compare-and-delete exige `status='pending'`: si un INSERT
-            # duplicado falló, la fila es de OTRO proceso (este intento no la
-            # insertó) y borrarla dejaría el DDL ajeno sin registro (WR-01).
-            async with db.transaction():
-                await db.execute(
-                    db.delete(MIGRATIONS_TABLE, {"name": name, "status": STATUS_PENDING})
-                )
+            # Se borra por IDENTIDAD (`{id: ledger_id}`): `{name, status}` no
+            # prueba propiedad y borraría la fila `pending` que otro runner
+            # re-publicó tras nuestro rollback (WR-01 residual). Solo si el
+            # motor no expone `last_id()` útil se usa el compare-and-delete.
+            try:
+                async with db.transaction():
+                    if ledger_id > 0:
+                        await db.execute(db.delete(MIGRATIONS_TABLE, {"id": ledger_id}))
+                    else:
+                        await db.execute(
+                            db.delete(MIGRATIONS_TABLE, {"name": name, "status": STATUS_PENDING})
+                        )
+            except Exception as exc:
+                # IN-01: un fallo de la compensación NO debe enmascarar el error
+                # raíz del DDL; se registra y se re-lanza el original abajo.
+                logger.warning("no se pudo compensar la fila pending de %s: %r", name, exc)
         elif not db.transactional_ddl and ddl_done:
             # El DDL SÍ corrió y el promote falló: la fila queda `pending` para
             # que `reconcile_migrations` la detecte y el humano la resuelva.

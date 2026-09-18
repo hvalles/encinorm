@@ -267,14 +267,14 @@ class TestApplyTwoPhase:
 
     @pytest.mark.asyncio
     async def test_compensacion_borra_solo_la_fila_pending_propia(self):
-        """La compensación usa compare-and-delete sobre `status='pending'`."""
+        """La compensación borra por identidad la fila que ESTA llamada insertó."""
         db = LedgerDb(transactional_ddl=False, fail_ddl=True)
 
         with pytest.raises(RuntimeError):
             await _apply(db, "v1", DDL)
 
         assert db.ledger == {}
-        assert db.delete_calls == [{"name": "v1", "status": STATUS_PENDING}]
+        assert db.delete_calls == [{"id": 1}]
 
     @pytest.mark.asyncio
     async def test_wr01_compensacion_no_borra_la_fila_reinsertada(self):
