@@ -245,6 +245,12 @@ class CountingDb(SqliteDb):
         self.fetch_count += 1
         return await super().fetch_all(qry)
 
+    async def fetch_many(self, qry, limit, page):
+        # La paginación de `Model.search` delega en `fetch_many` (portable en los
+        # seis motores); el contador debe incluirla para seguir midiendo el N+1.
+        self.fetch_count += 1
+        return await super().fetch_many(qry, limit, page)
+
 
 class TestDataLoaderBatching:
     @pytest.mark.asyncio

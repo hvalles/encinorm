@@ -153,7 +153,9 @@ class Db(ABC):
         if name:
             sql += " AND name LIKE {0}"
             params.append(f"%{name}%")
-        count_qry = Query(f"SELECT COUNT(*) AS n FROM ({sql}) _encino_orm_count", params)
+        # El alias no puede empezar por `_`: Oracle lo rechaza (ORA-00911) salvo
+        # que se cite. `encino_orm_count` es válido en los seis motores.
+        count_qry = Query(f"SELECT COUNT(*) AS n FROM ({sql}) encino_orm_count", params)
         row = await self.fetch_one(count_qry)
         total = row["n"] if row else 0
         rows = await self.fetch_many(Query(sql, params), limit, page)
@@ -172,7 +174,7 @@ class Db(ABC):
 
         rows = await self.fetch_many(qry, limit, page)
         sql = qry.sql_template.strip().rstrip(";")
-        count_qry = Query(f"SELECT COUNT(*) AS n FROM ({sql}) _encino_orm_count", list(qry.fields))
+        count_qry = Query(f"SELECT COUNT(*) AS n FROM ({sql}) encino_orm_count", list(qry.fields))
         row = await self.fetch_one(count_qry)
         total = row["n"] if row else 0
         return Records(rows=rows, total=total, limit=limit, page=page)

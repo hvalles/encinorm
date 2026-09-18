@@ -743,10 +743,12 @@ class Model(BaseModel):
         sql = f"SELECT {cols_sql} FROM {self._table}{where}"
         if sort_by:
             sql += f" ORDER BY {self._render_sort(sort_by)}"
+        # La paginación la aplica el adaptador (`fetch_many`): `LIMIT/OFFSET` no es
+        # sintaxis válida en SQL Server ni en Oracle, que usan `OFFSET … FETCH NEXT`.
         if limit is not None:
-            offset = (page - 1) * limit
-            sql += f" LIMIT {limit} OFFSET {offset}"
-        rows = await self._get_db().fetch_all(Query(sql, params))
+            rows = await self._get_db().fetch_many(Query(sql, params), limit, page)
+        else:
+            rows = await self._get_db().fetch_all(Query(sql, params))
 
         results = []
         for row in rows:
@@ -873,9 +875,9 @@ class Model(BaseModel):
             check_identifier(col, "columna")
             dt = _field_datatype(type(self), field, type(self).model_fields[field])
             ddl = ddl_type(dt, engine)
-            await self._get_db().execute(
-                Query(f"ALTER TABLE {self._table} ADD COLUMN {col} {ddl}", [])
-            )
+            # `ADD COLUMN` no es sintaxis válida en SQL Server ni en Oracle;
+            # `ADD <col> <tipo>` lo es en los seis motores.
+            await self._get_db().execute(Query(f"ALTER TABLE {self._table} ADD {col} {ddl}", []))
             added.append(col)
 
         dropped = []

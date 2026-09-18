@@ -5,6 +5,7 @@ import pytest
 from encino_orm import MssqlDb, Query
 from encino_orm._rows import _rows_to_dicts
 from encino_orm.introspection.types import _normalize
+from encino_orm.model import Filter, Model
 from encino_orm.model.types import ddl_type
 from encino_orm.mssql import _to_mssql
 from tests.conftest import engine_unavailable
@@ -138,6 +139,36 @@ async def mssql_connected_db():
     await db.close()
 
 
+class _ParityModel(Model):
+    """Modelo de paridad DIAL-03/DIAL-09 contra el motor real."""
+
+    _table = "test_parity"
+    nombre: str | None = None
+    monto: float | None = None
+
+
+_PARITY_DDL = (
+    "CREATE TABLE test_parity ("
+    "id INT IDENTITY(1,1) PRIMARY KEY, nombre NVARCHAR(50), monto FLOAT, "
+    "enabled BIT DEFAULT 1, created_at DATETIME2, updated_at DATETIME2)"
+)
+_PARITY_DDL_SIN_MONTO = (
+    "CREATE TABLE test_parity ("
+    "id INT IDENTITY(1,1) PRIMARY KEY, nombre NVARCHAR(50), "
+    "enabled BIT DEFAULT 1, created_at DATETIME2, updated_at DATETIME2)"
+)
+
+
+async def _reset(db, name, ddl):
+    await db.execute(Query(f"IF OBJECT_ID('{name}', 'U') IS NOT NULL DROP TABLE {name}", []))
+    await db.execute(Query(ddl, []))
+
+
+async def _seed_parity(db):
+    for nombre, monto in [("Ana", 10.0), ("Luis", 20.0), ("Eva", 30.0)]:
+        await db.execute(db.insert("test_parity", {"nombre": nombre, "monto": monto}))
+
+
 @pytest.mark.integration
 @pytest.mark.optional_engine
 class TestMssqlLifecycle:
@@ -194,3 +225,63 @@ class TestMssqlLifecycle:
         matching = [s for s in status if s["name"] == "v1_crear_usuarios"]
         assert len(matching) == 1
         assert "CREATE TABLE usuarios" in matching[0]["sql_text"]
+
+
+@pytest.mark.integration
+@pytest.mark.optional_engine
+class TestMssqlParity:
+    """DIAL-03/DIAL-09: `count`/`paginate`/`list_tables`/`sync_schema`/`last_id`."""
+
+    @pytest.mark.asyncio
+    async def test_count_paginate_and_list_tables(self, mssql_connected_db):
+        db = mssql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+        await _seed_parity(db)
+
+        assert await _ParityModel(db).count() == 3
+        assert await _ParityModel(db).count(Filter.eq("nombre", "Ana")) == 1
+
+        rec = await _ParityModel(db).paginate(limit=2, page=1)
+        assert rec.total == 3
+        assert len(rec.rows) == 2
+        assert rec.limit == 2
+        assert rec.page == 1
+
+        tablas = await db.list_tables(limit=1000)
+        assert tablas.total >= 1
+        assert "test_parity" in {r["name"].lower() for r in tablas.rows}
+
+    @pytest.mark.asyncio
+    async def test_query_builder_aggregates(self, mssql_connected_db):
+        db = mssql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+        await _seed_parity(db)
+
+        qb = _ParityModel(db).query()
+        assert await qb.count() == 3
+        assert await qb.sum("monto") == 60.0
+        assert await qb.avg("monto") == 20.0
+        assert await qb.min("monto") == 10.0
+        assert await qb.max("monto") == 30.0
+
+    @pytest.mark.asyncio
+    async def test_sync_schema_adds_missing_column(self, mssql_connected_db):
+        db = mssql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL_SIN_MONTO)
+
+        result = await _ParityModel(db).sync_schema()
+        assert "monto" in result["added"]
+
+        cols = {c.name for c in await db.columns_of("test_parity")}
+        assert "monto" in cols
+
+    @pytest.mark.asyncio
+    async def test_last_id_characterization(self, mssql_connected_db):
+        db = mssql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+
+        await db.execute(db.insert("test_parity", {"nombre": "Ana"}))
+        assert await db.last_id() == 1
+
+        await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
+        assert await db.last_id() == 2
