@@ -6,9 +6,11 @@ from encino_orm import Query
 from encino_orm.model import CachedModel, RedisCacheBackend
 from tests.conftest import engine_unavailable
 
-# Todas las clases de este modulo necesitan un Redis vivo (D-08). Redis no es
-# motor requerido en Fase 1 (D-02), asi que tambien lleva `optional_engine`.
-pytestmark = [pytest.mark.integration, pytest.mark.optional_engine]
+# Todas las clases de este modulo necesitan un Redis vivo (D-08). Desde la
+# Fase 2 (DIAL-08) Redis es un motor REQUERIDO: el job `test` levanta el
+# servicio, instala `--extra cache` y lo incluye en `ENCINO_ORM_REQUIRE_ENGINES`,
+# asi que el modulo ya no lleva el marcador de motor opcional.
+pytestmark = [pytest.mark.integration]
 
 REDIS_URL = os.getenv("ENCINO_ORM_REDIS_URL", "redis://127.0.0.1:6379")
 

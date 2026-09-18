@@ -54,6 +54,32 @@ jobs:
           --health-timeout=5s
           --health-retries=12
 
+      # DIAL-08: MariaDB promovido a motor REQUERIDO (deja de ser opcional).
+      # MySQL ya ocupa el 3306, y el default del test es 3307 (test_mariadb.py:12).
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: admin
+          MARIADB_DATABASE: encino_orm_test
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -u root --password=admin --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+      # DIAL-08: Redis promovido a motor REQUERIDO (backend de CachedModel).
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -69,7 +95,9 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --extra http --extra security --extra graphql
+        # `--extra cache` aporta el driver `redis`, sin el cual los tests de
+        # CachedModel fallan con ImportError en vez de ejercitar el backend.
+        run: uv sync --extra http --extra security --extra graphql --extra cache
 
       - name: Run tests
         env:
@@ -77,10 +105,10 @@ jobs:
           # `parallel = true` cada job escribe el suyo y `coverage combine` los
           # une en el job `coverage` (D-06).
           COVERAGE_FILE: .coverage.py${{ matrix.python-version }}
-          # CI-01: en CI un motor requerido ausente FALLA en vez de omitir
-          # (D-01: exactamente los dos servicios que existen arriba). En local
-          # la variable no existe y un motor ausente sigue omitiendo (D-03).
-          ENCINO_ORM_REQUIRE_ENGINES: mysql,postgresql
+          # CI-01: en CI un motor requerido ausente FALLA en vez de omitir.
+          # D-02/DIAL-08: MariaDB y Redis se promovieron a requeridos; MSSQL y
+          # Oracle siguen fuera de esta lista porque su job es `engine-heavy`.
+          ENCINO_ORM_REQUIRE_ENGINES: mysql,postgresql,mariadb,redis
           ENCINO_ORM_MYSQL_HOST: 127.0.0.1
           ENCINO_ORM_MYSQL_PORT: "3306"
           ENCINO_ORM_MYSQL_USER: root
@@ -91,11 +119,18 @@ jobs:
           ENCINO_ORM_POSTGRES_USER: postgres
           ENCINO_ORM_POSTGRES_PASSWORD: admin
           ENCINO_ORM_POSTGRES_DB: encino_orm_test
-        # `-m "not optional_engine"` deselecciona los 13 tests de motores no
-        # requeridos (D-02): los deseleccionados no aparecen en el XML, asi que
-        # cualquier `skipped > 0` que quede es un skip NO marcado. `--junitxml`
-        # alimenta el gate de abajo. `--cov-report=` desactiva el reporte por
-        # pata: el combine y el gate de `fail_under` los aplica el job `coverage`.
+          ENCINO_ORM_MARIADB_HOST: 127.0.0.1
+          ENCINO_ORM_MARIADB_PORT: "3307"
+          ENCINO_ORM_MARIADB_USER: root
+          ENCINO_ORM_MARIADB_PASSWORD: admin
+          ENCINO_ORM_MARIADB_DB: encino_orm_test
+          ENCINO_ORM_REDIS_URL: redis://127.0.0.1:6379
+        # `-m "not optional_engine"` deselecciona SOLO los tests de MSSQL y
+        # Oracle (D-02), cuyo job es `engine-heavy`. Los deseleccionados no
+        # aparecen en el XML, asi que cualquier `skipped > 0` que quede es un
+        # skip NO marcado. `--junitxml` alimenta el gate de abajo.
+        # `--cov-report=` desactiva el reporte por pata: el combine y el gate de
+        # `fail_under` los aplica el job `coverage`.
         run: >
           uv run pytest -q -m "not optional_engine" --junitxml=junit.xml
           --cov=encino_orm --cov-branch --cov-report=
@@ -214,9 +249,120 @@ jobs:
           uv export --format requirements-txt --no-emit-project --no-hashes > "$RUNNER_TEMP/uv-export.txt"
           uv run pip-audit -r "$RUNNER_TEMP/uv-export.txt"
 
+  engine-heavy:
+    name: Motores pesados (MSSQL + Oracle)
+    runs-on: ubuntu-latest
+    # Oracle tarda 60-120 s en arrancar. UNA sola pata (3.12): el comportamiento
+    # de dialecto no depende del interprete, y multiplicar Oracle por 4 legs no
+    # anade cobertura. Este job NUNCA es advisory: un job que no puede fallar es
+    # CI verde sin verificacion (T-02-26).
+    timeout-minutes: 30
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: Admin_123
+        ports:
+          - 1433:1433
+        # `sqlcmd` vive en /opt/mssql-tools18/bin en la imagen 2022 y necesita
+        # `-C` para confiar en el certificado autofirmado. Si esa ruta cambiara
+        # en una imagen futura, degradar a una comprobacion de puerto TCP.
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Admin_123 -C -Q 'SELECT 1' -b -o /dev/null"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+      oracle:
+        image: gvenzl/oracle-free
+        env:
+          ORACLE_PASSWORD: admin
+        ports:
+          - 1521:1521
+        # `gvenzl/oracle-free` trae su propio HEALTHCHECK; no se sobreescribe.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.15"
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Instalar ODBC Driver 18 (SQL Server)
+        # PRERREQUISITO DURO: el runner ubuntu-24.04 NO trae unixodbc ni
+        # msodbcsql18, asi que pyodbc/aioodbc no pueden abrir conexion. Sin este
+        # paso el job falla en el import, no en una asercion. Clave y repo
+        # OFICIALES de packages.microsoft.com sobre HTTPS (T-02-31).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unixodbc-dev
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc >/dev/null
+          curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list \
+            | sudo tee /etc/apt/sources.list.d/mssql-release.list >/dev/null
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+
+      - name: Install dependencies
+        # Sin los extras los drivers son inimportables y los fixtures convierten
+        # el ImportError en un fallo confuso.
+        run: uv sync --extra mssql --extra oracle
+
+      - name: Run tests (MSSQL + Oracle)
+        env:
+          COVERAGE_FILE: .coverage.heavy
+          # DIAL-08: ambos motores son REQUERIDOS en este job. Un motor ausente
+          # FALLA (`engine_unavailable`), no se omite.
+          ENCINO_ORM_REQUIRE_ENGINES: mssql,oracle
+          ENCINO_ORM_MSSQL_HOST: 127.0.0.1
+          ENCINO_ORM_MSSQL_PORT: "1433"
+          ENCINO_ORM_MSSQL_USER: sa
+          ENCINO_ORM_MSSQL_PASSWORD: Admin_123
+          ENCINO_ORM_MSSQL_DB: encino_orm_test
+          ENCINO_ORM_MSSQL_DRIVER: ODBC Driver 18 for SQL Server
+          ENCINO_ORM_MSSQL_TRUST_CERT: "true"
+          ENCINO_ORM_ORACLE_HOST: 127.0.0.1
+          ENCINO_ORM_ORACLE_PORT: "1521"
+          # DESAJUSTE DE SERVICE NAME: `gvenzl/oracle-free` usa FREEPDB1, mientras
+          # que `docker-compose.yml` (gvenzl/oracle-xe) usa XEPDB1. Sin este
+          # override los tests de Oracle no conectan.
+          ENCINO_ORM_ORACLE_SERVICE: FREEPDB1
+          ENCINO_ORM_ORACLE_USER: system
+          ENCINO_ORM_ORACLE_PASSWORD: admin
+        # Seleccion por FICHERO, NO por marker: los dos ficheros conservan
+        # `optional_engine` para que el job `test` los deseleccione, asi que
+        # filtrar por marker aqui dejaria el job probando CERO tests (el fallo
+        # silencioso que esta fase elimina).
+        #
+        # PROCEDENCIA (sonda pendiente): los techos ad-hoc de parametros de
+        # MSSQL (2100) y Oracle (65535) de `dialects/strategies.py::LIMITS` NO
+        # estan verificados empiricamente. La sonda manual descrita en
+        # 02-VALIDATION.md §Manual-Only Verifications debe correrse en ESTE job y
+        # anotar el valor medido junto a las constantes. NO convertir la sonda en
+        # un gate advisory.
+        run: >
+          uv run pytest -q tests/test_mssql.py tests/test_oracle.py
+          --junitxml=junit.xml --cov=encino_orm --cov-branch --cov-report=
+
+      - name: Gate — ningún test omitido
+        if: always()
+        run: uv run python tools/ci/check_skips.py junit.xml
+
+      - name: Subir datos de cobertura de los motores pesados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-heavy
+          path: .coverage.heavy*
+          include-hidden-files: true
+
   coverage:
     name: Cobertura combinada (ratchet)
-    needs: [test]
+    needs: [test, engine-heavy]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -236,9 +382,11 @@ jobs:
       - name: Descargar datos de cobertura de cada pata
         uses: actions/download-artifact@v4
         with:
-          # `merge-multiple` deja los `.coverage.py*` en un solo directorio para
-          # que `coverage combine` los encuentre.
-          pattern: coverage-py*
+          # `merge-multiple` deja los `.coverage.*` en un solo directorio para
+          # que `coverage combine` los encuentre. El patron `coverage-*` incluye
+          # tanto las patas de la matriz como `coverage-heavy`, de modo que la
+          # cobertura de MSSQL/Oracle entra en el total combinado.
+          pattern: coverage-*
           merge-multiple: true
 
       - name: Combinar cobertura de la matriz

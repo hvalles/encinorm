@@ -80,7 +80,6 @@ async def _seed_parity(db):
 
 
 @pytest.mark.integration
-@pytest.mark.optional_engine
 class TestMariadbLifecycle:
     @pytest.mark.asyncio
     async def test_connect_and_close(self, mariadb_connected_db):
@@ -111,7 +110,6 @@ class TestMariadbLifecycle:
 
 
 @pytest.mark.integration
-@pytest.mark.optional_engine
 class TestMariadbParity:
     """DIAL-03/DIAL-09: `count`/`paginate`/`list_tables`/`sync_schema`/`last_id`."""
 
