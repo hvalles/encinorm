@@ -23,7 +23,6 @@ RECHAZADOS = [
     "a b",
     "a-b",
     "t;--",
-    "tabla\n",
     None,
     123,
 ]
@@ -46,6 +45,17 @@ def test_check_identifier_mensaje_exacto():
     with pytest.raises(ValueError) as exc:
         check_identifier("t;--", "nombre de tabla")
     assert str(exc.value) == "nombre de tabla inválido: 't;--'"
+
+
+def test_check_identifier_salto_final_sigue_aceptado():
+    """Caracteriza el anclaje ``$``: un salto final NO se rechaza hoy.
+
+    En Python ``$`` casa también justo antes de un ``\\n`` final, así que el
+    allowlist canónico acepta ``"tabla\\n"``. Este plan es un movimiento puro y
+    conserva ese comportamiento; endurecerlo (p. ej. con ``\\Z`` o
+    ``fullmatch``) cambia lo que se acepta y corresponde a un commit aparte.
+    """
+    assert check_identifier("tabla\n", "tabla") == "tabla\n"
 
 
 def test_identificador_re_es_allowlist_estricta():
