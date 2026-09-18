@@ -461,9 +461,7 @@ class TestCachedModel:
         nunca se reporta como fallida. HOY lanza `TypeError: unhashable type: 'list'`
         DESPUÉS del commit."""
         cache = MemoryCacheBackend()
-        await ClientePkLista(
-            db_pk_lista, cache=cache, k=[1, 2], grupo="G", nombre="Viejo"
-        ).insert()
+        await ClientePkLista(db_pk_lista, cache=cache, k=[1, 2], grupo="G", nombre="Viejo").insert()
 
         loaded = await ClientePkLista(db_pk_lista, cache=cache, k=[1, 2]).load()
         assert loaded.nombre == "Viejo"
@@ -472,9 +470,9 @@ class TestCachedModel:
 
         # La sonda resuelve la PK real (`k=[1, 2]`, no hashable) y la unión debe
         # poder deduplicarla sin propagar una excepción tras el commit.
-        count = await ClientePkLista(
-            db_pk_lista, cache=cache, grupo="G", nombre="Nuevo"
-        ).update(keys=["grupo"], data=["nombre"])
+        count = await ClientePkLista(db_pk_lista, cache=cache, grupo="G", nombre="Nuevo").update(
+            keys=["grupo"], data=["nombre"]
+        )
         assert count == 1
 
         row = await db_pk_lista.fetch_one(
