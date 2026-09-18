@@ -133,9 +133,7 @@ class CachedModel(Model):
             pk_values = {k: getattr(obj, k) for k in pk_keys}
             if all(v is not None for v in pk_values.values()):
                 payload = json.dumps(obj.model_dump(mode="json")).encode("utf-8")
-                await cache.set(
-                    type(self)._cache_key_for(pk_keys, pk_values), payload, duration
-                )
+                await cache.set(type(self)._cache_key_for(pk_keys, pk_values), payload, duration)
         _set_private(obj, "_cache", cache)
         return obj
 
