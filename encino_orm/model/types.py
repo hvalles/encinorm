@@ -207,6 +207,17 @@ def indexes_ddl(model_class, engine: str = "sqlite") -> list[tuple[str, str]]:
     """
     col_map = model_class._column_map()
     if_not_exists = "" if engine == Engine.MYSQL else "IF NOT EXISTS "
+
+    def _resolve_col(spec: str) -> str:
+        # Un spec puede ser un campo del modelo (se traduce a su columna física)
+        # o un identificador simple ya físico; cualquier otro string se rechaza
+        # en vez de interpolarse tal cual (fail-closed). El escape hatch para
+        # identificadores citados o expresiones es `Query` crudo, no este fallback.
+        mapped = col_map.get(spec)
+        if mapped is not None:
+            return mapped
+        return check_identifier(spec, "columna de índice")
+
     result = []
     for idx in getattr(model_class, "_indexes", []):
         rendered = []
@@ -218,9 +229,9 @@ def indexes_ddl(model_class, engine: str = "sqlite") -> list[tuple[str, str]]:
                 direction = str(direction).upper()
                 if direction not in ("ASC", "DESC"):
                     raise ValueError(f"dirección de índice inválida: {direction!r}")
-                rendered.append(f"{col_map.get(col, col)} {direction}")
+                rendered.append(f"{_resolve_col(col)} {direction}")
             else:
-                rendered.append(col_map.get(spec, spec))
+                rendered.append(_resolve_col(spec))
         name = idx.name or f"idx_{model_class._table}_{'_'.join(rendered)}"
         name = name.replace(" ", "_")
         check_identifier(name, "nombre de índice")

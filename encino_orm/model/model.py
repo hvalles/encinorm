@@ -228,7 +228,11 @@ class Model(BaseModel):
                 continue
             if name in cls._fields_disabled:
                 continue
-            col = name
+            # El mapa es la ÚNICA fuente de verdad de los nombres físicos de
+            # columna: validar aquí cierra `to_ddl` (DDL) e `insert_many` (DML en
+            # línea, fuera de `dialects/builders.py`) sin abrir dos frentes que
+            # puedan divergir.
+            col = check_identifier(name, "nombre de columna")
             for meta in getattr(info, "metadata", None) or []:
                 col_name = getattr(meta, "name", None)
                 if col_name:

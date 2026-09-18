@@ -8,6 +8,18 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
+### Corregido
+
+- `indexes_ddl` valida las columnas de índice no mapeadas con la allowlist
+  estricta: un spec que no es un campo del modelo ni un identificador simple
+  (p. ej. `"a; DROP TABLE x --"`) antes se interpolaba tal cual en la DDL y ahora
+  lanza `ValueError` (fail-closed); un identificador simple (`Index("no_existe")`)
+  sigue aceptándose. Además, el nombre de columna por defecto (el campo pydantic)
+  se valida al construir el mapa de columnas, de modo que `to_ddl` e
+  `insert_many` rechazan identificadores no válidos. Nota de ownership: esta
+  entrada es ADITIVA y no prejuzga la enumeración de cambios incompatibles del
+  milestone, que posee la Fase 8 (`08-04`).
+
 ## [0.2.6] - 2026-09-11
 
 ### Corregido
