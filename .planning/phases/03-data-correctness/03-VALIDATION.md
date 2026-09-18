@@ -45,13 +45,15 @@ created: 2026-09-18
 | 03-02-03 | 03-02 | 2 | DATA-02 | — | `ALTER TABLE` añade `status` a una tabla legacy y es **idempotente** (segunda ejecución no falla) | integration (SQLite + MySQL si disponible) | `uv run pytest tests/test_migrations.py -k ensure_status -x` | ❌ W0 | ⬜ pending |
 | 03-02-04 | 03-02 | 2 | DATA-02 | — | `migrate()` sigue siendo idempotente para una migración ya `applied` | unit (regresión) | `uv run pytest tests/test_sqlite.py -k migrate_is_idempotent -x` | ✅ (regresión) | ⬜ pending |
 | 03-02-05 | 03-02 | 2 | DATA-02 | — | `resolve_migration` infiere la acción correcta para las 4 filas de D-08 (`applied` = "¿queda aplicada?") | unit (fake/ledger SQLite) | `uv run pytest tests/test_migration_reconcile.py -k resolve -x` | ❌ W0 | ⬜ pending |
-| 03-03-01 | 03-03 | 3 | DATA-03 | — | `update` invalida la clave cacheada (la lectura posterior va a BD) | unit | `uv run pytest tests/test_cached_model.py -k update_invalidates -x` | ❌ W0 | ⬜ pending |
-| 03-03-02 | 03-03 | 3 | DATA-03 | — | `delete` invalida la clave cacheada | unit | `uv run pytest tests/test_cached_model.py -k delete_invalidates -x` | ❌ W0 | ⬜ pending |
-| 03-03-03 | 03-03 | 3 | DATA-03 | — | `upsert` invalida (y no deja obsoleta la lectura) | unit | `uv run pytest tests/test_cached_model.py -k upsert_invalidates -x` | ❌ W0 | ⬜ pending |
-| 03-03-04 | 03-03 | 3 | DATA-03 | — | `insert_many(cache=...)` invalida las claves afectadas cuando se pasa `cache=` | unit | `uv run pytest tests/test_cached_model.py -k insert_many_invalidates -x` | ❌ W0 | ⬜ pending |
-| 03-03-05 | 03-03 | 3 | DATA-03 | — | Fallo de `cache.delete` = warning, **no** propaga (fail-open) | unit (cache fake que lanza) | `uv run pytest tests/test_cached_model.py -k invalidate_fail_open -x` | ❌ W0 | ⬜ pending |
-| 03-04-01 | 03-04 | 4 | DATA-04 | — | LRU desaloja la clave menos usada al superar `max_size` | unit DB-free | `uv run pytest tests/test_cache_backend.py -k lru -x` | ❌ W0 | ⬜ pending |
-| 03-04-02 | 03-04 | 4 | DATA-04 | — | El contrato dev/test está documentado en el docstring y en los docs | source | `grep -c "dev/test" encino_orm/model/cache_backend.py` ≥ 1 | ❌ W0 | ⬜ pending |
+| 03-03-01 | 03-03 | 1 | DATA-03 | — | `update` invalida la clave cacheada (la lectura posterior va a BD) | unit | `uv run pytest tests/test_cached_model.py -k update_invalidates -x` | ❌ W0 | ⬜ pending |
+| 03-03-02 | 03-03 | 1 | DATA-03 | — | `delete` invalida la clave cacheada | unit | `uv run pytest tests/test_cached_model.py -k delete_invalidates -x` | ❌ W0 | ⬜ pending |
+| 03-03-03 | 03-03 | 1 | DATA-03 | — | `upsert` invalida (y no deja obsoleta la lectura) | unit | `uv run pytest tests/test_cached_model.py -k upsert_invalidates -x` | ❌ W0 | ⬜ pending |
+| 03-03-04 | 03-03 | 1 | DATA-03 | — | `insert_many(cache=...)` invalida las claves afectadas cuando se pasa `cache=` | unit | `uv run pytest tests/test_cached_model.py -k insert_many_invalidates -x` | ❌ W0 | ⬜ pending |
+| 03-03-05 | 03-03 | 1 | DATA-03 | — | Fallo de `cache.delete` = warning, **no** propaga (fail-open) | unit (cache fake que lanza) | `uv run pytest tests/test_cached_model.py -k invalidate_fail_open -x` | ❌ W0 | ⬜ pending |
+| 03-05-01 | 03-05 | 1 | DATA-04 | — | LRU desaloja la clave menos usada al superar `max_size` | unit DB-free | `uv run pytest tests/test_cache_backend.py -k lru -x` | ❌ W0 | ⬜ pending |
+| 03-05-02 | 03-05 | 1 | DATA-04 | — | El contrato dev/test está documentado en el docstring de `MemoryCacheBackend` | source | `grep -c "dev/test" encino_orm/model/cache_backend.py` ≥ 1 | ❌ W0 | ⬜ pending |
+| 03-04-01 | 03-04 | 3 | DATA-04 | — | El contrato dev/test y la cota LRU están documentados en `docs/guide.md`, y la limitación multi-proceso queda explícita | source | `grep -c "dev/test" docs/guide.md` ≥ 1 | ❌ W0 | ⬜ pending |
+| 03-04-02 | 03-04 | 3 | DATA-04 | — | `CHANGELOG.md` registra los cuatro cambios incompatibles sin duplicar `### Corregido` | source | `sed -n '/## \[Unreleased\]/,/## \[0.2.6\]/p' CHANGELOG.md \| grep -c "### Corregido"` == 1 | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

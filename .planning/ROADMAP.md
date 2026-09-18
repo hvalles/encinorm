@@ -196,7 +196,7 @@ Plans:
   3. `CachedModel.update()` and `CachedModel.delete()` never leave a stale cached row readable (store-then-invalidate)
   4. `MemoryCacheBackend` is bounded, or explicitly documented as dev/test-only
 
-**Plans**: 4 plans
+**Plans**: 5 plans
 **Research**: not needed — `transactional_ddl` branching and cache-aside invalidation follow Alembic and Microsoft's documented patterns
 
 Plans:
@@ -205,16 +205,17 @@ Plans:
 
 - [ ] 03-01-PLAN.md — Ledger con columna `status` en los seis motores (+ `ALTER` idempotente para instalaciones legacy) y `rollback_migration` corregido: marca `rolling_back`, ejecuta el `down` y **borra** `{name}` (nunca inserta `{name}:down`), con `MIGRATIONS_TABLE` como fuente única — DATA-01, DATA-02
 - [ ] 03-03-PLAN.md — `CachedModel` invalida la clave afectada tras `update`/`delete`/`upsert` (overrides post-commit, fail-open) y `insert_many(cache=...)` invalida opcionalmente — DATA-03
+- [ ] 03-05-PLAN.md — `MemoryCacheBackend` acotado con LRU (`max_size=1024`) y contrato dev/test-only en el docstring, con tests DB-free — DATA-04
 
 **Wave 2** *(blocked on `03-01`: mismos ficheros `migration.py` y los seis adaptadores)*
 
 - [ ] 03-02-PLAN.md — `TRANSACTIONAL_DDL` por dialecto + `Db`/`PoolDb.transactional_ddl`, `migrate()` de dos fases (`pending` → DDL → `applied`) con `reconcile_migrations()` y `resolve_migration()` (D-08/D-17), y los seis `migrate()` rewired — DATA-02
 
-**Wave 3** *(blocked on `03-01`, `03-02` y `03-03`: el CHANGELOG y la guía documentan sus cambios)*
+**Wave 3** *(blocked on `03-01`, `03-02`, `03-03` y `03-05`: el CHANGELOG y la guía documentan sus cambios)*
 
-- [ ] 03-04-PLAN.md — `MemoryCacheBackend` acotado con LRU (`max_size=1024`), contrato dev/test-only documentado, y `CHANGELOG.md` con los cambios incompatibles de la fase — DATA-04
+- [ ] 03-04-PLAN.md — Documenta en `docs/guide.md` §10 el contrato dev/test-only y la limitación multi-proceso, y registra en `CHANGELOG.md` los cambios incompatibles de la fase — DATA-04
 
-**Waves:** 1 → `03-01`, `03-03` (disjuntos: migraciones vs caché); 2 → `03-02` (comparte `migration.py` y los seis adaptadores con `03-01`); 3 → `03-04` (código LRU independiente, pero su tarea de documentación describe los cambios de los otros tres). Los cuatro planes son autónomos.
+**Waves:** 1 → `03-01`, `03-03`, `03-05` (disjuntos: migraciones, invalidación de caché y backend LRU); 2 → `03-02` (comparte `migration.py` y los seis adaptadores con `03-01`); 3 → `03-04` (docs-only: la guía y el CHANGELOG describen los cambios de los otros cuatro). Los cinco planes son autónomos.
 
 ### Phase 4: Pool Correctness & Concurrency
 
@@ -420,7 +421,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 0/4 | Not started | - |
+| 3. Data Correctness | 0/5 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |

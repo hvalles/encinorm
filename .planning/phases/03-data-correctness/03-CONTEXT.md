@@ -79,7 +79,7 @@ Ninguno — no había todos pendientes para esta fase.
 ### Contexto de proyecto y alcance
 - `.planning/PROJECT.md` — Core value y límites del milestone
 - `.planning/REQUIREMENTS.md` — Esta fase cubre **DATA-01…DATA-04**
-- `.planning/ROADMAP.md` — Sección de Fase 3 (4 planes: 03-01…03-04), **Restricciones Duras de Ordenamiento** y **Research Corrections**
+- `.planning/ROADMAP.md` — Sección de Fase 3 (5 planes: 03-01…03-05), **Restricciones Duras de Ordenamiento** y **Research Corrections**
 - `.planning/STATE.md` — Posición actual y blockers
 
 ### Contexto de fases previas (decisiones que aplican aquí)

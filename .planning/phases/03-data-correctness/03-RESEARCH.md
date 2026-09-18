@@ -431,29 +431,34 @@ async def _invalidate(self, keys=None) -> None:
 | A4 | SQL Server permite ROLLBACK de `CREATE TABLE`/`ALTER TABLE` (DDL transaccional) | Desconocido 1 | Medio: si no, `transactional_ddl=True` para MSSQL sería incorrecto y el `pending` no se publicaría. La asignación viene bloqueada del roadmap/PITFALLS; no se pudo citar doc oficial en esta sesión. |
 | A5 | `CachedModel.insert_many` no puede acceder a una caché de instancia por ser `classmethod` | Desconocido 3 / Open Q1 | Medio: obliga a una decisión de API (kwarg opcional o no-op documentado). |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`insert_many` y la caché (D-09).**
+   - **RESOLVED por D-16** (`03-CONTEXT.md`): `CachedModel.insert_many` gana un parámetro keyword-only opcional `cache=`. Cuando se pasa, invalida la clave de la PK del modelo presente en cada fila (una `delete` por clave); sin `cache=`, no invalida (no-op documentado y consistente con `insert` puro). No se rebaja D-09: la ruta existe, es opcional y está cubierta por test. Semántica del dominio de clave: la invalidación usa `_pk_fields()` — el MISMO dominio con el que `load()` escribe la clave — así que el modelo de prueba declara `_primary_key` coherente (ver 03-03 Task 2).
    - What we know: `Model.insert_many` es `classmethod`; `_cache` es de instancia; un INSERT puro no puede crear una entrada obsoleta para una clave existente (violaría UNIQUE).
    - What's unclear: cómo honrar D-09 sin cambiar la API de forma incompatible.
    - Recommendation: `CachedModel.insert_many(cls, db=None, rows=None, *, chunk=None, cache=None)` — kwarg opcional; si se pasa, invalida las PK presentes en `rows` (una `delete` por clave). Si no, no-op documentado. Alternativa más simple: documentar que `insert_many` no invalida y por qué es seguro, y bajar la exigencia de D-09 para ese método (requiere confirmación del usuario).
 
 2. **Semántica de `applied` en `resolve_migration` para `rolling_back` (D-05/D-08).**
+   - **RESOLVED por D-17** (`03-CONTEXT.md`): el parámetro `applied` significa "¿debe quedar la migración registrada como aplicada?", NO "¿corrió el SQL?". Con ese significado la tabla de D-08 se implementa tal cual (incluida `rolling_back`+`True` → restaurar `applied`); solo se corrige el encabezado engañoso. El contrato se documenta en el docstring de `resolve_migration` (03-02 Task 2).
    - What we know: las acciones de la tabla D-08 son autoconsistentes (`rolling_back`+False→borrar; `rolling_back`+True→restaurar `applied`).
    - What's unclear: el encabezado "(¿corrió el SQL?)" sugiere lo contrario para `rolling_back` (ver A3).
    - Recommendation: implementar las **acciones** literalmente y documentar el parámetro como "¿debe quedar registrada como aplicada?" (True) / "no aplicada" (False), con la pregunta concreta por estado en el docstring. Confirmar con el usuario antes de fijar el contrato público.
 
 3. **`applied_at` al promover un `pending` resuelto.**
+   - **RESOLVED: NO se refresca.** `applied_at` conserva el `DEFAULT CURRENT_TIMESTAMP` del INSERT del intento (`pending`); la promoción a `applied` (y la resolución humana con `applied=True`) NO reescribe `applied_at`. Motivo: en los motores con DDL transaccional el INSERT y el promote ocurren en la MISMA transacción (mismo instante), y en los de commit implícito la diferencia es de milisegundos; refrescarlo exigiría un valor `db.fn.now()` en el UPDATE de promoción, añadiendo superficie de dialecto y complejidad al fake `Db` sin beneficio de corrección. Se documenta en el docstring de `_apply` (03-02 Task 2). No requiere cambios en 03-01/03-02.
    - What we know: `applied_at` tiene `DEFAULT CURRENT_TIMESTAMP` en los 6 dialectos; al insertar `pending` ya se rellena.
    - What's unclear: si `applied_at` debe reflejar el momento de la promoción (y no el del intento).
    - Recommendation: al promover a `applied`, actualizar también `applied_at` con `db.fn.now()`; documentar. Bajo impacto, pero coherente con "el ledger deja de mentir".
 
 4. **¿Detectar drift ledger↔catálogo?**
+   - **RESOLVED: FUERA DE ALCANCE de esta fase.** D-02 acota la reconciliación a estados ambiguos (`pending`/`rolling_back`); una fila `applied` cuyo DDL nunca corrió (o se revirtió fuera de banda) no se detecta y se documenta como límite conocido (evita vender la reconciliación como más de lo que es). Detectarlo exigiría comparar el catálogo real contra el historial completo, algo que DATA-01…DATA-04 no requieren.
    - What we know: D-02 acota la reconciliación a estados ambiguos (`pending`/`rolling_back`).
    - What's unclear: una fila `applied` cuyo DDL nunca corrió (o fue revertido fuera de banda) no se detecta.
    - Recommendation: fuera de alcance de esta fase; documentar explícitamente como límite conocido (evita vender la reconciliación como más de lo que es).
 
 5. **Pisos de cobertura (discreción del agente).**
+   - **RESOLVED: NO adoptados en esta fase.** `tools/ci/check_coverage_floors.py` falla cerrado si un módulo no aparece en el reporte de coverage, así que un piso mal calibrado bloquea CI; se recalibra tras un primer run verde con margen (candidato para una fase posterior). Ningún plan de la Fase 3 añade pisos.
    - Recommendation: añadir pisos bajos para `encino_orm/migration.py`, `encino_orm/model/cached.py` y `encino_orm/model/cache_backend.py` en `tools/ci/check_coverage_floors.py` **solo si** el primer run verde los mide con margen; el script falla cerrado si el módulo no aparece en el reporte, así que un piso mal calibrado bloquea CI.
 
 ## Environment Availability
