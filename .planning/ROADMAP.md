@@ -240,7 +240,7 @@ Plans:
 **Wave 1 (gap-closure ronda 4)** *(ficheros disjuntos: DML del modelo vs invalidación de caché)*
 
 - [x] 03-11-PLAN.md — `Model.update`/`delete` aplican el `scope()` activo al WHERE del DML (helper `_scoped_dml` sobre el `Query` del builder, params ligados); sin scope el DML es idéntico — SEC-01
-- [ ] 03-12-PLAN.md — `_union` deduplica por huella hashable y la invalidación post-escritura es fail-open incluso con PKs no hashables — DATA-03
+- [x] 03-12-PLAN.md — `_union` deduplica por huella hashable y la invalidación post-escritura es fail-open incluso con PKs no hashables — DATA-03
 
 **Wave 2 (gap-closure ronda 4)** *(docs-only: describen lo entregado por 03-11 y 03-12)*
 
@@ -450,7 +450,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 10/10 | Complete   | 2026-09-18 |
+| 3. Data Correctness | 12/13 | In progress | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
