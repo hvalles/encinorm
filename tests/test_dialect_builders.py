@@ -7,7 +7,9 @@ identificadores maliciosos ANTES de que el driver sea alcanzado.
 
 import ast
 import inspect
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -26,10 +28,12 @@ from encino_orm.dialects import (
     strategy_for,
 )
 from encino_orm.mariadb import MariadbDb
+from encino_orm.model import Model
 from encino_orm.mssql import MssqlDb
 from encino_orm.mysql import MysqlDb
 from encino_orm.oracle import OracleDb
 from encino_orm.postgresql import PostgresDb
+from encino_orm.query import Query
 from encino_orm.sqlite import SqliteDb
 
 # Nombres que el allowlist estricto debe rechazar (inyección, citado,
@@ -550,6 +554,95 @@ class TestUpsertKindYStrategyFor:
     def test_strategy_for_dialecto_desconocido(self):
         with pytest.raises(ValueError):
             strategy_for("mongodb")
+
+
+class _ModelDbRegistrador:
+    """Doble a mano que registra lo que `Model.insert` pasa al adaptador.
+
+    Implementa el contrato mínimo que usa `Model.insert`: `transaction()` como
+    `asynccontextmanager`, `retry(fn)`, `insert(...)` (registrando los cinco
+    argumentos) y `execute`/`last_id`. `dialect` lo lee `engine_of`.
+    """
+
+    def __init__(self, dialect):
+        self.dialect = dialect
+        self.insert_calls = []
+        self._last = 1
+
+    @asynccontextmanager
+    async def transaction(self):
+        yield self
+
+    async def retry(self, fn):
+        return await fn()
+
+    def insert(
+        self, tabla, data, ignore_duplicated=False, replace=False, conflict=None, *, schema=None
+    ):
+        self.insert_calls.append((tabla, data, ignore_duplicated, replace, conflict))
+        return Query("INSERT INTO t VALUES ({0})", [1])
+
+    async def execute(self, qry):
+        return 1
+
+    async def last_id(self):
+        return self._last
+
+
+class _ModelPkAuto(Model):
+    _table = "t"
+    nombre: str | None = None
+    monto: float | None = None
+
+
+class _ModelPkNatural(Model):
+    _table = "t"
+    _primary_key = ("codigo",)
+    _fields_disabled: ClassVar[list] = ["id"]
+    codigo: str | None = None
+    monto: float | None = None
+
+
+class TestModelInsertConflictTarget:
+    """WR-05: el objetivo de conflicto se deriva de la PK solo en `suffix`."""
+
+    @pytest.mark.asyncio
+    async def test_model_insert_replace_pasa_la_pk_como_conflicto(self):
+        # suffix (PostgreSQL): la PK del modelo se pasa como objetivo de conflicto.
+        pg = _ModelDbRegistrador("postgresql")
+        await _ModelPkAuto(pg, nombre="Ana", monto=1.0).insert(replace=True)
+        assert pg.insert_calls[-1][4] == ["id"]
+
+        # merge (MSSQL/Oracle): `conflict=None` deliberado. El `src` derivado del
+        # MERGE se construye solo con las columnas de `data` y la PK autoincremental
+        # `id` está excluida; pasar ["id"] produciría `ON (dst.id = src.id)` sobre una
+        # columna inexistente (MSSQL 4104 / Oracle ORA-00904). ESTE es el guard.
+        for dialecto in ("mssql", "oracle"):
+            db = _ModelDbRegistrador(dialecto)
+            await _ModelPkAuto(db, nombre="Ana", monto=1.0).insert(replace=True)
+            assert db.insert_calls[-1][4] is None
+
+        # Sin `replace`: nunca se pasa objetivo de conflicto.
+        pg_sin = _ModelDbRegistrador("postgresql")
+        await _ModelPkAuto(pg_sin, nombre="Ana", monto=1.0).insert()
+        assert pg_sin.insert_calls[-1][4] is None
+
+        # PK natural: la clave SÍ viaja en el INSERT y el objetivo es la PK física.
+        pg_nat = _ModelDbRegistrador("postgresql")
+        await _ModelPkNatural(pg_nat, codigo="A", monto=1.0).insert(replace=True)
+        assert pg_nat.insert_calls[-1][4] == ["codigo"]
+
+        # El MERGE del fallback no referencia `src.id` (columna ausente en `src`);
+        # su `ON` apunta a una columna presente en `data`.
+        qry = build_insert(
+            "t",
+            {"nombre": "Ana", "monto": 1.0},
+            strategy=strategy_for("mssql"),
+            conflict=None,
+            replace=True,
+        )
+        assert "src.id" not in qry.sql_template
+        assert "ON (dst.nombre = src.nombre)" in qry.sql_template
 
 
 # Ruta normalizada (`\` -> `/`) para que los guards se comporten igual en

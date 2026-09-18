@@ -1,4 +1,5 @@
 import os
+from typing import ClassVar
 
 import pytest
 
@@ -113,6 +114,21 @@ class _ParityModel(Model):
     """Modelo de paridad DIAL-03/DIAL-09 contra el motor real."""
 
     _table = "test_parity"
+    nombre: str | None = None
+    monto: float | None = None
+
+
+class _MergeModel(Model):
+    """Modelo para la regresión del MERGE: sin campos `datetime`.
+
+    `Model._serialize` convierte `datetime`->`str` y Oracle no puede ligar ese
+    string a una columna `TIMESTAMP` (ORA-01843) — limitación preexistente del
+    camino de modelo, ajena a este plan. Se excluyen `created_at`/`updated_at`
+    para que la sentencia MERGE sea realmente ejecutable.
+    """
+
+    _table = "test_parity"
+    _fields_disabled: ClassVar[list] = ["created_at", "updated_at"]
     nombre: str | None = None
     monto: float | None = None
 
@@ -262,3 +278,27 @@ class TestOracleParity:
 
         await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
         assert await db.last_id() == 2
+
+    @pytest.mark.asyncio
+    async def test_model_insert_replace_no_rompe_el_merge(self, oracle_connected_db):
+        # GUARD WR-05 / T-02-45b (CARACTERIZACIÓN, no ejecutabilidad): `Model.insert(
+        # replace=True)` deja `conflict=None` en `merge`, así que el MERGE usa el
+        # fallback `columns[0]` (`enabled`) y NO referencia `src.id` (columna ausente
+        # del `src` derivado) — eso lo prueba el guard DB-free de
+        # `test_dialect_builders.py`.
+        #
+        # A diferencia de MSSQL, la sentencia NO es EJECUTABLE en Oracle por un
+        # defecto PREEXISTENTE del render `merge`, ajeno a este plan y NO corregido
+        # aquí porque el SQL del adaptador está pinado byte a byte (golden strings y
+        # snapshots): el `WHEN MATCHED THEN UPDATE SET` actualiza la MISMA columna que
+        # el `ON` (el fallback `columns[0]`), y Oracle lo rechaza con ORA-38104. El
+        # `FROM dual` que Oracle exige en el `USING` sí se añade a nivel de driver
+        # (`oracle.py`), de modo que el fallo caracterizado es el defecto de fondo.
+        # NO se asserta `count()`. Si el builder se corrige, este test avisará.
+        db = oracle_connected_db
+        await _reset_parity(db, _PARITY_DDL)
+
+        await _MergeModel(db, nombre="Ana", monto=10.0).insert()
+        with pytest.raises(Exception) as exc:
+            await _MergeModel(db, nombre="Zoe", monto=5.0).insert(replace=True)
+        assert "ORA-38104" in str(exc.value)

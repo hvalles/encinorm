@@ -1,5 +1,6 @@
 import contextlib
 import os
+from typing import ClassVar
 
 import pytest
 
@@ -101,6 +102,35 @@ _PARITY_DDL_SIN_MONTO = (
     "CREATE TABLE test_parity ("
     "id SERIAL PRIMARY KEY, nombre VARCHAR(50), "
     "enabled BOOLEAN DEFAULT TRUE, created_at TIMESTAMP, updated_at TIMESTAMP)"
+)
+
+
+class _NaturalPkModel(Model):
+    """PK NATURAL: la clave viaja en el INSERT, así que `ON CONFLICT` se dispara.
+
+    Un modelo con PK autoincremental NO sirve aquí: `id` se omite del INSERT, así
+    que `ON CONFLICT (id)` nunca podría dispararse y el test afirmaría un
+    resultado que la biblioteca no puede producir.
+
+    `_fields_disabled` excluye los campos heredados de `Model`: `Model._serialize`
+    convierte `bool`->`int` y `datetime`->`str`, que asyncpg no puede ligar a
+    columnas `BOOLEAN`/`TIMESTAMP` (limitación preexistente del camino de modelo,
+    ajena a este plan). `id` se deshabilita para que el `SERIAL` auxiliar aplique
+    su default (`nextval`) y `last_id()` —que `Model.insert` invoca siempre—
+    funcione. `monto` se declara ANTES de `codigo` para que la primera columna del
+    INSERT no sea la PK: así el fallback `columns[0]` del bug WR-05 se manifiesta.
+    """
+
+    _table = "test_parity_natural"
+    _primary_key = ("codigo",)
+    _fields_disabled: ClassVar[list] = ["id", "enabled", "created_at", "updated_at"]
+    monto: float | None = None
+    codigo: str | None = None
+
+
+_NATURAL_PK_DDL = (
+    "CREATE TABLE test_parity_natural (id SERIAL, codigo VARCHAR(50) PRIMARY KEY, "
+    "monto DOUBLE PRECISION)"
 )
 
 
@@ -370,3 +400,23 @@ class TestPostgresParity:
 
         await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
         assert await db.last_id() == 2
+
+    @pytest.mark.asyncio
+    async def test_model_insert_replace_con_pk_natural(self, pg_connected_db):
+        # WR-05: `Model.insert(replace=True)` deriva el objetivo de conflicto de
+        # la PK del modelo (aquí `codigo`), no de la primera columna del INSERT.
+        # Antes PostgreSQL respondía "there is no unique or exclusion constraint
+        # matching the ON CONFLICT specification" (apuntaba a `enabled`).
+        db = pg_connected_db
+        await _reset(db, "test_parity_natural", _NATURAL_PK_DDL)
+
+        obj = _NaturalPkModel(db, codigo="A", monto=10.0)
+        await obj.insert()
+
+        obj.monto = 99.0
+        await obj.insert(replace=True)
+
+        assert await _NaturalPkModel(db).count() == 1
+        filas = await _NaturalPkModel(db).search(Filter.eq("codigo", "A"))
+        assert len(filas) == 1
+        assert filas[0].monto == 99.0

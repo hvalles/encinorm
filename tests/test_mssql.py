@@ -307,3 +307,18 @@ class TestMssqlParity:
 
         await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
         assert await db.last_id() == 2
+
+    @pytest.mark.asyncio
+    async def test_model_insert_replace_no_rompe_el_merge(self, mssql_connected_db):
+        # WR-05 / T-02-45b: `Model.insert(replace=True)` deja `conflict=None` en
+        # `merge`, así que el MERGE usa el fallback `columns[0]` (`enabled`) y NO
+        # referencia `src.id` (columna ausente del `src` derivado). Se afirma SOLO
+        # que la sentencia es EJECUTABLE (guard contra el error 4104 de MSSQL); la
+        # semántica del fallback sigue siendo incorrecta y está documentada como
+        # pendiente. NO se asserta `count()`: `ON (dst.enabled = src.enabled)` casa
+        # con la fila existente y la actualiza en sitio.
+        db = mssql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+
+        await _ParityModel(db, nombre="Ana", monto=10.0).insert()
+        await _ParityModel(db, nombre="Zoe", monto=5.0).insert(replace=True)
