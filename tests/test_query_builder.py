@@ -1,3 +1,6 @@
+import inspect
+import pathlib
+
 import pytest
 from pydantic import Field, create_model
 
@@ -362,3 +365,78 @@ class TestTablaInjection:
         Evil = self._modelo_tabla_hostil()
         with pytest.raises(ValueError):
             QueryBuilder(Evil, None)
+
+
+class TestBarridoDeIdentificadores:
+    """Barrido CR-01 (ronda 2): evidencia de que `_table` era el último punto.
+
+    Las posiciones de EXPRESIÓN (`select`/`group_by`/`order_by`/`sort_by` y los
+    agregados) usan `_safe_column` con `_COLUMN_RE`, que a propósito SÍ acepta
+    puntos para expresiones calificadas (`mm.agente`). Es una allowlist DISTINTA
+    de la estricta y NO se unifica (Pitfall 10: unificar sería un cambio de
+    comportamiento y relajarla reabriría la superficie de inyección). Este barrido
+    fija esa decisión y confirma que `_table` era el único punto que necesitaba la
+    allowlist estricta.
+    """
+
+    HOSTIL = "x; DROP TABLE t --"
+
+    def test_select_rechaza_expresion_hostil(self):
+        with pytest.raises(ValueError):
+            QueryBuilder(Agente, None).select(self.HOSTIL)
+
+    def test_select_acepta_columna_calificada(self):
+        qb = QueryBuilder(Agente, None).select("mm.agente")
+        assert qb._render_select() == "mm.agente"
+
+    def test_group_by_y_order_by_rechazan_expresion_hostil(self):
+        with pytest.raises(ValueError):
+            QueryBuilder(Agente, None).group_by("x;--")
+        with pytest.raises(ValueError):
+            QueryBuilder(Agente, None).order_by("x;--")
+
+    def test_group_by_y_order_by_aceptan_columna_calificada(self):
+        qb = QueryBuilder(Agente, None).group_by("mm.agente").order_by("mm.agente")
+        sql, _ = qb._build_full()
+        assert "GROUP BY mm.agente" in sql
+        assert "ORDER BY mm.agente" in sql
+
+    def test_sort_by_rechaza_expresion_hostil(self):
+        with pytest.raises(ValueError):
+            QueryBuilder(Agente, None).sort_by("x;--")
+
+    def test_sort_by_valido_produce_direccion(self):
+        qb = QueryBuilder(Agente, None).sort_by("agente desc")
+        sql, _ = qb._build_full()
+        assert "ORDER BY agente DESC" in sql
+
+    @pytest.mark.asyncio
+    async def test_agregados_rechazan_columna_hostil(self):
+        # OJO: `sum/avg/min/max` llaman a `_ensure_db()` ANTES de `_safe_column`.
+        # Con `db=None` el `ValueError` lo lanzaría `_ensure_db` y el test pasaría
+        # aunque `_safe_column` desapareciera; por eso se usa un fake db y se
+        # aserta el MENSAJE concreto de la allowlist de columnas.
+        for method in ("sum", "avg", "min", "max"):
+            fake = _RecordingDb({"n": 1})
+            qb = QueryBuilder(Agente, fake)
+            with pytest.raises(ValueError) as exc:
+                await getattr(qb, method)("x;--")
+            assert "nombre de columna inválido" in str(exc.value)
+
+    def test_alias_de_columna_hostil_rechazado(self):
+        with pytest.raises(ValueError):
+            QueryBuilder(Agente, None).select("agente AS 'x'")
+
+    def test_build_base_no_interpola_tablas_sin_validar(self):
+        fuente = pathlib.Path("encino_orm/model/query_builder.py").read_text(encoding="utf-8")
+        # Exactamente dos validaciones de `_table`: constructor y join.
+        assert fuente.count('check_identifier(model_class._table, "nombre de tabla")') == 1
+        assert fuente.count('check_identifier(other._table, "nombre de tabla")') == 1
+        # El FROM/JOIN interpolan las referencias que YA pasaron por la allowlist.
+        base = inspect.getsource(QueryBuilder._build_base)
+        assert "FROM {self._model_class._table}" in base
+        assert "JOIN {join['model_class']._table}" in base
+
+    def test_contrato_de_identificadores_documentado(self):
+        fuente = pathlib.Path("encino_orm/model/query_builder.py").read_text(encoding="utf-8")
+        assert "Contrato de identificadores del módulo" in fuente
