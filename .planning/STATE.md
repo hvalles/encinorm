@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-06-PLAN.md
-last_updated: "2026-09-18T18:55:38.208Z"
-last_activity: 2026-09-18 -- Completed 03-06-PLAN.md (CR-01 canonical PK cache domain)
+stopped_at: Completed 03-07-PLAN.md
+last_updated: "2026-09-18T19:04:56.735Z"
+last_activity: 2026-09-18
 progress:
   total_phases: 8
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 24
-  completed_plans: 23
-  percent: 25
+  completed_plans: 24
+  percent: 38
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 3
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
-Last activity: 2026-09-18 -- Completed 03-06-PLAN.md (CR-01 canonical PK cache domain)
+Last activity: 2026-09-18
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -77,6 +77,7 @@ Progress: [██████████] 96%
 | Phase 03 P02 | 3 min | 3 tasks | 14 files |
 | Phase 03 P04 | 1 min | 2 tasks | 2 files |
 | Phase 03 P06 | 8 | 3 tasks | 6 files |
+| Phase 03 P07 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -155,6 +156,8 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-04: la guia documenta el contrato dev/test-only de MemoryCacheBackend (LRU max_size=1024) y la invalidacion local al proceso, post-commit y fail-open de CachedModel; remite a docs/design/5-security.md 5.4 para el mecanismo.
 - [Phase 03]: 03-04: las entradas de CHANGELOG son aditivas y no prejuzgan la enumeracion completa de cambios incompatibles del milestone, que posee la Fase 8 (08-04).
 - [Phase 03]: 03-06: el dominio de caché de CachedModel pasa a ser canónico (SOLO la PK de la fila); load() escribe siempre bajo la PK y update/delete/upsert resuelven la PK real de la fila afectada antes de invalidar (de la instancia si las claves de escritura son la PK; de la BD con un SELECT ligado y con scope si no). — Cierra CR-01: una escritura sin la PK en la instancia (id=None) ya no deja viva la entrada [id=1]; el residual inverso desaparece por construcción. Supersede la premisa de D-11 (la lectura no-PK deja de acierto en caché); D-12 y D-16 intactos.
+- [Phase 03]: IN-01: se documenta el reintento del rollback en el docstring de resolve_migration y en el error de reconcile_migrations, en vez de automatizarlo (el helper no recibe la Migration ni el SQL del down; el ledger solo guarda el up). — Automatizarlo cambiaria la firma publica y el contrato D-05/D-17.
+- [Phase 03]: WR-01: doble defensa con flag inserted (propiedad de la fila) + compare-and-delete {name, status: pending} (estado esperado). — El flag evita borrar la fila de otro proceso; el status evita borrar una fila applied por una promocion concurrente.
 
 ### Pending Todos
 
@@ -179,6 +182,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T18:55:38.195Z
-Stopped at: Completed 03-06-PLAN.md
+Last session: 2026-09-18T19:04:56.720Z
+Stopped at: Completed 03-07-PLAN.md
 Resume file: None
