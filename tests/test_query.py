@@ -13,6 +13,7 @@ from encino_orm import Query
 from encino_orm.sqlite import _to_positional
 
 _ENCINO_ROOT = pathlib.Path(__file__).resolve().parents[1] / "encino_orm"
+_DESIGN_DOC = pathlib.Path(__file__).resolve().parents[1] / "docs" / "design" / "0-design.md"
 
 
 class TestImmutability:
@@ -204,3 +205,32 @@ class TestEqualityAndHash:
     def test_str_concatenates_sql_and_params(self):
         q = Query("a={0}", [1])
         assert str(q) == "a=%(parameter_0000)s{'parameter_0000': 1}"
+
+
+class TestDesignDocSync:
+    """Guard de fuente: el doc de diseño publicado no puede divergir del código.
+
+    `docs/design/0-design.md` se publica en el sitio de MkDocs; `mkdocs build
+    --strict` solo valida sintaxis, no veracidad. Estas aserciones hacen
+    ejecutable la afirmación de que el sketch y el ejemplo coinciden con
+    `encino_orm/query.py`.
+    """
+
+    def test_el_sketch_del_doc_coincide_con_el_codigo(self):
+        text = _DESIGN_DOC.read_text(encoding="utf-8")
+        assert "int(m.group(1))" in text
+        assert "indices and" not in text
+
+    def test_el_ejemplo_de_with_params_del_doc_es_verdadero(self):
+        q = Query("insert into grupos (grupo, enabled) values ({0},{1})", ["Grupo A", 1])
+        q2 = q.with_params(["Grupo B", 0])
+        assert q2.sql == (
+            "insert into grupos (grupo, enabled) values (%(parameter_0000)s,%(parameter_0001)s)"
+        )
+        assert q2.params == {"parameter_0000": "Grupo B", "parameter_0001": 0}
+        assert q.fields == ["Grupo A", 1]
+
+    def test_el_doc_no_documenta_rebind_como_api_viva(self):
+        text = _DESIGN_DOC.read_text(encoding="utf-8")
+        assert "q.rebind(" not in text
+        assert "def rebind(" not in text

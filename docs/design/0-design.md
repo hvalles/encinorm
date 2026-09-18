@@ -47,12 +47,12 @@ class Query:
                  ignore_duplicated: bool = False):
         values = list(fields or [])
         indices = {int(m) for m in _PLACEHOLDER_RE.findall(sql)}
-        if indices and indices != set(range(len(values))):
+        if indices != set(range(len(values))):
             raise ValueError(
                 f"placeholders {sorted(indices)} no cuadran con {len(values)} parámetros"
             )
         params = {f"parameter_000{i}": v for i, v in enumerate(values)}
-        compiled = _PLACEHOLDER_RE.sub(lambda m: f"%(parameter_000{m.group(1)})s", sql)
+        compiled = _PLACEHOLDER_RE.sub(lambda m: f"%(parameter_000{int(m.group(1))})s", sql)
         object.__setattr__(self, "_sql_template", sql)
         object.__setattr__(self, "_fields", values)
         object.__setattr__(self, "_ignore_duplicated", bool(ignore_duplicated))
@@ -98,10 +98,15 @@ q = Query("SELECT * FROM usuarios", [])
 # q.params -> {}
 
 # Reutilizar la plantilla con nuevos valores: devuelve una COPIA
+q = Query("insert into grupos (grupo, enabled) values ({0},{1})", ["Grupo A", 1])
 q2 = q.with_params(["Grupo B", 0])
-# q2.sql -> "insert into grupos (grupo, enabled) values (%(parameter_0000)s,%(parameter_0001)s)"
+# q2.sql    -> "insert into grupos (grupo, enabled) values (%(parameter_0000)s,%(parameter_0001)s)"
 # q2.params -> {"parameter_0000": "Grupo B", "parameter_0001": 0}
-# q sigue intacta
+# q sigue intacta, con fields == ["Grupo A", 1]
+
+# Pasar valores a una plantilla SIN {n} viola el contrato de cardinalidad y
+# lanza ValueError (no descarta los parámetros en silencio):
+# Query("SELECT * FROM usuarios", []).with_params(["Grupo B", 0])  # -> ValueError
 ```
 
 > **Migración:** `rebind` se eliminó en 0.3.0 (ruptura limpia, sin shims). Su sustituto es `with_params()`, que **devuelve una copia** en vez de mutar el objeto en sitio. La igualdad y el hash se calculan sobre `(plantilla_sql, valores)`; el flag `ignore_duplicated` queda excluido a propósito.
