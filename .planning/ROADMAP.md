@@ -142,7 +142,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — Shared `dialects/builders.py` + `strategies.py` with `build_insert`/`update`/`delete`/`build_upsert` validating every table and column; `Model.upsert`'s dialect branches (`ON DUPLICATE KEY`/`MERGE`/`ON CONFLICT`) move into the seam; validate introspection-derived identifiers in `sync_schema` before `ALTER TABLE`; `PoolDb.insert` stops dropping `conflict` — DIAL-02, DIAL-04
+- [x] 02-02-PLAN.md — Shared `dialects/builders.py` + `strategies.py` with `build_insert`/`update`/`delete`/`build_upsert` validating every table and column; `Model.upsert`'s dialect branches (`ON DUPLICATE KEY`/`MERGE`/`ON CONFLICT`) move into the seam; validate introspection-derived identifiers in `sync_schema` before `ALTER TABLE`; `PoolDb.insert` stops dropping `conflict` — DIAL-02, DIAL-04
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -387,7 +387,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 1/5 | In Progress|  |
+| 2. Dialect Seam & Engine Parity | 2/5 | In Progress|  |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |

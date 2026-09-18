@@ -4,13 +4,13 @@ milestone: v0.2.6
 milestone_name: milestone
 status: executing
 stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-09-18T04:16:33.880Z"
+last_updated: "2026-09-18T04:27:53.142Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 7
   percent: 13
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 02 (Dialect Seam & Engine Parity) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-09-18
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [██████░░░░] 60%
 | Phase 01 P04 | 12 min | 3 tasks | 12 files |
 | Phase 01 P05 | 3 min | 3 tasks | 1 files |
 | Phase 02 P01 | 4 min | 3 tasks | 11 files |
+| Phase 02 P02 | 8 min | 5 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,8 @@ Recent decisions affecting current work:
 - [Phase 02]: La allowlist de identificadores NO se relaja para aceptar nombres cualificados; el caso schema.tabla se resuelve con un parametro schema= validado por separado en 02-02 (Pitfall 10).
 - [Phase 02]: sql.py:_COLUMN_RE y model/query_builder.py:_COLUMN_RE se conservan sin unificar: aceptan puntos a proposito y unificarlas seria un cambio de comportamiento; queda documentado con comentario y como candidata de seguimiento.
 - [Phase 02]: El anclaje $ del allowlist acepta un salto final (tabla\n); se conserva tal cual por ser refactor puro y se caracteriza en un test en lugar de endurecerlo silenciosamente.
+- [Phase ?]: MariaDB conserva UPSERT_KIND='on_conflict' verbatim (identidad exacta Engine.MYSQL); se marca como hallazgo para fase posterior, no se arregla en 02-02.
+- [Phase ?]: Los dos separadores del objetivo de conflicto quedan pinados: build_upsert usa ',' sin espacio y build_insert usa ', ' con espacio.
 
 ### Pending Todos
 
@@ -117,6 +120,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T04:16:33.864Z
+Last session: 2026-09-18T04:27:53.128Z
 Stopped at: Completed 02-01-PLAN.md
 Resume file: None
