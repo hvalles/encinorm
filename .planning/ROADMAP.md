@@ -215,7 +215,14 @@ Plans:
 
 - [x] 03-04-PLAN.md — Documenta en `docs/guide.md` §10 el contrato dev/test-only y la limitación multi-proceso, y registra en `CHANGELOG.md` los cambios incompatibles de la fase — DATA-04
 
+**Wave 1 (gap-closure ronda 2)** *(ficheros disjuntos: caché vs runner de migraciones)*
+
+- [ ] 03-06-PLAN.md — Dominio de caché canónico por PK en `CachedModel` + resolución de la PK real de la fila antes de invalidar (cierra CR-01/GAP A): una escritura sin la PK en la instancia (`id=None`) invalida la entrada de la PK; el residual inverso desaparece por construcción — DATA-03
+- [ ] 03-07-PLAN.md — `_apply` solo borra la fila del ledger si esta llamada la insertó y sigue `pending` (cierra WR-01/GAP B) y documenta la re-emisión de `rollback_migration` en el docstring + el error de reconciliación (cierra IN-01/GAP C) — DATA-02
+
 **Waves:** 1 → `03-01`, `03-03`, `03-05` (disjuntos: migraciones, invalidación de caché y backend LRU); 2 → `03-02` (comparte `migration.py` y los seis adaptadores con `03-01`); 3 → `03-04` (docs-only: la guía y el CHANGELOG describen los cambios de los otros cuatro). Los cinco planes son autónomos.
+
+**Gap-closure ronda 2 (03-06, 03-07).** La re-verificación (`03-VERIFICATION-FINAL.md`) devolvió `gaps_found` con un BLOCKER y dos residuales. **GAP A / CR-01 (BLOCKER, DATA-03):** el fix de `03-03` deriva la clave de la PK de los valores de la PROPIA instancia de escritura, así que el caso canónico `upsert(conflict=['rfc'])` / `update(keys=['rfc'])` desde una instancia con el auto-`id` en `None` deja viva la entrada `[id=1]` cacheada por `load()` (reproducido A2/B2/C2). La premisa de D-11 es falsa; `03-06` la supersede convirtiendo el dominio de caché en canónico (SOLO la PK de la fila) y resolviendo la PK real de la fila afectada antes de invalidar — el residual inverso desaparece por construcción. **GAP B / WR-01 (DATA-02):** la compensación pre-DDL de `_apply` borra `WHERE name={name}` sin probar propiedad, así que un `migrate()` concurrente en MySQL/MariaDB/Oracle puede eliminar la fila que otro proceso acaba de publicar; `03-07` condiciona el borrado a que ESTA llamada haya insertado la fila y a `status='pending'`. **GAP C / IN-01 (DATA-02):** falta la mitad "reintentar el rollback" de la fila 4 de D-08; `03-07` documenta la re-emisión de `rollback_migration` en el docstring y en el texto del error de reconciliación (el helper no recibe el SQL del `down`, así que automatizarlo cambiaría la firma de D-05/D-17). **Waves (ronda 2):** 1 → `03-06`, `03-07` (ficheros disjuntos: caché vs runner de migraciones); ambos autónomos. DATA-01, DATA-02 (salvo WR-01) y DATA-04 no se reabren.
 
 ### Phase 4: Pool Correctness & Concurrency
 
