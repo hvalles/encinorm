@@ -229,7 +229,7 @@ Plans:
 **Wave 1 (gap-closure ronda 3)** *(ficheros disjuntos: caché vs runner de migraciones)*
 
 - [x] 03-08-PLAN.md — `CachedModel` invalida las entradas de TODAS las filas que casa una escritura (`_resolve_pk_values` multi-fila vía `search` ligado, scope-aware) y namespaces la clave con `current_scope().digest()`; re-sonda post-escritura que acota el TOCTOU — DATA-03
-- [ ] 03-09-PLAN.md — La compensación del runner borra por identidad de fila (`{id: ledger_id}`) cuando el motor expone `last_id()` (fallback documentado para Oracle) y no enmascara el error raíz — DATA-02
+- [x] 03-09-PLAN.md — La compensación del runner borra por identidad de fila (`{id: ledger_id}`) cuando el motor expone `last_id()` (fallback documentado para Oracle) y no enmascara el error raíz — DATA-02
 
 **Wave 2 (gap-closure ronda 3)** *(docs-only: describen lo entregado por 03-08 y 03-09)*
 
@@ -439,7 +439,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 7/7 | Complete   | 2026-09-18 |
+| 3. Data Correctness | 9/10 | In Progress|  |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Revalidated 03-08 (CR-01 multi-fila + CR-02 scope)
-last_updated: "2026-09-18T20:10:00.000Z"
+stopped_at: Completed 03-09-PLAN.md
+last_updated: "2026-09-18T20:49:46.145Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 2
   total_plans: 27
-  completed_plans: 25
-  percent: 38
+  completed_plans: 26
+  percent: 25
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 3
-Plan: 8 of 10
-Status: Ready to execute 03-09
+Plan: 9 of 10
+Status: Ready to execute
 Last activity: 2026-09-18
 
-Progress: [████████░░] 80%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ Progress: [████████░░] 80%
 | Phase 03 P04 | 1 min | 2 tasks | 2 files |
 | Phase 03 P06 | 8 | 3 tasks | 6 files |
 | Phase 03 P07 | 2min | 2 tasks | 2 files |
+| Phase 03 P09 | 8min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -160,6 +161,8 @@ Recent decisions affecting current work:
 - [Phase 03]: WR-01: doble defensa con flag inserted (propiedad de la fila) + compare-and-delete {name, status: pending} (estado esperado). — El flag evita borrar la fila de otro proceso; el status evita borrar una fila applied por una promocion concurrente.
 - [Phase 03]: Ronda 3: la revisión de 03-06/03-07 halló CR-01 multi-fila (una escritura por clave no-PK afecta N filas pero solo se invalidaba 1) y CR-02 (la clave de caché no se namespacea por scope(), permitiendo lectura/escritura cruzada de tenant). Se decide corregir AMBOS más los residuales WR-01/WR-02/WR-03 (opción "fix all") en 03-08/03-09/03-10. — DATA-03 promete "sin lecturas obsoletas" y el core value prioriza la seguridad de los datos; dejar un cruce de tenant conocido es inaceptable.
 - [Phase 03]: Ronda 3: `_cache_key_for` incluye `current_scope().digest()`; sin scope la clave es idéntica a la anterior (compatible). La invalidación resuelve TODAS las PKs afectadas vía `search(columns=pk_cols, include_deleted=True)` y re-resuelve tras la escritura para acotar el TOCTOU (WR-02). — El namespace por scope es un cambio de formato de clave: se registra en CHANGELOG; entradas viejas quedan huérfanas hasta el TTL.
+- [Phase 03]: 03-09: la compensación pre-DDL borra por IDENTIDAD de fila ({id: ledger_id}, capturada best-effort con last_id() tras el INSERT) cuando el motor la expone; fallback {name, status: pending} para Oracle (last_id()==0), residual asignado a Fase 4 / POOL-03. — {name, status} no prueba propiedad: borraría la fila pending que otro runner re-publicó tras el rollback (WR-01 residual).
+- [Phase 03]: 03-09: la compensación va en su propio try/except con logger.warning y el raise exterior re-lanza SIEMPRE la excepción raíz del DDL (IN-01); el test de IN-02 verifica comportamiento (la fila deja de ser ambigua) en vez de un substring de __doc__. — Un fallo de la compensación no debe reemplazar el error original; una aserción sobre texto de docstring es frágil y no prueba el efecto.
 
 ### Pending Todos
 
@@ -184,6 +187,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T19:04:56.720Z
-Stopped at: Completed 03-07-PLAN.md
+Last session: 2026-09-18T20:49:28.344Z
+Stopped at: Completed 03-09-PLAN.md
 Resume file: None
