@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-05-PLAN.md
-last_updated: "2026-09-18T05:45:40.714Z"
-last_activity: 2026-09-18 -- Phase 02 planning complete
+stopped_at: Completed 02-06-PLAN.md
+last_updated: "2026-09-18T13:31:55.979Z"
+last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 14
-  completed_plans: 10
+  completed_plans: 11
   percent: 13
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 02 (Dialect Seam & Engine Parity) — EXECUTING
-Plan: 5 of 5
-Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 02 planning complete
+Plan: 6 of 9 (gap closure: 02-06 complete, 02-07…02-09 pending)
+Status: In progress — 02-06 (CR-01 / WR-06) complete
+Last activity: 2026-09-18 -- Completed 02-06-PLAN.md
 
-Progress: [█████████░] 90%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
@@ -63,7 +63,7 @@ Progress: [█████████░] 90%
 | Phase 02 P03 | 6 min | 3 tasks | 14 files |
 | Phase 02 P04 | 8 min | 3 tasks | 12 files |
 | Phase 02 P05 | 10 min | 3 tasks | 11 files |
-
+| Phase 02 P06 | 2 min | 2 tasks | 7 files |
 ## Accumulated Context
 
 ### Decisions
@@ -114,6 +114,7 @@ Recent decisions affecting current work:
 - [Phase 02]: engine-heavy instala msodbcsql18 + unixodbc-dev explicitamente (ubuntu-24.04 no trae ninguno) y sobreescribe ENCINO_ORM_ORACLE_SERVICE=FREEPDB1 (la imagen CI es gvenzl/oracle-free; docker-compose.yml usa XEPDB1). Sin continue-on-error en ningun job de gate.
 - [Phase 02]: Sin pisos de cobertura de adaptador todavia: oracle.py mide 16% en la corrida equivalente a CI porque Oracle esta deseleccionado. Los numeros se fijan cuando engine-heavy este verde; su cobertura ya fluye al job coverage via el patron coverage-*.
 - [Phase 02]: coverage.json se anade a .gitignore: es un artefacto generado por el job coverage que alimenta tools/ci/check_coverage_floors.py.
+- [Phase ?]: 02-06: alias y nombre de columna validados por la allowlist estricta; indexes_ddl fail-closed — Cierra CR-01/WR-06 haciendo de la allowlist un cuello de botella real sin relajarla
 
 ### Pending Todos
 
@@ -138,6 +139,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T04:54:57.737Z
+Last session: 2026-09-18T13:31:39.378Z
 Stopped at: Completed 02-05-PLAN.md
 Resume file: None
