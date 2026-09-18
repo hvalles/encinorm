@@ -712,6 +712,74 @@ class TestMergeConflictGuard:
             assert "no está en el INSERT" in str(exc.value)
 
 
+class _ModelDbMerge:
+    """Doble cuyo `insert()` devuelve un `Query` de MERGE y un `last_id()` OBSOLETO.
+
+    Reproduce CR-03: `MssqlDb.execute` refresca `_last_id` solo para sentencias
+    `INSERT` y `OracleDb.execute` solo cuando la sentencia lleva `RETURNING`; un
+    MERGE nunca refresca el cache. El doble declara `_last = 1` a propósito (el id
+    de OTRA fila) para probar que `Model.insert` no lo consume ni lo asigna.
+    """
+
+    def __init__(self, dialect):
+        self.dialect = dialect
+        self.queries = []
+        self._last = 1
+
+    @asynccontextmanager
+    async def transaction(self):
+        yield self
+
+    async def retry(self, fn):
+        return await fn()
+
+    def insert(
+        self, tabla, data, ignore_duplicated=False, replace=False, conflict=None, *, schema=None
+    ):
+        sql = (
+            "MERGE INTO t AS dst USING (SELECT {0} AS nombre) AS src "
+            "ON (dst.nombre = src.nombre) "
+            "WHEN MATCHED THEN UPDATE SET dst.nombre = src.nombre "
+            "WHEN NOT MATCHED THEN INSERT (nombre) VALUES (src.nombre)"
+        )
+        return Query(sql, ["Zoe"])
+
+    async def execute(self, qry):
+        self.queries.append(qry)
+        return 1
+
+    async def last_id(self):
+        return self._last
+
+
+class TestModelInsertMergeNoConsumeIdObsoleto:
+    """CR-03: `Model.insert` no consume ni asigna un `last_id()` obsoleto en MERGE."""
+
+    @pytest.mark.asyncio
+    async def test_merge_no_devuelve_ni_asigna_id_obsoleto(self):
+        for dialecto in ("mssql", "oracle"):
+            db = _ModelDbMerge(dialecto)
+            obj = _ModelPkAuto(db, nombre="Zoe", monto=5.0)
+            assert await obj.insert(replace=True) == 0
+            assert obj.id is None
+            # La sentencia SÍ se ejecutó: no se trata de saltarse la escritura.
+            assert len(db.queries) == 1
+
+    @pytest.mark.asyncio
+    async def test_insert_plano_sigue_consumiendo_last_id(self):
+        db = _ModelDbRegistrador("mssql")
+        obj = _ModelPkAuto(db, nombre="Zoe", monto=5.0)
+        assert await obj.insert() == 1
+        assert obj.id == 1
+
+    @pytest.mark.asyncio
+    async def test_suffix_replace_sigue_consumiendo_last_id(self):
+        db = _ModelDbRegistrador("postgresql")
+        obj = _ModelPkAuto(db, nombre="Zoe", monto=5.0)
+        assert await obj.insert(replace=True) == 1
+        assert obj.id == 1
+
+
 # Ruta normalizada (`\` -> `/`) para que los guards se comporten igual en
 # Windows y Linux.
 MODEL_PATH = (Path(__file__).resolve().parents[1] / "encino_orm" / "model" / "model.py").as_posix()

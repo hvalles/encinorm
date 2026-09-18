@@ -343,18 +343,34 @@ class TestMssqlParity:
 
     @pytest.mark.asyncio
     async def test_model_insert_replace_no_rompe_el_merge(self, mssql_connected_db):
-        # WR-05 / T-02-45b: `Model.insert(replace=True)` deja `conflict=None` en
-        # `merge`, así que el MERGE usa el fallback `columns[0]` (`enabled`) y NO
-        # referencia `src.id` (columna ausente del `src` derivado). Se afirma SOLO
-        # que la sentencia es EJECUTABLE (guard contra el error 4104 de MSSQL); la
-        # semántica del fallback sigue siendo incorrecta y está documentada como
-        # pendiente. NO se asserta `count()`: `ON (dst.enabled = src.enabled)` casa
-        # con la fila existente y la actualiza en sitio.
+        # WR-05 / T-02-45b + CR-03: `Model.insert(replace=True)` deja `conflict=None`
+        # en `merge`, así que el MERGE usa el fallback `columns[0]` (`enabled`) y NO
+        # referencia `src.id` (columna ausente del `src` derivado); la sentencia es
+        # EJECUTABLE (guard contra el error 4104 de MSSQL). ADEMÁS (CR-03) el camino
+        # MERGE NO expone el id en la frontera del driver — `MssqlDb.execute` solo
+        # refresca `_last_id` para `INSERT` — así que `insert` devuelve 0 y NO asigna
+        # `zoe.id`. Antes devolvía 1 (el id de Ana) y un `update()` posterior habría
+        # tocado la fila equivocada.
         db = mssql_connected_db
         await _reset(db, "test_parity", _PARITY_DDL)
 
-        await _ParityModel(db, nombre="Ana", monto=10.0).insert()
-        await _ParityModel(db, nombre="Zoe", monto=5.0).insert(replace=True)
+        ana = _ParityModel(db, nombre="Ana", monto=10.0)
+        assert await ana.insert() == 1
+        assert ana.id == 1
+
+        zoe = _ParityModel(db, nombre="Zoe", monto=5.0)
+        devuelto = await zoe.insert(replace=True)
+        assert devuelto == 0
+        assert zoe.id is None
+        assert zoe.id != ana.id
+
+        # El MERGE casa con la fila existente por el fallback `columns[0]`
+        # (`enabled`): semántica PREEXISTENTE, incorrecta y ya documentada, con
+        # dueño en la Fase 4 (familia ORA-38104). La aserción de filas es
+        # determinista (sustituye la nota sobre la no-aserción de `count()`).
+        filas = await db.fetch_all(Query("SELECT nombre FROM test_parity", []))
+        assert len(filas) == 1
+        assert filas[0]["nombre"] == "Zoe"
 
     @pytest.mark.asyncio
     async def test_model_upsert_merge_con_conflicto_explicito(self, mssql_connected_db):

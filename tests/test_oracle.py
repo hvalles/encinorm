@@ -351,3 +351,24 @@ class TestOracleParity:
         with pytest.raises(ValueError) as exc:
             await _MergeModel(db, nombre="Ana", monto=10.0).upsert()
         assert "no está en el INSERT" in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_model_insert_replace_no_asigna_id_ajeno(self, oracle_connected_db):
+        # CR-03 (mismo defecto de clase que MSSQL): `Model.insert(replace=True)` en
+        # Oracle NO debe asignar un id ajeno. En Oracle el camino `merge` ni siquiera
+        # es EJECUTABLE hoy (ORA-38104, defecto preexistente caracterizado en
+        # `test_model_insert_replace_no_rompe_el_merge`, con dueño en la Fase 4), así
+        # que la llamada falla ANTES de asignar: `zoe.id` queda intacto. El guard DB-free
+        # de `TestModelInsertMergeNoConsumeIdObsoleto` prueba la decisión de
+        # `Model.insert` con el dialecto `oracle` cuando el MERGE sí es ejecutable.
+        db = oracle_connected_db
+        await _reset_parity(db, _PARITY_DDL)
+
+        ana = _MergeModel(db, nombre="Ana", monto=10.0)
+        await ana.insert()
+
+        zoe = _MergeModel(db, nombre="Zoe", monto=5.0)
+        with pytest.raises(Exception) as exc:
+            await zoe.insert(replace=True)
+        assert "ORA-38104" in str(exc.value)
+        assert zoe.id is None
