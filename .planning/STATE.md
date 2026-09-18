@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-09-18T04:35:13.468Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-09-18T04:45:35.435Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 13
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 02 (Dialect Seam & Engine Parity) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-09-18
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [████████░░] 80%
 | Phase 02 P01 | 4 min | 3 tasks | 11 files |
 | Phase 02 P02 | 8 min | 5 tasks | 16 files |
 | Phase 02 P03 | 6 min | 3 tasks | 14 files |
+| Phase 02 P04 | 8 min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,10 @@ Recent decisions affecting current work:
 - [Phase 02]: La inmutabilidad de Query es de ATRIBUTO, no profunda: reasignar lanza, pero q.fields.append(v) y q.params[...] = v no lanzan y ademas invalidan el hash calculado del estado vivo; documentado en el docstring y en 0-design.md.
 - [Phase 02]: En LIMITS solo sqlite (32766) y postgresql (32767) estan verificados empiricamente/en fuente; mysql/mariadb (65535), mssql (2100) y oracle (65535) quedan marcados NO verificados y su sonda pertenece al job engine-heavy de 02-05.
 - [Phase 02]: Query.__slots__ se ordeno (RUF023) y se anadieron anotaciones de clase desnudas (mypy no ve slots escritos con object.__setattr__); los slots siguen siendo privados con properties sin setter, sin cambio de comportamiento.
+- [Phase ?]: El alias del wrapper de conteo pasa de _encino_orm_count a encino_orm_count: Oracle rechaza identificadores que empiezan por _ (ORA-00911).
+- [Phase ?]: La paginacion de Model.search se delega en fetch_many en vez de emitir LIMIT/OFFSET inline: SQL Server y Oracle usan OFFSET ... FETCH NEXT y solo el adaptador conoce su sintaxis.
+- [Phase ?]: sync_schema emite ADD <col> <tipo> (sin la palabra COLUMN): es la forma valida en los seis motores.
+- [Phase ?]: El filtro name= de list_tables queda fuera de alcance por estar roto en 4 de 6 motores (alias referenciado en WHERE); registrado en deferred-items.md.
 
 ### Pending Todos
 
@@ -125,6 +130,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T04:34:54.233Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-09-18T04:45:35.420Z
+Stopped at: Completed 02-04-PLAN.md
 Resume file: None

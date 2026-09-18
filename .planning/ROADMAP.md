@@ -150,7 +150,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02-04-PLAN.md — Dialect-correct `AS n` alias for `count`/`paginate`/`list_tables` **and** `QueryBuilder.sum/avg/min/max` (7 sites, not 3), with per-engine integration tests covering `sync_schema` and `last_id` as well — DIAL-03, DIAL-09
+- [x] 02-04-PLAN.md — Dialect-correct `AS n` alias for `count`/`paginate`/`list_tables` **and** `QueryBuilder.sum/avg/min/max` (7 sites, not 3), with per-engine integration tests covering `sync_schema` and `last_id` as well — DIAL-03, DIAL-09
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -387,7 +387,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 3/5 | In Progress|  |
+| 2. Dialect Seam & Engine Parity | 4/5 | In Progress|  |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
