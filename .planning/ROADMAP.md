@@ -262,16 +262,17 @@ semantics are explicit instead of accidental.
   4. `close()` is idempotent and never closes a connection currently held by a caller
   5. Idle connections above `min_size` are closed by the lazy reaper, and deterministic Python-3.10-compatible concurrency/stress tests pass under `pytest-timeout`
 
-**Plans**: 5 plans
+**Plans**: 6 plans
 **Research**: needed — the `PooledConnection` refactor shape and the `last_id` API-contract change are breaking-change design decisions
 
 Plans:
 
-- [ ] 04-01: `PooledConnection` handle consolidating per-connection state (driver, `last_id`, timestamps, generation, in-use) and reserve-before-await `acquire()` that never locks across the await; task-ownership binding on the `_current_connection` contextvar — POOL-01, POOL-02
-- [ ] 04-02: Capture `last_id` **inside** the insert (`RETURNING` / `SCOPE_IDENTITY` / immediate `lastrowid`) per connection/task; deprecate post-hoc `last_id()` with a warning — POOL-03. Owns too the Oracle `MERGE` `SET` fix (**ORA-38104**): exclude `conflict_cols` from `WHEN MATCHED THEN UPDATE SET` (as `build_upsert` already does with `update_cols`) so `Model.insert(replace=True)` is executable on Oracle — registered by plan `02-12` (see `.planning/phases/02-dialect-seam-engine-parity/deferred-items.md`).
+- [ ] 04-01: `PooledConnection` handle consolidating per-connection state (driver, `last_id`, timestamps, generation, in-use) and reserve-before-await `acquire()` that never locks across the await; task-ownership binding on the `_current_connection` contextvar; `PoolDb._last_id` removed — POOL-01, POOL-02
+- [ ] 04-02: Capture `last_id` **inside** the insert (`RETURNING` / `OUTPUT INSERTED` / immediate `lastrowid`) per connection/task via opt-in `returning=<col>` + `Db.execute_insert`; deprecate post-hoc `last_id()` with a centralized warning; migrate the 29 test call sites + 2 internal callers — POOL-03. Owns too the Oracle `MERGE` `SET` fix (**ORA-38104**): exclude `conflict_cols` from `WHEN MATCHED THEN UPDATE SET` (as `build_upsert` already does with `update_cols`) so `Model.insert(replace=True)` is executable on Oracle — registered by plan `02-12` (see `.planning/phases/02-dialect-seam-engine-parity/deferred-items.md`).
 - [ ] 04-03: `reset_on_release` policy (rollback by default, configurable commit), with explicit commit-or-rollback in `execute`/`_run` first so standalone writes are not silently dropped; `DeprecationWarning` + CHANGELOG entry — POOL-04
-- [ ] 04-04: Generation counter + lazy idle reaper closing connections above `min_size` (no background daemon), and an idempotent `close()` that never closes an in-use connection — POOL-05, POOL-06
-- [ ] 04-05: Deterministic concurrency/stress tests using a hand-rolled `asyncio.Event` barrier (never `asyncio.Barrier`/`TaskGroup` on 3.10), `pytest-timeout` with the signal method, and a `pytest-repeat` stress variant behind a marker — POOL-07
+- [ ] 04-04: Generation counter + lazy idle reaper closing connections above `min_size` (no background daemon), and an idempotent `close()` that never closes an in-use connection; retire the `encino_orm.pool` mypy-ratchet entry — POOL-05, POOL-06
+- [ ] 04-05: Test infrastructure only (dev deps `pytest-timeout`/`pytest-repeat` + `uv lock`, `stress` marker, CI `--timeout-method=signal`, shared `EventBarrier` helper); no behavior assertions — POOL-07 *(logical `04-05a`; split from the original `04-05` to isolate the blocking-human package-legitimacy checkpoint)*
+- [ ] 04-06: Deterministic concurrency/stress tests using a hand-rolled `asyncio.Event` barrier (never `asyncio.Barrier`/`TaskGroup` on 3.10) asserting the final pool behavior, with `pytest-timeout` per marker and a `pytest-repeat` stress variant behind the `stress` marker — POOL-07 *(logical `04-05b`)*
 
 ### Phase 5: Resilience
 
