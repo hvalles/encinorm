@@ -62,6 +62,52 @@ async def _delete_row(db, name: str) -> None:
     await db.execute(db.delete(MIGRATIONS_TABLE, {"name": name}))
 
 
+async def _apply(db, name: str, qry: Query) -> None:
+    """Aplica una migración con la máquina de dos fases (D-01).
+
+    Registra la intención (`pending`) ANTES de ejecutar el DDL y la promueve a
+    `applied` DESPUÉS. El runner NUNCA llama al commit directo del adaptador: usa
+    `async with db.transaction()`, que funciona igual en un adaptador directo y
+    a través de un `PoolDb` (`PoolDb.commit()` lanza `ConnectionError`).
+
+    En motores con commit implícito del DDL (MySQL/MariaDB/Oracle) la fila
+    `pending` puede sobrevivir al fallo; ahí se compensa solo si el DDL NO
+    llegó a correr (borrar la fila). Si el DDL sí corrió y falló el promote, la
+    fila queda `pending` A PROPÓSITO para que la reconciliación la detecte
+    (Pitfall 8: nada de teatro de atomicidad).
+    """
+    ddl_done = False
+    try:
+        async with db.transaction():
+            await db.execute(
+                db.insert(
+                    MIGRATIONS_TABLE,
+                    {"name": name, "status": STATUS_PENDING, "sql_text": qry.sql},
+                )
+            )
+            await db.execute(qry)
+            ddl_done = True
+            await db.execute(
+                db.update(MIGRATIONS_TABLE, {"name": name}, {"status": STATUS_APPLIED})
+            )
+    except Exception:
+        if not db.transactional_ddl and not ddl_done:
+            # El commit implícito del DDL publicó el `pending` pero el DDL no
+            # corrió: limpiar la fila en una transacción nueva. En motores con
+            # DDL transaccional el rollback de `db.transaction()` ya la eliminó.
+            async with db.transaction():
+                await db.execute(db.delete(MIGRATIONS_TABLE, {"name": name}))
+        elif not db.transactional_ddl and ddl_done:
+            # El DDL SÍ corrió y el promote falló: la fila queda `pending` para
+            # que `reconcile_migrations` la detecte y el humano la resuelva.
+            logger.warning(
+                "migración %s quedó en 'pending'; resuélvela con resolve_migration()",
+                name,
+            )
+        # transactional_ddl=True: el rollback ya eliminó la fila; nada que compensar.
+        raise
+
+
 async def apply_migration(db, m: Migration) -> None:
     """Aplica una migración (idempotente vía `db.migrate`)."""
     await db.migrate(m.name, _to_query(m.up))
@@ -117,11 +163,73 @@ async def apply_migrations(db, migrations: list[Migration]) -> None:
         await apply_migration(db, m)
 
 
+async def reconcile_migrations(db) -> None:
+    """Detecta migraciones en estado ambiguo (D-02/D-03).
+
+    API pública para el arranque de la aplicación (y llamada por los seis
+    `migrate()` antes de aplicar). Un `pending` o un `rolling_back` significa
+    que no sabemos si el DDL corrió, así que se falla de forma ruidosa con el
+    SQL de cada fila y la instrucción de resolución. NUNCA re-ejecuta el DDL ni
+    asume `applied` (eso sería el ledger mintiendo).
+    """
+    await _ensure_ledger(db)
+    check_identifier(MIGRATIONS_TABLE, "tabla del ledger")
+    rows = await db.fetch_all(
+        Query(
+            f"SELECT name, status, sql_text FROM {MIGRATIONS_TABLE} "
+            "WHERE status IN ({0}, {1}) ORDER BY id",
+            [STATUS_PENDING, STATUS_ROLLING_BACK],
+        )
+    )
+    if not rows:
+        return
+    detail = "\n".join(f"  - {r['name']} [{r['status']}] SQL: {r['sql_text']}" for r in rows)
+    raise MigrationError(
+        "Migraciones en estado ambiguo (no se re-ejecuta DDL automáticamente).\n"
+        f"{detail}\n"
+        "Resuelve cada una con resolve_migration(db, name, applied=<bool>) "
+        "tras verificar el catálogo real."
+    )
+
+
+async def resolve_migration(db, name: str, *, applied: bool) -> None:
+    """Resuelve una migración ambigua (D-05/D-08/D-17).
+
+    `applied` significa "¿debe quedar la migración registrada como aplicada?",
+    NO "¿corrió el SQL?". La acción se infiere del estado actual de la fila:
+
+    | Estado         | `applied` | Acción                  |
+    |----------------|-----------|-------------------------|
+    | `pending`      | `True`    | marcar `applied`        |
+    | `pending`      | `False`   | borrar la fila          |
+    | `rolling_back` | `True`    | restaurar `applied`     |
+    | `rolling_back` | `False`   | borrar la fila          |
+    """
+    await _ensure_ledger(db)
+    status = await _row_status(db, name)
+    if status is None or status == STATUS_APPLIED:
+        raise MigrationError(
+            f"{name} no está en un estado ambiguo (status={status!r}); no hay nada que resolver"
+        )
+    if status not in (STATUS_PENDING, STATUS_ROLLING_BACK):
+        raise MigrationError(f"{name} tiene un estado desconocido: {status!r}")
+    async with db.transaction():
+        if applied:
+            await _set_status(db, name, STATUS_APPLIED)
+        else:
+            await _delete_row(db, name)
+
+
 def migrations_from_dir(path: str) -> list[Migration]:
     """Carga las migraciones de un directorio (archivos `NNN_descripcion.py`).
 
     Cada archivo debe definir una variable módulo `MIGRATION` (instancia de
     `Migration`). Se cargan en orden alfabético por nombre de archivo.
+
+    Frontera de confianza (T-03-02-02): cada archivo se importa con
+    `exec_module`, es decir, se EJECUTA código Python arbitrario. El directorio
+    debe estar versionado por el usuario y no ser escribible por terceros; no
+    se valida ni se aísla el contenido.
     """
     import importlib.util
     from pathlib import Path

@@ -24,6 +24,8 @@ from .migration import (
     apply_migration,
     apply_migrations,
     migrations_from_dir,
+    reconcile_migrations,
+    resolve_migration,
     rollback_migration,
 )
 from .mssql import MssqlDb
@@ -72,7 +74,9 @@ __all__ = [
     "is_postgres",
     "is_sqlite",
     "migrations_from_dir",
+    "reconcile_migrations",
     "resolve_db",
+    "resolve_migration",
     "rollback_migration",
     "session",
     "set_default_db",
