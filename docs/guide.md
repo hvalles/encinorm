@@ -489,6 +489,29 @@ await u.load(duration=300)              # cachea 300 s; invalida al actualizar/b
 Backends: `MemoryCacheBackend`, `RedisCacheBackend(url=...)`, o cualquiera que
 implemente el `Protocol` `CacheBackend`.
 
+> **Contrato de `MemoryCacheBackend` (solo dev/test).** El backend en memoria es
+> para desarrollo y pruebas, **no** para producción. Está acotado con una política
+> LRU: `max_size=1024` por defecto (configurable al construirlo) y, al superar la
+> cota, se desaloja la entrada menos recientemente usada, de modo que las claves
+> nunca releídas no se acumulan sin límite. Para producción usa
+> `RedisCacheBackend`, que acota y expira del lado del servidor.
+
+### Invalidación y limitación multi-proceso
+
+`CachedModel` invalida la clave afectada tras `update`, `delete` y `upsert` (y,
+de forma opcional, en `insert_many(cache=...)`). La invalidación ocurre **después**
+del commit (nunca antes) y es **fail-open**: si el borrado de la caché falla, se
+registra un warning y la escritura no se revierte; el peor caso es una lectura
+obsoleta acotada por el TTL. El mecanismo (sobrescrituras de
+`update`/`delete`/`upsert` en `CachedModel`) está descrito en
+[`docs/design/5-security.md` §5.4](design/5-security.md#54-caché-opcional).
+
+**Limitación conocida:** la invalidación es **local al proceso**. No hay pub/sub
+distribuido, así que con varios procesos o servidores una invalidación en uno no
+llega a los demás y las entradas obsoletas en el resto quedan acotadas por el
+TTL. Si necesitas coherencia entre procesos, reduce el TTL o implementa una
+estrategia de invalidación a nivel de aplicación.
+
 ### Caché en Redis
 
 `RedisCacheBackend` requiere la dependencia opcional `redis`
