@@ -242,15 +242,19 @@ class QueryBuilder:
         self._ensure_db()
         sql, params = self._build_full()
         sql = f"SELECT {self._render_select()} {sql}"
+        # La paginación la aplica el adaptador (`fetch_many`): `LIMIT/OFFSET` no es
+        # sintaxis válida en SQL Server ni en Oracle, que usan `OFFSET … FETCH NEXT`,
+        # y solo el adaptador conoce su dialecto. Mismo patrón que `Model.search`.
         if self._limit_n is not None:
-            offset = (self._limit_page - 1) * self._limit_n
-            sql += f" LIMIT {self._limit_n} OFFSET {offset}"
+            return await self._db.fetch_many(Query(sql, params), self._limit_n, self._limit_page)
         return await self._db.fetch_all(Query(sql, params))
 
     async def first(self) -> dict | None:
         self._ensure_db()
         sql, params = self._build_full()
-        sql = f"SELECT {self._render_select()} {sql} LIMIT 1"
+        sql = f"SELECT {self._render_select()} {sql}"
+        # Sin `LIMIT 1`: los seis adaptadores implementan `fetch_one` con
+        # `fetchone()`, así que devolver la primera fila es portable sin paginar.
         return await self._db.fetch_one(Query(sql, params))
 
     async def count(self) -> int:
@@ -295,7 +299,8 @@ class QueryBuilder:
     async def exists(self) -> bool:
         self._ensure_db()
         sql, params = self._build_base()
-        sql = f"SELECT 1 {sql} LIMIT 1"
+        sql = f"SELECT 1 {sql}"
+        # Sin `LIMIT 1`: `fetch_one` devuelve la primera fila en los seis motores.
         return await self._db.fetch_one(Query(sql, params)) is not None
 
     async def paginate(self, limit: int, page: int = 1) -> "Records":
