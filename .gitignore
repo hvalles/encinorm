@@ -21,6 +21,10 @@ htmlcov/
 # Reporte JSON que alimenta el gate de pisos por modulo
 # (tools/ci/check_coverage_floors.py); se genera en el job `coverage`.
 coverage.json
+# Reportes generados localmente (`coverage xml`, `pytest --junitxml`); en CI
+# son artefactos, no fuentes.
+coverage.xml
+junit.xml
 
 # Documentación generada
 site/

@@ -226,6 +226,15 @@ Plans:
 
 **Gap-closure ronda 3 (`03-08`, `03-09`, `03-10`).** La revisión de código de la ronda 2 (`03-REVIEW-GAPS.md`) devolvió 2 Critical y 3 Warning. **CR-01 multi-fila (Critical, DATA-03):** `_resolve_pk_values` resuelve UNA fila (`super().load` → `fetch_one`) mientras `Model.update`/`delete` afectan a TODAS las filas que casan las claves de escritura; una escritura por una clave no-única deja entradas de PK obsoletas. **CR-02 (Critical, seguridad):** la clave de caché `sha1(tabla:[pk=...])` ignora el `scope()` activo, así que un hit sirve datos de otro tenant y habilita una escritura cruzada; la ronda 2 amplió la superficie (toda lectura no-PK puebla la entrada compartida por PK) y la documentación afirmaba un aislamiento inexistente. **WR-01 residual:** la compensación compara `{name, status}` (no prueba propiedad) y puede borrar la fila `pending` re-publicada por otro runner tras un rollback. **WR-02:** TOCTOU entre la sonda de PK y la escritura. **WR-03:** docs/CHANGELOG sobreafirman "esa única entrada" y el scope. Decision: `03-08` (caché: invalidación de TODAS las PKs afectadas, clave namespaced por `scope()`, re-sonda post-escritura que acota WR-02), `03-09` (migraciones: compensación por identidad `id` con fallback documentado para Oracle, y compensación que no enmascara el error raíz), `03-10` (docs/CHANGELOG alineados). **Waves (ronda 3):** 1 → `03-08`, `03-09` (ficheros disjuntos: caché vs runner); 2 → `03-10` (docs-only, describe lo entregado por ambos).
 
+**Wave 1 (gap-closure ronda 3)** *(ficheros disjuntos: caché vs runner de migraciones)*
+
+- [x] 03-08-PLAN.md — `CachedModel` invalida las entradas de TODAS las filas que casa una escritura (`_resolve_pk_values` multi-fila vía `search` ligado, scope-aware) y namespaces la clave con `current_scope().digest()`; re-sonda post-escritura que acota el TOCTOU — DATA-03
+- [ ] 03-09-PLAN.md — La compensación del runner borra por identidad de fila (`{id: ledger_id}`) cuando el motor expone `last_id()` (fallback documentado para Oracle) y no enmascara el error raíz — DATA-02
+
+**Wave 2 (gap-closure ronda 3)** *(docs-only: describen lo entregado por 03-08 y 03-09)*
+
+- [ ] 03-10-PLAN.md — Alinea `docs/guide.md`, `docs/design/5-security.md` y `CHANGELOG.md` con la invalidación multi-fila, el namespace de scope y el residual TOCTOU (cierra WR-03) — DATA-03, DATA-02
+
 ### Phase 4: Pool Correctness & Concurrency
 
 **Goal**: `PoolDb` is correct under concurrency. Per-connection state lives on a per-connection handle,
