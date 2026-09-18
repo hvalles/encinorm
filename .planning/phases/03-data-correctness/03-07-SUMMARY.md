@@ -73,7 +73,7 @@ Each task was committed atomically:
 1. **Task 1: Regresiones WR-01 e IN-01 (RED) con el fake extendido** - `b9ce450` (test)
 2. **Task 2: Propiedad de la fila en `_apply` + reintento documentado del rollback (GREEN)** - `7d42565` (fix)
 
-**Plan metadata:** `<pending>` (docs: complete plan)
+**Plan metadata:** `d7d11fc` (docs: complete plan)
 
 _Note: TDD tasks may have multiple commits (test → feat → refactor)_
 
