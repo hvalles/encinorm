@@ -239,6 +239,52 @@
     }),
   })
 # ---
+# name: test_list_tables_filtered_snapshot
+  dict({
+    'mariadb': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT * FROM (SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})) encino_orm_count',
+      'params': list([
+        '%snap%',
+      ]),
+      'tables': 'SELECT * FROM (SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})',
+    }),
+    'mssql': dict({
+      'count_wrapper': "SELECT COUNT(*) AS n FROM (SELECT * FROM (SELECT TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE') encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})) encino_orm_count",
+      'params': list([
+        '%snap%',
+      ]),
+      'tables': "SELECT * FROM (SELECT TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE') encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})",
+    }),
+    'mysql': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT * FROM (SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})) encino_orm_count',
+      'params': list([
+        '%snap%',
+      ]),
+      'tables': 'SELECT * FROM (SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})',
+    }),
+    'oracle': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT * FROM (SELECT table_name AS name FROM user_tables) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})) encino_orm_count',
+      'params': list([
+        '%snap%',
+      ]),
+      'tables': 'SELECT * FROM (SELECT table_name AS name FROM user_tables) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})',
+    }),
+    'postgresql': dict({
+      'count_wrapper': "SELECT COUNT(*) AS n FROM (SELECT * FROM (SELECT tablename AS name FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema')) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})) encino_orm_count",
+      'params': list([
+        '%snap%',
+      ]),
+      'tables': "SELECT * FROM (SELECT tablename AS name FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema')) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})",
+    }),
+    'sqlite': dict({
+      'count_wrapper': "SELECT COUNT(*) AS n FROM (SELECT * FROM (SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_encino_orm_migrations') encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})) encino_orm_count",
+      'params': list([
+        '%snap%',
+      ]),
+      'tables': "SELECT * FROM (SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_encino_orm_migrations') encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})",
+    }),
+  })
+# ---
 # name: test_list_tables_snapshot
   dict({
     'mariadb': dict({

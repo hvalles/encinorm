@@ -148,13 +148,26 @@ class Db(ABC):
         """Lista las tablas del catálogo con filtro por nombre y paginación."""
         from .model.records import Records
 
-        sql = self._tables_sql()
+        base = self._tables_sql()
         params = []
+        sql = base
         if name:
-            sql += " AND name LIKE {0}"
+            # `name` es un ALIAS de SELECT en 5 de los 6 dialectos
+            # (`tablename AS name`, `table_name AS name`, `TABLE_NAME AS name`):
+            # PostgreSQL, MySQL, SQL Server y Oracle NO permiten referenciar un
+            # alias de columna en `WHERE` (solo SQLite tiene una columna real
+            # `name`). Envolver el SQL base en una tabla derivada expone `name`
+            # como columna REAL, válido en los seis motores.
+            #
+            # `LOWER()` en AMBOS lados: Oracle devuelve los nombres de tabla en
+            # MAYÚSCULAS y PostgreSQL es sensible a mayúsculas por defecto, así
+            # que sin normalizar el MISMO `name=` no funcionaría en los seis.
+            # No relaja la seguridad: el valor sigue ligado como `{0}`.
+            sql = "SELECT * FROM (" + base + ") encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})"
             params.append(f"%{name}%")
         # El alias no puede empezar por `_`: Oracle lo rechaza (ORA-00911) salvo
-        # que se cite. `encino_orm_count` es válido en los seis motores.
+        # que se cite. `encino_orm_count` y `encino_orm_tables` son válidos en
+        # los seis motores.
         count_qry = Query(f"SELECT COUNT(*) AS n FROM ({sql}) encino_orm_count", params)
         row = await self.fetch_one(count_qry)
         total = row["n"] if row else 0
