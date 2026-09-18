@@ -463,6 +463,22 @@ The `ubuntu-24.04` runner image (Image Version 20260907.300.1) lists **no `unixo
 
 ---
 
+## Runtime State Inventory
+
+> This is a refactor phase (centralization + immutability + API removal), so the inventory is required. The canonical question: *after every file in the repo is updated, what runtime systems still hold the old state?*
+
+| Category | Items Found | Action Required |
+|----------|-------------|-----------------|
+| **Stored data** | `_encino_orm_migrations.sql_text` stores the **compiled** SQL (`qry.query[0]` / the new `qry.sql`) for every applied migration — verified at `sqlite.py:238`, `mysql.py:265`, `postgresql.py:253`, `mssql.py:337`, `oracle.py:338`. Rows already written keep their historical text and remain valid; the refactor does not change the compiled form for any existing template (the `%(parameter_0000)s` naming is preserved), so **no data migration is needed**. The table name `_encino_orm_migrations` is unchanged. | **None** — verified by reading all five `migrate()` implementations; the compiled placeholder naming is preserved verbatim. Add a regression assertion that a pre-refactor `sql_text` string still round-trips. |
+| **Live service config** | None. No external service (Redis, DB servers, CI runners) stores an encino_orm identifier, table name, or API string in its own configuration. `ENCINO_ORM_REQUIRE_ENGINES` gains new *values* (`mariadb`, `redis`, `mssql`, `oracle`) but the format is unchanged and the parsing already handles arbitrary engine lists (`conftest.py:26-29`). | **None for services.** The *published docs site* is the one externally-visible artifact that currently documents the removed API — see the row below. |
+| **OS-registered state** | None — verified. No Windows Task Scheduler task, pm2 process, launchd plist, or systemd unit references encino_orm (the library has no server component; `PROJECT.md`: "No server component of its own"). | **None.** |
+| **Secrets / env vars** | No secret key or env var name is renamed. The four new engine env-var families (`ENCINO_ORM_MARIADB_*`, `ENCINO_ORM_REDIS_URL`, `ENCINO_ORM_MSSQL_*`, `ENCINO_ORM_ORACLE_*`) **already exist** with defaults in the test files and are simply *set* by the new CI jobs. No `.env` file exists in the repo (`.gitignore` excludes it). | **None** — additive env vars only. Document the new required values (`ENCINO_ORM_ORACLE_SERVICE=FREEPDB1`) in the CI job. |
+| **Build artifacts / installed packages** | (a) **Committed `.ambr` snapshots** are a *new* build artifact introduced by DIAL-07 — they must be committed and kept in sync (they are the gate). Verified `.gitignore` does **not** exclude `__snapshots__`/`*.ambr`. (b) `__pycache__` bytecode is stale after the refactor but auto-invalidated by mtime — no action. (c) There are no compiled binaries, no egg-info in the repo tree, and no Docker image tag that embeds a renamed string. (d) The **published MkDocs site** (`https://hvalles.github.io/encinorm/`, built from `docs/`) currently documents `rebind`; it will keep serving the removed API until `docs/design/0-design.md` is updated (D-05) and the docs workflow republishes. | **Code/docs edit:** update `docs/design/0-design.md` (`:22, :35, :66, :87, :397`) per D-05 and let `docs.yml` redeploy. **Commit:** the `.ambr` files. |
+
+**Nothing found in the following categories — stated explicitly:** stored data requires no migration; live service config holds nothing; OS-registered state holds nothing; secrets/env-var names are unchanged.
+
+---
+
 ## Common Pitfalls
 
 ### Pitfall A: The identifier regex is duplicated six times and the call sites have two shapes
@@ -527,7 +543,21 @@ The `ubuntu-24.04` runner image (Image Version 20260907.300.1) lists **no `unixo
 **How to avoid:** the `engine-heavy` job must sync `--extra mssql --extra oracle` **and** install `msodbcsql18`/`unixodbc` before pytest. Consider narrowing the engine fixtures' `except` to the driver's connection error type (flagged in Phase 1 as Phase 2 follow-up) so an `ImportError` fails loudly with its real message.
 **Warning signs:** `MssqlDb requiere el extra 'mssql'` in a job that claims to require MSSQL.
 
-### Pitfall L: The refactor changes generated SQL subtly and the snapshots bless the change
+### Pitfall L: The seam unifies the six adapters but leaves `PoolDb`'s wrapper divergent
+**What goes wrong:** `PoolDb.insert` is a *seventh* DML signature and it silently **drops `conflict`**:
+```python
+# encino_orm/pool.py:180-187
+def insert(self, tabla: str, data: dict, ignore_duplicated=False, replace=False):
+    return self._template.insert(tabla, data, ignore_duplicated, replace)   # ← no `conflict`
+def delete(self, tabla: str, keys: dict): ...
+def update(self, tabla: str, keys: dict, values: dict): ...
+```
+The abstract `Db.insert` signature *does* accept `conflict: list[str] | None = None` (`base.py:95-103`), and PostgreSQL's `replace` path uses it to pick the `ON CONFLICT (target)`. Through a pool, `replace=True` therefore always falls back to `columns[0]`. `[VERIFIED: repo]`
+**Why it happens:** the pool wrapper was written before `conflict` existed and was never revisited — the same copy-paste drift CONCERNS.md already documents for MySQL/MariaDB.
+**How to avoid:** make `PoolDb.insert` delegate with `**kwargs` (or mirror the full abstract signature including `conflict` and the new `schema=`), and add a unit test asserting the pool forwards `conflict` to the template. Do this in the same plan as the builder seam (02-02) so the signature is settled once.
+**Warning signs:** `pool_module` tests pass a `conflict` and the generated SQL has no `ON CONFLICT (…)` target.
+
+### Pitfall M: The refactor changes generated SQL subtly and the snapshots bless the change
 **What goes wrong:** the shared builder emits `a, b` instead of `a,b`, or numbers `update` params differently, or drops Oracle's `RETURNING`. The existing golden-string tests catch most of this — **unless** they are updated in the same commit to match the new output, at which point the regression is laundered.
 **How to avoid:** land 02-02 with **zero** changes to `test_postgresql.py`/`test_mssql.py`/`test_oracle.py`/`test_mysql.py`/`test_sqlite.py` builder assertions. If a test must change, that is a finding, not a fix. Generate the snapshots **after** 02-02 is green.
 **Warning signs:** the 02-02 diff touches an existing SQL assertion.
