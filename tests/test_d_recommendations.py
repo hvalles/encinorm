@@ -175,7 +175,9 @@ class TestD4AutoRetry:
             async def rollback(self, save_point=None): ...
             async def save_point(self, name): ...
             def insert(self, tabla, data, ignore_duplicated=False, replace=False, conflict=None):
-                return ("INSERT", tabla, data)
+                # `Model.insert` decide por `qry.sql_template` (MERGE vs INSERT), así
+                # que el doble debe devolver un `Query` real, no una tupla.
+                return Query("INSERT INTO p VALUES ({0})", [1])
 
             def delete(self, tabla, keys):
                 return ("DELETE", tabla)

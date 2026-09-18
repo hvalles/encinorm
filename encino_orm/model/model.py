@@ -471,6 +471,14 @@ class Model(BaseModel):
 
     # --- CRUD ---
     async def insert(self, *, ignore_duplicated: bool = False, replace: bool = False) -> int:
+        """Inserta el registro y devuelve el id cuando el motor lo expone.
+
+        En MSSQL/Oracle `replace=True` se renderiza como MERGE, y ese camino no
+        expone el id de la fila en la frontera del driver: `insert` devuelve `0`
+        ("id no disponible") y deja `self.id` intacto. En los dialectos
+        `prefix`/`suffix` (SQLite/MySQL/MariaDB/PostgreSQL) sigue devolviendo el id
+        real. La captura del id DENTRO del MERGE pertenece a la Fase 4 (POOL-03).
+        """
         errs = await self.validate()
         if errs:
             raise ValidationError(errs)
@@ -505,17 +513,24 @@ class Model(BaseModel):
         async def do_insert():
             qry = self._get_db().insert(self._table, data, ignore_duplicated, replace, conflict)
             await self._get_db().execute(qry)
+            # Un MERGE nunca refresca `_last_id`: `MssqlDb.execute` solo lo hace para
+            # sentencias `INSERT` y `OracleDb.execute` solo con `RETURNING`, que un
+            # MERGE no lleva. Consumirlo devolvía el id de OTRA fila (regresión de
+            # 02-08, que hizo ejecutable el MERGE). La captura REAL del id (p. ej.
+            # `OUTPUT INSERTED.id`) pertenece a la Fase 4 / POOL-03.
+            if qry.sql_template.lstrip().upper().startswith("MERGE"):
+                return None
             return await self._get_db().last_id()
 
         new_id = await self._transactional("insert", do_insert)
 
-        if auto:
+        if auto and new_id is not None:
             _set_private(self, "__loading", True)
             self.id = new_id
             _set_private(self, "__loading", False)
         _set_private(self, "__exists", True)
         _set_private(self, "__dirties", [])
-        return new_id if auto else 0
+        return new_id if (auto and new_id is not None) else 0
 
     async def save(self, keys=None) -> int:
         """Inserta si no existe; actualiza si ya existe (find-or-create)."""
