@@ -177,14 +177,25 @@ class PoolDb(Db):
             await self.release(db)
 
     # --- Builders (no requieren conexión) ---
-    def insert(self, tabla: str, data: dict, ignore_duplicated=False, replace=False):
-        return self._template.insert(tabla, data, ignore_duplicated, replace)
+    def insert(
+        self,
+        tabla: str,
+        data: dict,
+        ignore_duplicated=False,
+        replace=False,
+        conflict: list[str] | None = None,
+        *,
+        schema: str | None = None,
+    ):
+        return self._template.insert(
+            tabla, data, ignore_duplicated, replace, conflict, schema=schema
+        )
 
-    def delete(self, tabla: str, keys: dict):
-        return self._template.delete(tabla, keys)
+    def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
+        return self._template.delete(tabla, keys, schema=schema)
 
-    def update(self, tabla: str, keys: dict, values: dict):
-        return self._template.update(tabla, keys, values)
+    def update(self, tabla: str, keys: dict, values: dict, *, schema: str | None = None):
+        return self._template.update(tabla, keys, values, schema=schema)
 
     # --- introspección ---
     def _tables_sql(self) -> str:

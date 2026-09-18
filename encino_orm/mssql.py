@@ -3,6 +3,8 @@ import time
 
 from ._rows import _rows_to_dicts
 from .base import Db, logger
+from .dialects.builders import build_delete, build_insert, build_update
+from .dialects.strategies import MSSQL_INSERT, InsertStrategy
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
@@ -147,7 +149,7 @@ class MssqlDb(Db):
             await cursor.close()
 
     def _prepare(self, qry: Query) -> tuple[str, list]:
-        return _to_mssql(qry.query[0], qry.query[1])
+        return _to_mssql(qry.sql, qry.params)
 
     # --- introspección ---
     def _tables_sql(self) -> str:
@@ -188,7 +190,13 @@ class MssqlDb(Db):
             )
         return result
 
-    # --- Builders (construyen Query, no ejecutan) ---
+    # --- Builders (delegan en el seam; construyen Query, no ejecutan) ---
+
+    def _insert_strategy(
+        self, *, replace: bool, ignore_duplicated: bool, conflict: list[str] | None
+    ) -> InsertStrategy:
+        return MSSQL_INSERT
+
     def insert(
         self,
         tabla: str,
@@ -196,52 +204,26 @@ class MssqlDb(Db):
         ignore_duplicated=False,
         replace=False,
         conflict: list[str] | None = None,
+        *,
+        schema: str | None = None,
     ):
-        columns = list(data.keys())
-        values = list(data.values())
+        return build_insert(
+            tabla,
+            data,
+            strategy=self._insert_strategy(
+                replace=replace, ignore_duplicated=ignore_duplicated, conflict=conflict
+            ),
+            conflict=conflict,
+            replace=replace,
+            ignore_duplicated=ignore_duplicated,
+            schema=schema,
+        )
 
-        if replace:
-            conflict_cols = list(conflict) if conflict else ([columns[0]] if columns else ["id"])
-            src = ", ".join(f"{{{i}}} AS {c}" for i, c in enumerate(columns))
-            on = " AND ".join(f"dst.{c} = src.{c}" for c in conflict_cols)
-            updates = ", ".join(f"dst.{c} = src.{c}" for c in columns)
-            ins_cols = ",".join(columns)
-            ins_vals = ",".join(f"src.{c}" for c in columns)
-            sql = (
-                f"MERGE INTO {tabla} AS dst "
-                f"USING (SELECT {src}) AS src "
-                f"ON ({on}) "
-                f"WHEN MATCHED THEN UPDATE SET {updates} "
-                f"WHEN NOT MATCHED THEN INSERT ({ins_cols}) VALUES ({ins_vals})"
-            )
-        else:
-            placeholders = ",".join(f"{{{i}}}" for i in range(len(columns)))
-            sql = f"INSERT INTO {tabla} ({','.join(columns)}) VALUES ({placeholders})"
+    def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
+        return build_delete(tabla, keys, schema=schema)
 
-        q = Query(sql, values)
-        if ignore_duplicated and not replace:
-            q.ignore_duplicated = True
-        return q
-
-    def delete(self, tabla: str, keys: dict):
-        columns = list(keys.keys())
-        values = list(keys.values())
-        where = " AND ".join(f"{col} = {{{i}}}" for i, col in enumerate(columns))
-        sql = f"DELETE FROM {tabla} WHERE {where}"
-        return Query(sql, values)
-
-    def update(self, tabla: str, keys: dict, values: dict):
-        set_cols = list(values.keys())
-        set_vals = list(values.values())
-        set_clause = ",".join(f"{col} = {{{i}}}" for i, col in enumerate(set_cols))
-
-        key_cols = list(keys.keys())
-        key_vals = list(keys.values())
-        offset = len(set_cols)
-        where = " AND ".join(f"{col} = {{{offset + i}}}" for i, col in enumerate(key_cols))
-
-        sql = f"UPDATE {tabla} SET {set_clause} WHERE {where}"
-        return Query(sql, set_vals + key_vals)
+    def update(self, tabla: str, keys: dict, values: dict, *, schema: str | None = None):
+        return build_update(tabla, keys, values, schema=schema)
 
     # --- Ejecución / Consulta ---
     async def execute(self, qry: Query) -> int:
@@ -334,7 +316,7 @@ class MssqlDb(Db):
             return
 
         await self.execute(qry)
-        await self.execute(self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.query[0]}))
+        await self.execute(self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.sql}))
         await self.commit()
 
     async def migrate_status(self) -> list[dict]:

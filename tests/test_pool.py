@@ -42,13 +42,18 @@ class FakeDb:
             self._in_tx = False
             raise
 
-    def insert(self, tabla, data, ignore_duplicated=False, replace=False):
+    def insert(
+        self, tabla, data, ignore_duplicated=False, replace=False, conflict=None, *, schema=None
+    ):
+        self.calls.append(("insert", tabla, conflict, schema))
         return f"INSERT {tabla} {data}"
 
-    def delete(self, tabla, keys):
+    def delete(self, tabla, keys, *, schema=None):
+        self.calls.append(("delete", tabla, schema))
         return f"DELETE {tabla} {keys}"
 
-    def update(self, tabla, keys, values):
+    def update(self, tabla, keys, values, *, schema=None):
+        self.calls.append(("update", tabla, schema))
         return f"UPDATE {tabla} {keys} {values}"
 
     async def fetch_all(self, qry):
@@ -128,6 +133,20 @@ class TestPool:
         assert pool.insert("t", {"a": 1}) == "INSERT t {'a': 1}"
         assert pool.delete("t", {"id": 1}) == "DELETE t {'id': 1}"
         assert pool.update("t", {"id": 1}, {"a": 2}) == "UPDATE t {'id': 1} {'a': 2}"
+
+    @pytest.mark.asyncio
+    async def test_insert_reenvia_conflict_y_schema(self, pool):
+        # Pitfall L: sin esto, PostgreSQL con replace=True caería siempre a
+        # columns[0] a través del pool.
+        pool.insert("t", {"a": 1}, replace=True, conflict=["a"], schema="s")
+        assert ("insert", "t", ["a"], "s") in pool._template.calls
+
+    @pytest.mark.asyncio
+    async def test_delete_y_update_reenvian_schema(self, pool):
+        pool.delete("t", {"id": 1}, schema="s")
+        pool.update("t", {"id": 1}, {"a": 2}, schema="s")
+        assert ("delete", "t", "s") in pool._template.calls
+        assert ("update", "t", "s") in pool._template.calls
 
     @pytest.mark.asyncio
     async def test_transaction_context(self, pool):

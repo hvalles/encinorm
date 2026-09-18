@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 import asyncpg
 
 from .base import Db, logger
+from .dialects.builders import build_delete, build_insert, build_update
+from .dialects.strategies import POSTGRES_INSERT, InsertStrategy
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
@@ -117,7 +119,7 @@ class PostgresDb(Db):
             raise ConnectionError("No hay conexión activa a la base de datos.")
 
     def _prepare(self, qry: Query) -> tuple[str, list]:
-        return _to_postgres(qry.query[0], qry.query[1])
+        return _to_postgres(qry.sql, qry.params)
 
     # --- introspección ---
     def _tables_sql(self) -> str:
@@ -149,7 +151,12 @@ class PostgresDb(Db):
             for r in rows
         ]
 
-    # --- Builders (construyen Query, no ejecutan) ---
+    # --- Builders (delegan en el seam; construyen Query, no ejecutan) ---
+
+    def _insert_strategy(
+        self, *, replace: bool, ignore_duplicated: bool, conflict: list[str] | None
+    ) -> InsertStrategy:
+        return POSTGRES_INSERT
 
     def insert(
         self,
@@ -158,41 +165,26 @@ class PostgresDb(Db):
         ignore_duplicated=False,
         replace=False,
         conflict: list[str] | None = None,
+        *,
+        schema: str | None = None,
     ):
-        columns = list(data.keys())
-        values = list(data.values())
-        placeholders = ",".join(f"{{{i}}}" for i in range(len(columns)))
+        return build_insert(
+            tabla,
+            data,
+            strategy=self._insert_strategy(
+                replace=replace, ignore_duplicated=ignore_duplicated, conflict=conflict
+            ),
+            conflict=conflict,
+            replace=replace,
+            ignore_duplicated=ignore_duplicated,
+            schema=schema,
+        )
 
-        sql = f"INSERT INTO {tabla} ({','.join(columns)}) VALUES ({placeholders})"
-        if replace:
-            # PostgreSQL exige un objetivo de conflicto para DO UPDATE; se usa el
-            # `conflict` explícito, o la primera columna (PK) por defecto.
-            conflict_cols = ", ".join(conflict) if conflict else (columns[0] if columns else "id")
-            updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in columns)
-            sql += f" ON CONFLICT ({conflict_cols}) DO UPDATE SET {updates}"
-        elif ignore_duplicated:
-            sql += " ON CONFLICT DO NOTHING"
-        return Query(sql, values)
+    def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
+        return build_delete(tabla, keys, schema=schema)
 
-    def delete(self, tabla: str, keys: dict):
-        columns = list(keys.keys())
-        values = list(keys.values())
-        where = " AND ".join(f"{col} = {{{i}}}" for i, col in enumerate(columns))
-        sql = f"DELETE FROM {tabla} WHERE {where}"
-        return Query(sql, values)
-
-    def update(self, tabla: str, keys: dict, values: dict):
-        set_cols = list(values.keys())
-        set_vals = list(values.values())
-        set_clause = ",".join(f"{col} = {{{i}}}" for i, col in enumerate(set_cols))
-
-        key_cols = list(keys.keys())
-        key_vals = list(keys.values())
-        offset = len(set_cols)
-        where = " AND ".join(f"{col} = {{{offset + i}}}" for i, col in enumerate(key_cols))
-
-        sql = f"UPDATE {tabla} SET {set_clause} WHERE {where}"
-        return Query(sql, set_vals + key_vals)
+    def update(self, tabla: str, keys: dict, values: dict, *, schema: str | None = None):
+        return build_update(tabla, keys, values, schema=schema)
 
     # --- Ejecución / Consulta ---
 
@@ -249,9 +241,7 @@ class PostgresDb(Db):
 
         async with self.transaction():
             await self.execute(qry)
-            await self.execute(
-                self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.query[0]})
-            )
+            await self.execute(self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.sql}))
 
     async def migrate_status(self) -> list[dict]:
         self._ensure_connected()

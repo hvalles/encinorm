@@ -254,3 +254,41 @@ class TestRechazoPorAdaptador:
 
     def test_oracle(self, monkeypatch):
         _assert_rechazo_antes_del_driver(OracleDb(), monkeypatch)
+
+
+def _assert_adaptador_rechaza(db, monkeypatch):
+    reached = _spy_prepare(db, monkeypatch)
+    for nombre in MALICIOSOS:
+        with pytest.raises(ValueError):
+            db.insert(nombre, {"a": 1})
+        with pytest.raises(ValueError):
+            db.insert("t", {nombre: 1})
+        with pytest.raises(ValueError):
+            db.insert("t", {"a": 1}, schema=nombre)
+        with pytest.raises(ValueError):
+            db.update("t", {"id": 1}, {nombre: 1})
+        with pytest.raises(ValueError):
+            db.delete("t", {nombre: 1})
+    assert reached == []
+
+
+class TestAdaptadoresRechazanAntesDelDriver:
+    """Camino público: el adaptador delega en el seam y valida antes del driver."""
+
+    def test_sqlite(self, monkeypatch):
+        _assert_adaptador_rechaza(SqliteDb(), monkeypatch)
+
+    def test_mysql(self, monkeypatch):
+        _assert_adaptador_rechaza(MysqlDb(), monkeypatch)
+
+    def test_mariadb(self, monkeypatch):
+        _assert_adaptador_rechaza(MariadbDb(), monkeypatch)
+
+    def test_postgresql(self, monkeypatch):
+        _assert_adaptador_rechaza(PostgresDb(), monkeypatch)
+
+    def test_mssql(self, monkeypatch):
+        _assert_adaptador_rechaza(MssqlDb(), monkeypatch)
+
+    def test_oracle(self, monkeypatch):
+        _assert_adaptador_rechaza(OracleDb(), monkeypatch)
