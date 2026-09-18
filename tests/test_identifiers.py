@@ -5,9 +5,15 @@ plan, comprueba a nivel de fuente que el allowlist tenga una única definición
 en todo el paquete `encino_orm/`.
 """
 
+from pathlib import Path
+
 import pytest
 
 from encino_orm.dialects import IDENTIFIER_RE, check_identifier
+
+# Raíz del paquete inspeccionada por el guard de fuente.
+RAIZ_PAQUETE = Path(__file__).resolve().parents[1] / "encino_orm"
+ALLOWLIST_LITERAL = "^[A-Za-z_][A-Za-z0-9_]*$"
 
 # Nombres que el allowlist estricto debe aceptar tal cual.
 ACEPTADOS = ["t", "_x", "a1", "T_1"]
@@ -60,3 +66,18 @@ def test_check_identifier_salto_final_sigue_aceptado():
 
 def test_identificador_re_es_allowlist_estricta():
     assert IDENTIFIER_RE.pattern == r"^[A-Za-z_][A-Za-z0-9_]*$"
+
+
+def test_allowlist_tiene_una_unica_definicion_en_la_fuente():
+    """Guard de fuente: exactamente un fichero contiene el allowlist estricto.
+
+    Reintroducir una copia local (Pitfall A) hace fallar este test, de modo que
+    no puede volver a haber seis definiciones divergentes.
+    """
+    portadores = [
+        fichero.relative_to(RAIZ_PAQUETE.parent).as_posix()
+        for fichero in sorted(RAIZ_PAQUETE.rglob("*.py"))
+        if "__pycache__" not in fichero.parts
+        and ALLOWLIST_LITERAL in fichero.read_text(encoding="utf-8")
+    ]
+    assert portadores == ["encino_orm/dialects/identifiers.py"]

@@ -5,6 +5,10 @@ from enum import IntEnum
 
 from .engine import Engine, engine_of
 
+# Allowlist DISTINTA de la de `dialects.identifiers`: aquí SÍ se acepta el punto
+# a propósito, para nombres cualificados (`tabla.columna`) en `db.fn.*`. No se
+# unifica con la estricta porque unificar sería un cambio de comportamiento y
+# relajarla reabriría la superficie de inyección (Pitfall 10).
 _COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 

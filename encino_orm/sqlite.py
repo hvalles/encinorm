@@ -4,13 +4,13 @@ import time
 import aiosqlite
 
 from .base import Db, logger
+from .dialects.identifiers import check_identifier
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
 from .query import Query
 
 _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MIGRATIONS_TABLE = "_encino_orm_migrations"
 
 
@@ -112,8 +112,7 @@ class SqliteDb(Db):
         )
 
     async def columns_of(self, table: str) -> list[ColumnSpec]:
-        if not _IDENTIFIER_RE.match(table):
-            raise ValueError(f"nombre de tabla inválido: {table!r}")
+        check_identifier(table, "nombre de tabla")
         rows = await self.fetch_all(Query(f"PRAGMA table_info({table})", []))
         return [
             ColumnSpec(

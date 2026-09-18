@@ -11,6 +11,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from encino_orm.base import Db
 from encino_orm.context import resolve_db
+from encino_orm.dialects.identifiers import check_identifier
 from encino_orm.engine import Engine, engine_of
 from encino_orm.query import Query
 
@@ -26,7 +27,6 @@ from .references import HasMany, Reference
 from .scope import current_scope
 
 _MISSING = object()
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _FIELD_ADAPTERS = weakref.WeakKeyDictionary()  # cls -> {field: TypeAdapter}
 _COLUMN_MAPS = weakref.WeakKeyDictionary()  # cls -> {field: columna}
 
@@ -220,8 +220,8 @@ class Model(BaseModel):
 
     @classmethod
     def _build_column_map(cls) -> dict:
-        if cls._table and not _IDENTIFIER_RE.match(cls._table):
-            raise ValueError(f"nombre de tabla inválido: {cls._table!r}")
+        if cls._table:
+            check_identifier(cls._table, "nombre de tabla")
         mapping = {}
         for name, info in cls.model_fields.items():
             if name.startswith("_"):
@@ -232,8 +232,7 @@ class Model(BaseModel):
             for meta in getattr(info, "metadata", None) or []:
                 col_name = getattr(meta, "name", None)
                 if col_name:
-                    if not _IDENTIFIER_RE.match(col_name):
-                        raise ValueError(f"nombre de columna inválido: {col_name!r}")
+                    check_identifier(col_name, "nombre de columna")
                     col = col_name
             mapping[name] = col
         return mapping
@@ -241,8 +240,7 @@ class Model(BaseModel):
     @classmethod
     def _col(cls, field: str) -> str:
         col = cls._column_map().get(field, field)
-        if not _IDENTIFIER_RE.match(col):
-            raise ValueError(f"nombre de columna inválido: {col!r}")
+        check_identifier(col, "nombre de columna")
         return col
 
     @classmethod
@@ -749,8 +747,8 @@ class Model(BaseModel):
     ) -> list:
         columns = columns or ["*"]
         for c in columns:
-            if c != "*" and not _IDENTIFIER_RE.match(c):
-                raise ValueError(f"columna inválida: {c!r}")
+            if c != "*":
+                check_identifier(c, "columna")
         cols_sql = ", ".join(columns)
         limit, page = normalize_limit_page(limit, page)
         filter = self._effective_filter(filter, include_deleted)
@@ -844,8 +842,7 @@ class Model(BaseModel):
                 else:
                     name, direction = s, "ASC"
             col = col_map.get(name, name)
-            if not _IDENTIFIER_RE.match(col):
-                raise ValueError(f"columna de orden inválida: {col!r}")
+            check_identifier(col, "columna de orden")
             direction = str(direction).upper()
             if direction not in ("ASC", "DESC"):
                 raise ValueError(f"dirección de orden inválida: {direction!r}")

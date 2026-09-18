@@ -1,16 +1,14 @@
 import asyncio
 import logging
 import random
-import re
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import ClassVar
 
+from .dialects.identifiers import check_identifier
 from .query import Query
 
 logger = logging.getLogger("encino_orm")
-
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class Db(ABC):
@@ -59,10 +57,8 @@ class Db(ABC):
 
     @staticmethod
     def _check_identifier(value: str, label: str) -> str:
-        """Valida que `value` sea un identificador SQL seguro (evita inyección en SAVEPOINT)."""
-        if not isinstance(value, str) or not _IDENTIFIER_RE.match(value):
-            raise ValueError(f"{label} inválido: {value!r}")
-        return value
+        """Delega en `dialects.identifiers.check_identifier`, el único punto de validación."""
+        return check_identifier(value, label)
 
     @staticmethod
     async def wait(waiter: int = -1):

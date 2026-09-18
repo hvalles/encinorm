@@ -6,21 +6,12 @@ formato que espera el motor destino, y opcionalmente crea el esquema destino.
 
 import contextlib
 import json
-import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
+from .dialects.identifiers import check_identifier
 from .engine import Engine, engine_of
 from .query import Query
-
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-
-def _check_identifier(value: str, label: str) -> str:
-    """Valida que `value` sea un identificador SQL seguro (evita inyección)."""
-    if not isinstance(value, str) or not _IDENTIFIER_RE.match(value):
-        raise ValueError(f"{label} inválido: {value!r}")
-    return value
 
 
 def _auto_pk_name(columns) -> str | None:
@@ -103,13 +94,13 @@ def build_ddl(table: str, columns, dialect: str) -> str:
     if dialect not in DDL_MAP:
         raise ValueError(f"motor no soportado: {dialect!r}")
 
-    table = _check_identifier(table, "tabla")
+    table = check_identifier(table, "tabla")
 
     auto_pk = _auto_pk_name(columns)
-    pk_names = [_check_identifier(c.name, "columna") for c in columns if c.primary_key]
+    pk_names = [check_identifier(c.name, "columna") for c in columns if c.primary_key]
     lines = []
     for col in columns:
-        name = _check_identifier(col.name, "columna")
+        name = check_identifier(col.name, "columna")
         if col.name == auto_pk:
             lines.append(f"  {name} {DDL_MAP[dialect]['pk']}")
         else:
@@ -141,7 +132,7 @@ async def copy_table(
     """Copia una tabla completa del origen al destino. Devuelve filas copiadas."""
     from .introspection import columns_of
 
-    table = _check_identifier(table, "tabla")
+    table = check_identifier(table, "tabla")
     columns = await columns_of(src, table)
     if not columns:
         raise ValueError(f"tabla {table!r} inexistente o sin columnas")

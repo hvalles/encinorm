@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     from .records import Records
 
 _PLACEHOLDER = re.compile(r"\{(\d+)\}")
+# Allowlist DISTINTA de la de `dialects.identifiers`: aquí SÍ se acepta el punto
+# a propósito, para expresiones calificadas por alias (`mm.agente`). No se
+# unifica con la estricta porque unificar sería un cambio de comportamiento y
+# relajarla reabriría la superficie de inyección (Pitfall 10).
 _COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 

@@ -1,11 +1,11 @@
 """Traducción de tipos lógicos a DDL por motor de base de datos."""
 
-import re
 import types as _types
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Union, get_args, get_origin
 
+from ..dialects.identifiers import check_identifier
 from ..engine import Engine
 
 
@@ -198,9 +198,6 @@ def to_ddl(model_class, engine: str = "sqlite") -> str:
     return f"CREATE TABLE {model_class._table} (\n{body}\n)"
 
 
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-
 def indexes_ddl(model_class, engine: str = "sqlite") -> list[tuple[str, str]]:
     """Genera las sentencias ``CREATE [UNIQUE] INDEX`` de un modelo.
 
@@ -226,8 +223,7 @@ def indexes_ddl(model_class, engine: str = "sqlite") -> list[tuple[str, str]]:
                 rendered.append(col_map.get(spec, spec))
         name = idx.name or f"idx_{model_class._table}_{'_'.join(rendered)}"
         name = name.replace(" ", "_")
-        if not _IDENTIFIER_RE.match(name):
-            raise ValueError(f"nombre de índice inválido: {name!r}")
+        check_identifier(name, "nombre de índice")
         unique = "UNIQUE " if idx.unique else ""
         sql = (
             f"CREATE {unique}INDEX {if_not_exists}{name} "
