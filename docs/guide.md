@@ -524,7 +524,26 @@ obsoleta acotada por el TTL. El mecanismo (sobrescrituras de
 cacheada bajo un tenant **no se sirve a otro**, ni en lectura ni como habilitador
 de una escritura cruzada. Sin `scope()` la clave no cambia respecto al formato
 anterior. El aislamiento depende de que la aplicación envuelva el acceso en
-`scope(...)`: una lectura sin scope comparte la entrada entre tenants.
+`scope(...)`: una lectura sin scope comparte la entrada entre tenants. La huella
+es tan estable como el filtro de scope: usa filtros **deterministas**, porque un
+`Filter.in_` construido con un `set` puede variar el orden entre procesos y
+producir claves distintas para el mismo alcance.
+
+**Escrituras bajo el mismo `scope()` que las lecturas (residual).** La
+invalidación se namespacea con el `scope()` del **escritor**. Una escritura
+legítima de la misma fila que corre **sin** `scope()` (o con otro distinto), por
+ejemplo una ruta administrativa de mantenimiento, borra solo la entrada sin scope
+y deja las entradas con scope **obsoletas hasta el TTL**. Para coherencia, haz que
+escritor y lector corran bajo el mismo `scope(...)`; si una ruta de mantenimiento
+no puede hacerlo, deshabilita `CachedModel` en esa ruta o invalida sus entradas
+fuera de banda.
+
+**Residual de `upsert`.** `upsert` **no** acota por `scope()`: sus claves de
+conflicto son **globales** (p. ej. una `UNIQUE` sobre `rfc`). En un esquema
+multi-tenant, la unicidad debe expresarse como `(tenant, clave)` para que dos
+tenants no colisionen en la misma fila; mientras tanto, un `upsert` bajo `scope()`
+sigue resolviendo el conflicto por la clave global. Es un límite conocido, no un
+aislamiento garantizado.
 
 **TOCTOU sonda/escritura (residual).** La PK se resuelve antes y después de la
 escritura y se invalida la unión de ambas sondas, lo que acota la ventana entre la
@@ -595,9 +614,18 @@ with scope(Filter.eq("tenant_id", 7)):
     await Membership(db, id=123).delete()     # no-op (False) si está fuera de scope
 ```
 
+- En `update` y `delete`, el `scope` se aplica al **`WHERE` del propio DML**
+  (parámetros ligados), no solo a una comprobación previa. Así una escritura
+  identificada por una clave de escritura **no-PK** y no única (p. ej.
+  `update(keys=["grupo"])` o `delete(keys=["grupo"])`) tampoco cruza tenants: el
+  `UPDATE`/`DELETE` solo alcanza las filas visibles bajo el `scope` activo. Sin
+  `scope()` el DML es idéntico al de siempre.
+- Residual: `upsert` no se acota por `scope()`; sus claves de conflicto son
+  globales. En multi-tenant, define la unicidad como `(tenant, clave)` (ver §10).
+
 > Nota: `load` devuelve también filas soft-deleteadas **dentro** del tenant
-> (auditoría); `update`/`delete` verifican el `scope` antes de escribir para
-> evitar fugas entre tenants.
+> (auditoría); `update`/`delete` acotan el `scope` tanto en la comprobación previa
+> como en el `WHERE` del DML para evitar fugas entre tenants.
 
 ## 13. Observabilidad
 

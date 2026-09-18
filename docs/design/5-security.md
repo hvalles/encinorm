@@ -225,9 +225,38 @@ dos transacciones mueven la misma clave no-PK a la vez, una entrada puede quedar
 obsoleta hasta el TTL. El aislamiento por tenant depende de que la aplicación use
 `scope(...)`; una lectura sin scope usa la clave compartida.
 
+**Escritor y lector bajo el mismo `scope()` (residual).** La invalidación se
+namespacea con el `scope()` del **escritor**: una escritura legítima de la misma
+fila que corre sin `scope()` (o con otro distinto), p. ej. una ruta de
+mantenimiento, borra solo la entrada sin scope y deja las entradas con scope
+**obsoletas hasta el TTL**. Escritor y lector deben correr bajo el mismo
+`scope(...)`; si una ruta administrativa no puede, deshabilita `CachedModel` en
+esa ruta o invalida sus entradas fuera de banda.
+
+**Filtros de scope deterministas.** La huella de scope (`Filter.digest()`) es
+estable solo si el filtro lo es: un `Filter.in_` construido con un `set` puede
+variar el orden entre procesos (`PYTHONHASHSEED`) y producir claves distintas para
+el mismo alcance. Usa filtros deterministas.
+
+**Residual de `upsert`.** `upsert` no acota por `scope()`: sus claves de conflicto
+son **globales** (p. ej. una `UNIQUE` sobre `rfc`). En multi-tenant la unicidad
+debe expresarse como `(tenant, clave)`; mientras tanto, el conflicto se resuelve
+por la clave global. Es un límite conocido, no un aislamiento garantizado.
+
 No se usa el hook de post-commit de `_transactional` porque no se dispara para
 `upsert` ni para `insert_many` (tienen su propia transacción) y no recibe ni la
 acción ni la clave. En apps pequeñas se omite.
+
+### 5.5. Alcance por fila (`scope()`) en el DML
+
+`Model.update`/`delete` aplican el `scope()` activo al `WHERE` del `UPDATE`/
+`DELETE` (parámetros ligados), no solo a una comprobación previa con `load()`.
+Una escritura identificada por una clave **no-PK** y no única
+(`update(keys=["grupo"])`, `delete(keys=["grupo"])`) no modifica ni borra filas
+de otro tenant: el DML solo alcanza las filas visibles bajo el scope. Sin
+`scope()` el DML es idéntico al de siempre. La composición es de la capa `Model`
+(sobre el `Query` del builder); los builders de dialecto y los adaptadores no
+cambian.
 
 ---
 
