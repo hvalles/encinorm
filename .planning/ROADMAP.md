@@ -201,10 +201,20 @@ Plans:
 
 Plans:
 
-- [ ] 03-01: Fix the `rollback_migration` ledger (delete `{name}`, not only insert `{name}:down`) so re-apply works — DATA-01
-- [ ] 03-02: Per-dialect `transactional_ddl: bool` (True: PostgreSQL/SQLite/SQL Server; False: MySQL/MariaDB/Oracle) with record-intent-first + reconcile-on-startup for the False branch — DATA-02
-- [ ] 03-03: `CachedModel` write-invalidation, overriding both `update` and `delete` — DATA-03
-- [ ] 03-04: Bound `MemoryCacheBackend` (max entries / eviction) or document it as dev/test-only with an explicit contract — DATA-04
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Ledger con columna `status` en los seis motores (+ `ALTER` idempotente para instalaciones legacy) y `rollback_migration` corregido: marca `rolling_back`, ejecuta el `down` y **borra** `{name}` (nunca inserta `{name}:down`), con `MIGRATIONS_TABLE` como fuente única — DATA-01, DATA-02
+- [ ] 03-03-PLAN.md — `CachedModel` invalida la clave afectada tras `update`/`delete`/`upsert` (overrides post-commit, fail-open) y `insert_many(cache=...)` invalida opcionalmente — DATA-03
+
+**Wave 2** *(blocked on `03-01`: mismos ficheros `migration.py` y los seis adaptadores)*
+
+- [ ] 03-02-PLAN.md — `TRANSACTIONAL_DDL` por dialecto + `Db`/`PoolDb.transactional_ddl`, `migrate()` de dos fases (`pending` → DDL → `applied`) con `reconcile_migrations()` y `resolve_migration()` (D-08/D-17), y los seis `migrate()` rewired — DATA-02
+
+**Wave 3** *(blocked on `03-01`, `03-02` y `03-03`: el CHANGELOG y la guía documentan sus cambios)*
+
+- [ ] 03-04-PLAN.md — `MemoryCacheBackend` acotado con LRU (`max_size=1024`), contrato dev/test-only documentado, y `CHANGELOG.md` con los cambios incompatibles de la fase — DATA-04
+
+**Waves:** 1 → `03-01`, `03-03` (disjuntos: migraciones vs caché); 2 → `03-02` (comparte `migration.py` y los seis adaptadores con `03-01`); 3 → `03-04` (código LRU independiente, pero su tarea de documentación describe los cambios de los otros tres). Los cuatro planes son autónomos.
 
 ### Phase 4: Pool Correctness & Concurrency
 
