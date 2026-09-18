@@ -105,6 +105,34 @@ class TestIndexesDdl:
         with pytest.raises(ValueError):
             indexes_ddl(C, "sqlite")
 
+    def test_columna_de_indice_no_mapeada_no_identificadora_lanza(self):
+        """WR-06: el fallback crudo de `indexes_ddl` es fail-closed.
+
+        El nombre del índice es explícito y válido para que el único fallo
+        posible sea el de la COLUMNA.
+        """
+
+        class C(Model):
+            _table = "t"
+            a: str | None = None
+            _indexes: ClassVar[list] = [Index("a; DROP TABLE x --", name="idx_ok")]
+
+        with pytest.raises(ValueError) as exc:
+            indexes_ddl(C, "sqlite")
+        assert "columna de índice" in str(exc.value)
+
+    def test_columna_de_indice_no_mapeada_pero_identificadora_se_acepta(self):
+        """Un identificador simple no mapeado sigue aceptándose: solo se cierra
+        el fallback que interpolaba CUALQUIER string."""
+
+        class C(Model):
+            _table = "t"
+            a: str | None = None
+            _indexes: ClassVar[list] = [Index("no_existe", name="idx_ok2")]
+
+        result = indexes_ddl(C, "sqlite")
+        assert "ON t (no_existe)" in result[0][1]
+
 
 class TestAddIndex:
     def test_add_index_registers(self):
