@@ -35,16 +35,17 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - ✓ `list_tables(name=)` funcional en los seis motores (tabla derivada + valor ligado) — Validated in Phase 2
 - ✓ `MAX_PARAMS`/`MAX_ROWS` por dialecto con procedencia documentada; `insert_many` deriva su `chunk` — Validated in Phase 2
 - ✓ Snapshots de SQL por dialecto (syrupy) en el job SQLite sin BD; CI con MariaDB + Redis requeridos y job `engine-heavy` para MSSQL/Oracle — Validated in Phase 2 (run live de `engine-heavy` pendiente de CI)
+- ✓ Migraciones: ledger con `status` en los seis motores, `rollback_migration` corregido (re-aplicar tras el rollback funciona) y `migrate()` de dos fases (`pending` → DDL → `applied`) con `reconcile_migrations`/`resolve_migration` y `TRANSACTIONAL_DDL` por dialecto; compensación por identidad de fila — Validated in Phase 3
+- ✓ `CachedModel`: dominio de caché canónico por PK, invalidación de TODAS las filas afectadas (clave de escritura no-PK), clave namespaced por `scope()`, sonda con el valor serializado y fail-open; sin lecturas obsoletas tras una escritura — Validated in Phase 3
+- ✓ `MemoryCacheBackend` acotado con LRU (`max_size=1024`) y documentado como dev/test-only — Validated in Phase 3
+- ✓ SEC-01: `Model.update`/`delete` aplican el `scope()` activo al DML (`WHERE` ligado); una escritura con clave no-PK no cruza tenants — Validated in Phase 3
 
 ### Active
 
 <!-- Alcance actual: hardening hacia 0.3.0. Son hipótesis hasta que se implementen y verifiquen. -->
 
 **Corrección de bugs conocidos**
-- [ ] `CachedModel` invalida la caché en `update()` y `delete()`; no hay lecturas obsoletas
-- [ ] `rollback_migration` + `apply_migration` permite re-aplicar una migración correctamente
-- [ ] `migrate()` es atómico o reconcilia el estado tras fallo parcial
-- [ ] Cada corrección incluye un test de regresión que falla antes y pasa después
+- [ ] `upsert` con claves de conflicto globales no se acota por `scope()` (residual documentado; mitigación: unicidad multi-tenant `(tenant, clave)`)
 
 **Seguridad**
 - [ ] La configuración de JWT/secretos deja de depender de globales mutables; se prefiere inyección explícita por dependencia
@@ -138,4 +139,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-18 after Phase 2 completion*
+*Last updated: 2026-09-18 after Phase 3 completion*

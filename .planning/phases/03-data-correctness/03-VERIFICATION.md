@@ -1,4 +1,9 @@
 ---
+superseded_by: 03-VERIFICATION-FINAL2.md
+superseded_at: 2026-09-18T23:30:00Z
+superseded_reason: >
+  Round-2 verification (pre-03-06..03-13). Its gaps were closed by gap-closure rounds 2-4 and
+  independently re-verified in 03-VERIFICATION-FINAL2.md. Retained for history only.
 phase: 03-data-correctness
 verified: 2026-09-18T18:05:00Z
 status: gaps_found

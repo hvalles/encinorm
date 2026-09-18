@@ -1,4 +1,10 @@
 ---
+superseded_by: 03-VERIFICATION-FINAL2.md
+superseded_at: 2026-09-18T23:30:00Z
+superseded_reason: >
+  Round-2 final verification (after 03-06/03-07). Its BLOCKER (CR-01) and residuals were closed by
+  gap-closure rounds 3-4 plus the post-review CR-R4-01 fix (ec47f3a), and independently re-verified
+  in 03-VERIFICATION-FINAL2.md. Retained for history only.
 phase: 03-data-correctness
 verified: 2026-09-18T18:27:00Z
 status: gaps_found
