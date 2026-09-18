@@ -33,8 +33,8 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 ### Data Correctness
 
-- [ ] **DATA-01**: El ledger de `rollback_migration` está corregido: re-aplicar una migración tras el rollback funciona
-- [ ] **DATA-02**: `migrate()` es atómico o registra la intención primero y reconcilia al arrancar (`transactional_ddl` por dialecto)
+- [x] **DATA-01**: El ledger de `rollback_migration` está corregido: re-aplicar una migración tras el rollback funciona
+- [x] **DATA-02**: `migrate()` es atómico o registra la intención primero y reconcilia al arrancar (`transactional_ddl` por dialecto)
 - [ ] **DATA-03**: `CachedModel` invalida la caché en `update` **y** `delete` (store-then-invalidate), sin lecturas obsoletas
 - [ ] **DATA-04**: `MemoryCacheBackend` está acotado o documentado explícitamente como solo dev/test
 
@@ -148,8 +148,8 @@ Qué fase cubre cada requisito.
 | DIAL-07 | Phase 2 | Complete |
 | DIAL-08 | Phase 2 | Complete |
 | DIAL-09 | Phase 2 | Complete |
-| DATA-01 | Phase 3 | Pending |
-| DATA-02 | Phase 3 | Pending |
+| DATA-01 | Phase 3 | Complete |
+| DATA-02 | Phase 3 | Complete |
 | DATA-03 | Phase 3 | Pending |
 | DATA-04 | Phase 3 | Pending |
 | POOL-01 | Phase 4 | Pending |

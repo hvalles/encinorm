@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-09-18T16:55:09.974Z"
-last_activity: 2026-09-18 -- Phase 03 planning complete
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-09-18T17:27:44.596Z"
+last_activity: 2026-09-18 -- Completed 03-01-PLAN.md
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 22
   completed_plans: 17
-  percent: 25
+  percent: 77
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 3
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 03 planning complete
+Plan: 1 of 5
+Status: In progress
+Last activity: 2026-09-18 -- Completed 03-01-PLAN.md
 
-Progress: [██████████] 100%
+Progress: [████████░░] 77%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [██████████] 100%
 | Phase 02 P10 | 4 min | 2 tasks | 2 files |
 | Phase 02 P11 | 4 min | 2 tasks | 6 files |
 | Phase 02 P12 | 2 min | 2 tasks | 4 files |
+| Phase 03 P01 | 7 min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -133,6 +134,11 @@ Recent decisions affecting current work:
 - [Phase 02]: 02-12: extiende la seccion [Unreleased] ### Corregido EXISTENTE (sin encabezado duplicado) con el contrato de cardinalidad de Query y los cambios de CR-01/CR-02/CR-03; la enumeracion completa de breaking changes del milestone sigue siendo de la Fase 8 (08-04)
 - [Phase 02]: 02-12: el fallback columns[0] del MERGE (familia ORA-38104) se documenta como NO corregido y con dueno; el render merge se documenta como fail-closed, no como mejora semantica del upsert (un upsert por PK autoincremental es inexpresable en MSSQL/Oracle por construccion)
 - [Phase 02]: 02-12: ORA-38104 y la captura real de last_id quedan con dueno explicito Fase 4 / plan 04-02 / POOL-03, registrado en los TRES artefactos (deferred-items.md, ROADMAP.md, REQUIREMENTS.md); se elimina la afirmacion falsa de que no quedaba ningun item sin dueno
+- [Phase 03]: 03-01: MIGRATIONS_TABLE es la fuente unica del nombre del ledger; los 6 adaptadores importan desde migration.py (adaptador->migration, sin ciclos). — Evita duplicar la constante en 6 ficheros y el ciclo de importacion.
+- [Phase 03]: 03-01: rollback_migration borra la fila {name} y NUNCA registra una fila con sufijo de reversion; la fila pasa a rolling_back durante el down (D-06/D-07). — Re-aplicar tras el rollback vuelve a ejecutar el up; el ledger deja de mentir.
+- [Phase 03]: 03-01: columna status en los 6 motores con DEFAULT 'applied' y ALTER TABLE idempotente verify-then-swallow (re-lee el catalogo; no matchea codigos de error del driver). — ADD COLUMN IF NOT EXISTS no es portable; el catalogo es la fuente de verdad.
+- [Phase 03]: 03-01: S608 per-file-ignore para migration.py y tests/test_migrations.py (nombre de tabla validado con check_identifier; name/status ligados como parametros). — Mantiene noqa=0 y el patron ya usado por los 6 adaptadores.
+- [Phase 03]: 03-01: se corrigio un I001 preexistente en tests/test_ci_harness.py (reproducido en un git-archive limpio de HEAD) que bloqueaba el gate de lint en una corrida sin cache. — El gate ruff check encino_orm tests debe salir 0; reordenamiento mecanico sin cambio de comportamiento.
 
 ### Pending Todos
 
@@ -157,6 +163,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T16:11:50.235Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-data-correctness/03-CONTEXT.md
+Last session: 2026-09-18T17:27:44.585Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
