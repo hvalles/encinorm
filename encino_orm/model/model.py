@@ -112,6 +112,25 @@ def _shift_placeholders(sql: str, offset: int) -> str:
     return _PLACEHOLDER_RE.sub(lambda m: "{" + str(int(m.group(1)) + offset) + "}", sql)
 
 
+def _scoped_dml(qry: Query, scope_filter, column_map) -> Query:
+    """Añade el `scope()` activo al WHERE de un DML ligado (CR-R3-01).
+
+    `scope()` es un filtro de VISIBILIDAD también en escritura: sin este
+    predicado, una clave de escritura no-PK (no única) modificaría/borraría
+    filas de otro tenant. El fragmento se mapea a columnas físicas y sus
+    placeholders se reindexan para no colisionar con los del builder; los
+    valores viajan SIEMPRE ligados (nunca se interpolan).
+    """
+    frag, sparams = scope_filter.map_fields(column_map).to_sql()
+    frag = _shift_placeholders(frag, len(qry.fields))
+    template = f"{qry.sql_template} AND ({frag})"
+    return Query(
+        template,
+        list(qry.fields) + list(sparams),
+        ignore_duplicated=qry.ignore_duplicated,
+    )
+
+
 def _has_many_cache_key(key_vals, extra, limit=None, page=1, sort_by=None, include_deleted=False):
     """Clave de caché para una colección `has_many`.
 
@@ -723,6 +742,11 @@ class Model(BaseModel):
 
         async def do_update():
             qry = self._get_db().update(self._table, key_dict, values)
+            # El scope se lee dentro del closure: `_transactional` puede
+            # reintentar y el scope es ambient (CR-R3-01).
+            s = current_scope()
+            if s is not None:
+                qry = _scoped_dml(qry, s, self._column_map())
             count = await self._get_db().execute(qry)
             if count == 0:
                 raise FailOnUpdate(f"update en '{self._table}' no afectó ningún registro")
@@ -746,10 +770,17 @@ class Model(BaseModel):
             key_dict[self._col(k)] = _serialize(val)
 
         async def do_delete():
+            # El scope se lee dentro del closure: `_transactional` puede
+            # reintentar y el scope es ambient (CR-R3-01).
+            s = current_scope()
             if physical:
                 qry = self._get_db().delete(self._table, key_dict)
+                if s is not None:
+                    qry = _scoped_dml(qry, s, self._column_map())
             else:
                 qry = self._get_db().update(self._table, key_dict, {self._col("enabled"): False})
+                if s is not None:
+                    qry = _scoped_dml(qry, s, self._column_map())
             await self._get_db().execute(qry)
 
         await self._transactional("delete", do_delete)
