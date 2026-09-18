@@ -5,9 +5,13 @@ los `{n}` reales (dispersos y duplicados) con validación de cardinalidad, la
 igualdad/hash y la compatibilidad de lectura `query`/`fields`/`sql_template`.
 """
 
+import pathlib
+
 import pytest
 
 from encino_orm import Query
+
+_ENCINO_ROOT = pathlib.Path(__file__).resolve().parents[1] / "encino_orm"
 
 
 class TestImmutability:
@@ -61,6 +65,18 @@ class TestRebindRemoved:
     def test_rebind_and_format_are_gone(self):
         assert not hasattr(Query, "rebind")
         assert not hasattr(Query, "format")
+
+
+class TestNoRebindInSource:
+    def test_no_def_rebind_anywhere_in_encino_orm(self):
+        # Guard anti-podredumbre: el literal exacto `def rebind(` no puede
+        # reaparecer. `Filter._rebind_raw` (def _rebind_raw) NO coincide.
+        offenders = []
+        for path in sorted(_ENCINO_ROOT.rglob("*.py")):
+            rel = str(path.relative_to(_ENCINO_ROOT)).replace("\\", "/")
+            if "def rebind(" in path.read_text(encoding="utf-8"):
+                offenders.append(rel)
+        assert offenders == []
 
 
 class TestCompilation:

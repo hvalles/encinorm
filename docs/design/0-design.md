@@ -19,7 +19,7 @@ Librería asíncrona de interfaz unificada para múltiples motores de base de da
 | 5 | Sistema de migraciones DDL versionado y reproducible, con registro en BD. |
 | 6 | Pool de conexiones integrado para entornos web (FastAPI, aiohttp). |
 | 7 | Paginación de consultas mediante `fetch_many`. |
-| 8 | Query reutilizable: permite cambiar valores (`rebind`) manteniendo la plantilla SQL. |
+| 8 | Query inmutable y hashable, reutilizable con nuevos valores (`with_params`) manteniendo la plantilla SQL. |
 
 
 ### Audiencia
@@ -32,62 +32,79 @@ Desarrolladores Python que usan `asyncio` y requieren cambiar de motor de BD sin
 
 ### 2.1. `Query`
 
-Encapsula una sentencia SQL y sus parámetros, aplicando formateo seguro contra inyección. Las queries pueden reutilizarse con nuevos valores mediante el método `rebind`.
+Encapsula una sentencia SQL y sus parámetros, aplicando formateo seguro contra inyección. Es un value object **inmutable a nivel de atributo** y hashable: los valores se sustituyen con `with_params()`, que devuelve una **copia** nueva y deja intacto el original.
+
+**Contrato de entrada.** `Query(sql_con_{n}, [valores])`. Los índices pueden aparecer dispersos o repetidos en el texto (`{1}` antes de `{0}`, o `{0}` dos veces), pero el conjunto de índices detectados debe ser exactamente `range(len(values))`: ningún índice fuera de rango y ningún parámetro declarado sin usar. La violación lanza `ValueError` en la construcción. Los valores SIEMPRE viajan como parámetros ligados; la plantilla nunca se interpola con valores.
 
 ```python
+_PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
+
+
 class Query:
-    def __init__(self, sql: str, fields: list):
-        self.sql_template: str = sql       # SQL original con placeholders {0}...{n}
-        self.query: list[str, dict]        # [sql_formateado, diccionario_params]
-        self.fields: list                  # valores originales
-        self._param_name: str = 'parameter_000'
+    __slots__ = ("_fields", "_ignore_duplicated", "_params", "_sql", "_sql_template")
 
-        if sql.find('{0}') != -1:
-            self.query = self.format(sql, fields, self._param_name)
-        else:
-            # raw SQL sin placeholders
-            self.query = [sql, {}]
+    def __init__(self, sql: str, fields: list | None = None, *,
+                 ignore_duplicated: bool = False):
+        values = list(fields or [])
+        indices = {int(m) for m in _PLACEHOLDER_RE.findall(sql)}
+        if indices and indices != set(range(len(values))):
+            raise ValueError(
+                f"placeholders {sorted(indices)} no cuadran con {len(values)} parámetros"
+            )
+        params = {f"parameter_000{i}": v for i, v in enumerate(values)}
+        compiled = _PLACEHOLDER_RE.sub(lambda m: f"%(parameter_000{m.group(1)})s", sql)
+        object.__setattr__(self, "_sql_template", sql)
+        object.__setattr__(self, "_fields", values)
+        object.__setattr__(self, "_ignore_duplicated", bool(ignore_duplicated))
+        object.__setattr__(self, "_sql", compiled)
+        object.__setattr__(self, "_params", params)
 
-    def format(self, sql, columns: list = [], name='parameter_000') -> list:
-        """Reemplaza {0}...{n} por %(name0)s...%(namen)s y construye el dict de parámetros."""
-        if not columns:
-            return [sql, {}]
+    @property
+    def sql(self) -> str: ...             # SQL compilado con %(parameter_0000)s
+    @property
+    def params(self) -> dict: ...         # {"parameter_0000": valor, ...}
+    @property
+    def sql_template(self) -> str: ...    # plantilla original con {0}...{n}
+    @property
+    def fields(self) -> list: ...         # valores de entrada
+    @property
+    def ignore_duplicated(self) -> bool: ...
+    @property
+    def query(self) -> list: ...          # compatibilidad de lectura: [sql, params]
 
-        cols = {}
-        for i, val in enumerate(columns):
-            cols[f"{name}{i}"] = val
-
-        formatted_sql = sql
-        for i, key in enumerate(cols):
-            formatted_sql = formatted_sql.replace(f"{{{i}}}", f"%({key})s")
-
-        return [formatted_sql, cols]
-
-    def rebind(self, fields: list):
-        """Reconstruye el query con nuevos valores, manteniendo la plantilla SQL original.
-        Permite reutilizar la misma query para múltiples ejecuciones con distintos datos."""
-        self.fields = fields
-        self.query = self.format(self.sql_template, fields, self._param_name)
-        return self
+    def with_params(self, fields: list) -> "Query":
+        """Copia con nuevos valores; revalida la cardinalidad."""
+        return Query(self.sql_template, fields,
+                     ignore_duplicated=self.ignore_duplicated)
 ```
+
+Los slots van con guion bajo y la superficie legible se expone con **properties sin setter**: un `__slots__` plano es un descriptor escribible (asignar `q.fields = []` tendría éxito), y declarar a la vez el slot `"fields"` y la property `fields` lanza `ValueError` al crear la clase. La inmutabilidad es de **atributo, no profunda**: `q.fields` es una lista mutable y `q.params` expone el dict interno por referencia, así que `q.fields.append(v)` no lanza; es un uso NO soportado que además invalida el hash (que se calcula del estado vivo). Otra limitación conocida: un `{n}` dentro de un literal de cadena se interpreta como placeholder; esta versión no parsea literales SQL.
 
 **Ejemplos:**
 
 ```python
 # Con placeholders
 q = Query("insert into grupos (grupo, enabled) values ({0},{1})", ["Grupo A", 1])
-# q.query -> ["insert into grupos (grupo, enabled) values (%(parameter_0000)s,%(parameter_0001)s)",
-#             {"parameter_0000": "Grupo A", "parameter_0001": 1}]
+# q.sql    -> "insert into grupos (grupo, enabled) values (%(parameter_0000)s,%(parameter_0001)s)"
+# q.params -> {"parameter_0000": "Grupo A", "parameter_0001": 1}
+
+# Índices dispersos y duplicados
+q = Query("a={1} AND b={0} OR c={0}", [10, 20])
+# q.sql -> "a=%(parameter_0001)s AND b=%(parameter_0000)s OR c=%(parameter_0000)s"
 
 # Raw SQL (sin placeholders, fields vacío)
 q = Query("SELECT * FROM usuarios", [])
-# q.query -> ["SELECT * FROM usuarios", {}]
+# q.sql    -> "SELECT * FROM usuarios"
+# q.params -> {}
 
-# Reutilizar query con nuevos valores
-q.rebind(["Grupo B", 0])
-# q.query -> ["insert into grupos (grupo, enabled) values (%(parameter_0000)s,%(parameter_0001)s)",
-#             {"parameter_0000": "Grupo B", "parameter_0001": 0}]
+# Reutilizar la plantilla con nuevos valores: devuelve una COPIA
+q2 = q.with_params(["Grupo B", 0])
+# q2.sql -> "insert into grupos (grupo, enabled) values (%(parameter_0000)s,%(parameter_0001)s)"
+# q2.params -> {"parameter_0000": "Grupo B", "parameter_0001": 0}
+# q sigue intacta
 ```
+
+> **Migración:** `rebind` se eliminó en 0.3.0 (ruptura limpia, sin shims). Su sustituto es `with_params()`, que **devuelve una copia** en vez de mutar el objeto en sitio. La igualdad y el hash se calculan sobre `(plantilla_sql, valores)`; el flag `ignore_duplicated` queda excluido a propósito.
 
 > **Seguridad:** Todo SQL debe pasar por `Query`. No se aceptan strings SQL crudos fuera de `Query` en ningún método de ejecución.
 
@@ -292,8 +309,8 @@ async def fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
     offset = (page - 1) * limit.
     page es 1-indexado."""
     offset = (page - 1) * limit
-    paginated_sql = self._apply_limit_offset(qry.query[0], limit, offset)
-    return await self.fetch_all(Query(paginated_sql, list(qry.query[1].values())))
+    paginated_sql = self._apply_limit_offset(qry.sql, limit, offset)
+    return await self.fetch_all(Query(paginated_sql, list(qry.params.values())))
 ```
 
 **Ejemplo:**
@@ -391,11 +408,11 @@ async def ejemplo_basico():
     q2 = db.insert("usuarios", {"nombre": "Héctor", "activo": 1}, ignore_duplicated=True)
     await db.execute(q2)
 
-    # Insert masivo con Query reutilizable
-    q_tpl = Query("insert into usuarios (nombre, activo) values ({0},{1})", [])
-    for nombre in ["Ana", "Luis", "María"]:
-        q_tpl.rebind([nombre, 1])
-        await db.execute(q_tpl)
+    # Insert masivo con Query reutilizable (with_params devuelve una copia)
+    q_tpl = Query("insert into usuarios (nombre, activo) values ({0},{1})", ["Ana", 1])
+    await db.execute(q_tpl)
+    for nombre in ["Luis", "María"]:
+        await db.execute(q_tpl.with_params([nombre, 1]))
 
     # Paginación
     pagina1 = await db.fetch_many(Query("SELECT * FROM usuarios ORDER BY id", []), limit=2, page=1)
