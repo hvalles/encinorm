@@ -40,74 +40,133 @@ class CachedModel(Model):
         except Exception as exc:
             logger.warning("no se pudo invalidar la caché de %s: %r", cls._table, exc)
 
-    async def _invalidate(self, keys=None) -> None:
-        """Invalida las claves afectadas; fail-open si el backend falla (D-12).
+    async def _resolve_pk_values(self, keys) -> dict | None:
+        """Aprende los valores de la PK REAL de la fila afectada por la escritura.
 
-        Se invalidan DOS dominios de clave: el de las claves de la escritura y el
-        de la PK del modelo. `load(keys=...)` es público y cachea bajo claves
-        arbitrarias (por defecto la PK), así que un write por una clave NO puede
-        asumir que el dominio de lectura coincide: si difieren, la entrada de la
-        PK quedaría obsoleta y un `load()` posterior devolvería el valor viejo
-        (CR-01).
+        El dominio de caché es canónico (SOLO la PK), así que una escritura por
+        claves no-PK (`update(keys=["rfc"])`, `upsert(conflict=["rfc"])`) necesita
+        la PK real de la fila para poder invalidar su única entrada. Si la clave
+        de escritura ES la PK se lee de la propia instancia; si no, se resuelve
+        con un `SELECT` ligado y con `scope` (CR-01).
+
+        Devuelve `None` si no hay caché que invalidar, si la fila no se puede
+        identificar (alguna clave es `None`) o si el backend falla: la resolución
+        jamás bloquea una escritura ya commiteada (D-12 fail-open, WR-02).
         """
-        cache = self._cache
-        if cache is None:
-            return
+        if self._cache is None:
+            return None
         pk_keys = list(type(self)._pk_fields())
-        write_keys = self._normalize_keys(keys, tuple(pk_keys))
-        dominios = [write_keys]
-        if write_keys != pk_keys:
-            dominios.append(pk_keys)
-        for dominio in dominios:
-            await type(self)._delete_cached(cache, self._cache_key(dominio))
+        try:
+            write_keys = self._normalize_keys(keys, tuple(pk_keys))
+            if write_keys == pk_keys:
+                values = {k: getattr(self, k) for k in pk_keys}
+                if any(v is None for v in values.values()):
+                    return None
+                return values
+            # La escritura identifica la fila por claves no-PK (p. ej. `rfc`): se
+            # reutiliza `Model.load` para heredar los parámetros LIGADOS y el
+            # `current_scope()` activo; no se escribe SQL nuevo ni se interpola.
+            if any(getattr(self, k) is None for k in write_keys):
+                return None
+            probe = await super().load(keys=write_keys)
+            if not getattr(probe, "__exists"):
+                return None
+            values = {k: getattr(probe, k) for k in pk_keys}
+            if any(v is None for v in values.values()):
+                return None
+            return values
+        except Exception as exc:
+            logger.warning(
+                "no se pudo resolver la PK de %s para invalidar la caché: %r",
+                self._table,
+                exc,
+            )
+            return None
+
+    async def _invalidate_pk(self, pk_values) -> None:
+        """Borra la única entrada posible de la fila; fail-open (D-12).
+
+        La clave se deriva del MISMO dominio que `load()` escribe (la PK), así
+        que una escritura por cualquier clave elimina la entrada cacheada de la
+        fila afectada. La derivación va DENTRO del `try` (WR-02).
+        """
+        if self._cache is None or pk_values is None:
+            return
+        if any(v is None for v in pk_values.values()):
+            return
+        try:
+            key = type(self)._cache_key_for(list(type(self)._pk_fields()), pk_values)
+            await self._cache.delete(key)
+        except Exception as exc:
+            logger.warning("no se pudo invalidar la caché de %s: %r", self._table, exc)
 
     async def load(self, keys=None, duration: int = 300) -> "CachedModel":
-        keys = self._normalize_keys(keys, type(self)._pk_fields())
+        """Carga la fila cacheando SIEMPRE bajo la PK (dominio canónico).
+
+        Una lectura por otra clave (`load(keys=["rfc"])`) consulta la BD, aprende
+        la PK de la fila devuelta y recachea bajo ella: no acierta en caché y no
+        deja entradas bajo claves arbitrarias, de modo que toda escritura puede
+        invalidar la única entrada posible (CR-01).
+        """
+        read_keys = self._normalize_keys(keys, type(self)._pk_fields())
         cache = self._cache
         if cache is None:
-            return await super().load(keys=keys)
+            return await super().load(keys=read_keys)
 
-        key = self._cache_key(keys)
-        raw = await cache.get(key)
-        if raw is not None:
-            data = json.loads(raw)
-            obj = type(self).model_validate(data)
-            _set_private(obj, "_db", self._db)
-            _set_private(obj, "__exists", True)
-            _set_private(obj, "__dirties", [])
-            _set_private(obj, "__loading", False)
-            _set_private(obj, "_references", {})
-            _set_private(obj, "_has_many", {})
-            _set_private(obj, "_cache", cache)
-            return obj
+        pk_keys = list(type(self)._pk_fields())
+        if read_keys == pk_keys:
+            raw = await cache.get(self._cache_key(read_keys))
+            if raw is not None:
+                data = json.loads(raw)
+                obj = type(self).model_validate(data)
+                _set_private(obj, "_db", self._db)
+                _set_private(obj, "__exists", True)
+                _set_private(obj, "__dirties", [])
+                _set_private(obj, "__loading", False)
+                _set_private(obj, "_references", {})
+                _set_private(obj, "_has_many", {})
+                _set_private(obj, "_cache", cache)
+                return obj
 
-        obj = await super().load(keys=keys)
+        obj = await super().load(keys=read_keys)
         if getattr(obj, "__exists"):
-            payload = json.dumps(obj.model_dump(mode="json")).encode("utf-8")
-            await cache.set(key, payload, duration)
+            pk_values = {k: getattr(obj, k) for k in pk_keys}
+            if all(v is not None for v in pk_values.values()):
+                payload = json.dumps(obj.model_dump(mode="json")).encode("utf-8")
+                await cache.set(
+                    type(self)._cache_key_for(pk_keys, pk_values), payload, duration
+                )
         _set_private(obj, "_cache", cache)
         return obj
 
     async def update(self, keys=None, data=None) -> int:
-        """Actualiza e invalida la clave afectada tras el commit (D-15)."""
+        """Actualiza e invalida la entrada de la PK real tras el commit (D-15)."""
+        pk = await self._resolve_pk_values(keys)
         count = await super().update(keys=keys, data=data)
-        await self._invalidate(keys)
+        await self._invalidate_pk(pk)
         return count
 
     async def delete(self, keys=None, physical: bool = False) -> bool:
-        """Borra (lógico o físico) e invalida la clave afectada (D-15)."""
+        """Borra (lógico o físico) e invalida la entrada de la PK real (D-15).
+
+        La PK se resuelve ANTES del borrado: un borrado físico elimina la fila y
+        el SELECT posterior ya no la encontraría.
+        """
+        pk = await self._resolve_pk_values(keys)
         result = await super().delete(keys=keys, physical=physical)
-        await self._invalidate(keys)
+        await self._invalidate_pk(pk)
         return result
 
     async def upsert(self, conflict: list[str] | None = None, values: dict | None = None) -> int:
-        """Upsert e invalida la clave del conflicto (D-11/D-15).
+        """Upsert e invalida la entrada de la PK real tras el commit (D-15).
 
-        `conflict=None` normaliza a la PK; con `conflict=["rfc"]` se invalida la
-        clave derivada de `rfc` — solo la clave afectada, sin namespace.
+        El caso canónico `upsert(conflict=["rfc"])` desde una instancia con el
+        auto-`id` sin asignar resuelve la PK real y borra esa única entrada
+        (CR-01).
         """
+        pk = await self._resolve_pk_values(conflict)
         count = await super().upsert(conflict=conflict, values=values)
-        await self._invalidate(conflict)
+        await self._invalidate_pk(pk)
         return count
 
     @classmethod
