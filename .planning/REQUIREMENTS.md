@@ -25,7 +25,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 - [ ] **DIAL-02**: Los builders DML (`insert`/`update`/`delete`) son compartidos en `dialects/` y validan cada tabla/columna en los seis motores
 - [ ] **DIAL-03**: `count`/`paginate`/`list_tables` devuelven resultados correctos en PostgreSQL, SQL Server y Oracle (alias `AS n`)
 - [ ] **DIAL-04**: Los identificadores derivados de introspección se validan antes de interpolarlos en `ALTER TABLE` (`sync_schema`)
-- [ ] **DIAL-05**: `Query` es correcto: sin sentinel frágil `{0}`, inmutable/hashable, y `rebind` funciona
+- [ ] **DIAL-05**: `Query` es correcto: sin sentinel frágil `{0}`, inmutable/hashable, y con `with_params()` que devuelve una copia (reemplaza al mutante `rebind`, que se elimina)
 - [ ] **DIAL-06**: Existen constantes `MAX_PARAMS`/`MAX_ROWS` por dialecto
 - [ ] **DIAL-07**: Los snapshots de SQL por dialecto (syrupy) corren en el job SQLite siempre activo
 - [ ] **DIAL-08**: La matriz de CI cubre múltiples motores (MariaDB + Redis como servicios; MSSQL/Oracle en un job separado)
