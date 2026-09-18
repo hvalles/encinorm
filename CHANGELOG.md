@@ -8,6 +8,19 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
+### Cambiado
+
+- **CAMBIO DE COMPORTAMIENTO (formato de clave de caché).** La clave de caché de
+  `CachedModel` ahora incluye la huella del `scope()` activo:
+  `sha1(tabla:[pk=...]|scope=<huella>)`. Una entrada cacheada bajo un tenant ya no
+  se sirve a otro, cerrando la lectura cruzada y la escritura cruzada de tenant
+  (CR-02). Sin `scope()` activo la clave no cambia respecto al formato anterior.
+  Al ser un cambio de formato, un backend compartido entre versiones puede
+  conservar claves del formato viejo como entradas huérfanas hasta que expire su
+  TTL; el nuevo formato no las sirve. Nota de ownership: esta entrada es ADITIVA y
+  no prejuzga la enumeración de cambios incompatibles del milestone, que posee la
+  Fase 8 (`08-04`).
+
 ### Corregido
 
 - `indexes_ddl` valida las columnas de índice no mapeadas con la allowlist
@@ -115,6 +128,24 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   `RedisCacheBackend`. Antes era un `dict` sin cota y las claves nunca releídas se
   acumulaban indefinidamente. Nota de ownership: ADITIVA, no prejuzga la enumeración
   del milestone (`08-04`).
+- `CachedModel` ahora invalida la entrada de caché de **TODAS las filas afectadas**
+  por una escritura, no solo de una: `update`/`delete`/`upsert` con claves de
+  escritura no-PK (`update(keys=["grupo"])`) afectan a todas las filas que casan y
+  antes se resolvía e invalidaba una sola PK (la de una fila arbitraria), de modo
+  que las demás servían datos obsoletos hasta el TTL (CR-01). La resolución
+  reutiliza un `SELECT` ligado, scope-aware y con `include_deleted=True`. Nota de
+  ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
+  que posee la Fase 8 (`08-04`).
+- La compensación pre-DDL del runner de migraciones borra la fila del ledger por
+  la **identidad de la fila** que ESTA llamada insertó (`{id: ledger_id}`,
+  capturado best-effort con `last_id()`), no por `{name, status='pending'}`: el
+  compare-and-delete podía borrar la fila `pending` que otro runner re-publicaba
+  tras nuestro rollback (WR-01 residual). Si el motor no expone un `last_id()`
+  utilizable (Oracle devuelve 0), se cae al compare-and-delete documentado,
+  residual estrecho asignado a la Fase 4 (`04-02`, POOL-03). Además, un fallo de la
+  compensación ya no enmascara la excepción original del DDL (IN-01). Nota de
+  ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
+  que posee la Fase 8 (`08-04`).
 
 ## [0.2.6] - 2026-09-11
 
