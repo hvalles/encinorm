@@ -5,6 +5,10 @@ mismo que producían los seis adaptadores, byte a byte) y el rechazo de
 identificadores maliciosos ANTES de que el driver sea alcanzado.
 """
 
+import ast
+import inspect
+from pathlib import Path
+
 import pytest
 
 from encino_orm.dialects import (
@@ -13,9 +17,13 @@ from encino_orm.dialects import (
     ORACLE_INSERT,
     POSTGRES_INSERT,
     SQLITE_INSERT,
+    UPSERT_KIND,
+    UPSERT_KINDS,
     build_delete,
     build_insert,
     build_update,
+    build_upsert,
+    strategy_for,
 )
 from encino_orm.mariadb import MariadbDb
 from encino_orm.mssql import MssqlDb
@@ -292,3 +300,263 @@ class TestAdaptadoresRechazanAntesDelDriver:
 
     def test_oracle(self, monkeypatch):
         _assert_adaptador_rechaza(OracleDb(), monkeypatch)
+
+
+class TestBuildUpsert:
+    def test_on_conflict_sqlite(self):
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=SQLITE_INSERT,
+            upsert_kind="on_conflict",
+            conflict=["a"],
+            update_cols=["b"],
+        )
+        assert qry.sql_template == (
+            "INSERT INTO t (a,b) VALUES ({0},{1}) ON CONFLICT (a) DO UPDATE SET b = excluded.b"
+        )
+        assert qry.fields == [1, "x"]
+
+    def test_on_conflict_objetivo_sin_espacio(self):
+        # Pin byte a byte: `build_upsert` usa "," (model.py:624), mientras que
+        # el `ON CONFLICT` de `build_insert` usa ", " (postgresql.py:170).
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=SQLITE_INSERT,
+            upsert_kind="on_conflict",
+            conflict=["a", "b"],
+            update_cols=["b"],
+        )
+        assert "ON CONFLICT (a,b) DO UPDATE SET" in qry.sql_template
+
+    def test_on_duplicate_mysql(self):
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=MYSQL_INSERT,
+            upsert_kind="on_duplicate",
+            conflict=["a"],
+            update_cols=["b"],
+        )
+        assert qry.sql_template == (
+            "INSERT INTO t (a,b) VALUES ({0},{1}) ON DUPLICATE KEY UPDATE b = VALUES(b)"
+        )
+
+    def test_merge_mssql_con_as(self):
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=MSSQL_INSERT,
+            upsert_kind="merge",
+            conflict=["a"],
+            update_cols=["b"],
+        )
+        assert qry.sql_template == (
+            "MERGE INTO t AS dst USING (SELECT {0} AS a, {1} AS b) AS src "
+            "ON (dst.a = src.a) "
+            "WHEN MATCHED THEN UPDATE SET dst.b = src.b "
+            "WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)"
+        )
+
+    def test_merge_oracle_sin_as(self):
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=ORACLE_INSERT,
+            upsert_kind="merge",
+            conflict=["a"],
+            update_cols=["b"],
+        )
+        assert qry.sql_template.startswith(
+            "MERGE INTO t dst USING (SELECT {0} AS a, {1} AS b) src ON (dst.a = src.a) "
+        )
+
+    def test_update_values_on_conflict(self):
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=SQLITE_INSERT,
+            upsert_kind="on_conflict",
+            conflict=["a"],
+            update_cols=["b"],
+            update_values=[9],
+        )
+        assert qry.sql_template.endswith("DO UPDATE SET b = {2}")
+        assert qry.fields == [1, "x", 9]
+
+    def test_update_values_on_duplicate(self):
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=MYSQL_INSERT,
+            upsert_kind="on_duplicate",
+            conflict=["a"],
+            update_cols=["b"],
+            update_values=[9],
+        )
+        assert qry.sql_template.endswith("ON DUPLICATE KEY UPDATE b = {2}")
+        assert qry.fields == [1, "x", 9]
+
+    def test_update_values_merge(self):
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=MSSQL_INSERT,
+            upsert_kind="merge",
+            conflict=["a"],
+            update_cols=["b"],
+            update_values=[9],
+        )
+        assert "WHEN MATCHED THEN UPDATE SET dst.b = {2}" in qry.sql_template
+        assert qry.fields == [1, "x", 9]
+
+    def test_no_emite_returning(self):
+        casos = (
+            ("on_conflict", SQLITE_INSERT),
+            ("on_duplicate", MYSQL_INSERT),
+            ("merge", ORACLE_INSERT),
+        )
+        for kind, strategy in casos:
+            qry = build_upsert(
+                "t",
+                {"a": 1},
+                strategy=strategy,
+                upsert_kind=kind,
+                conflict=["a"],
+                update_cols=["b"],
+            )
+            assert "RETURNING" not in qry.sql_template
+
+    def test_rechaza_identificadores(self):
+        for nombre in MALICIOSOS:
+            with pytest.raises(ValueError):
+                build_upsert(
+                    nombre,
+                    {"a": 1},
+                    strategy=SQLITE_INSERT,
+                    upsert_kind="on_conflict",
+                    conflict=["a"],
+                    update_cols=["b"],
+                )
+            with pytest.raises(ValueError):
+                build_upsert(
+                    "t",
+                    {nombre: 1},
+                    strategy=SQLITE_INSERT,
+                    upsert_kind="on_conflict",
+                    conflict=["a"],
+                    update_cols=["b"],
+                )
+            with pytest.raises(ValueError):
+                build_upsert(
+                    "t",
+                    {"a": 1},
+                    strategy=SQLITE_INSERT,
+                    upsert_kind="on_conflict",
+                    conflict=[nombre],
+                    update_cols=["b"],
+                )
+            with pytest.raises(ValueError):
+                build_upsert(
+                    "t",
+                    {"a": 1},
+                    strategy=SQLITE_INSERT,
+                    upsert_kind="on_conflict",
+                    conflict=["a"],
+                    update_cols=[nombre],
+                )
+            with pytest.raises(ValueError):
+                build_upsert(
+                    "t",
+                    {"a": 1},
+                    strategy=SQLITE_INSERT,
+                    upsert_kind="on_conflict",
+                    conflict=["a"],
+                    update_cols=["b"],
+                    schema=nombre,
+                )
+
+    def test_upsert_kind_invalido(self):
+        with pytest.raises(ValueError):
+            build_upsert(
+                "t",
+                {"a": 1},
+                strategy=SQLITE_INSERT,
+                upsert_kind="nope",
+                conflict=["a"],
+                update_cols=["b"],
+            )
+
+
+class TestUpsertKindYStrategyFor:
+    def test_mapa_por_dialecto(self):
+        assert set(UPSERT_KIND) == {
+            "sqlite",
+            "mysql",
+            "mariadb",
+            "postgresql",
+            "mssql",
+            "oracle",
+        }
+        assert UPSERT_KIND["mariadb"] == "on_conflict"
+        assert UPSERT_KIND["mysql"] == "on_duplicate"
+        assert UPSERT_KIND["mssql"] == "merge"
+        assert UPSERT_KIND["oracle"] == "merge"
+        assert set(UPSERT_KINDS) == {"on_conflict", "on_duplicate", "merge"}
+
+    def test_strategy_for_normaliza_engine_y_str(self):
+        from encino_orm.engine import Engine
+
+        assert strategy_for("mariadb") is strategy_for("mysql")
+        assert strategy_for(Engine.ORACLE) is ORACLE_INSERT
+        assert strategy_for("sqlite") is SQLITE_INSERT
+
+    def test_strategy_for_dialecto_desconocido(self):
+        with pytest.raises(ValueError):
+            strategy_for("mongodb")
+
+
+# Ruta normalizada (`\` -> `/`) para que los guards se comporten igual en
+# Windows y Linux.
+MODEL_PATH = (
+    Path(__file__).resolve().parents[1] / "encino_orm" / "model" / "model.py"
+).as_posix()
+
+_LITERALES_DML = ("ON DUPLICATE KEY", "MERGE INTO", "ON CONFLICT")
+
+
+def _nodos_docstring(tree):
+    """Ids de los `ast.Constant` que son docstring (primer statement de un bloque)."""
+    docstrings = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = getattr(node, "body", [])
+            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+                docstrings.add(id(body[0].value))
+    return docstrings
+
+
+def test_guard_model_no_construye_dml_de_upsert():
+    """Guard 1: ningún literal DML de upsert fuera de un docstring en `model.py`."""
+    tree = ast.parse(Path(MODEL_PATH).read_text(encoding="utf-8"))
+    docstrings = _nodos_docstring(tree)
+    ofensores = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and id(node) not in docstrings
+        and any(literal in node.value for literal in _LITERALES_DML)
+    ]
+    assert ofensores == []
+
+
+def test_guard_upsert_no_ramifica_por_engine():
+    """Guard 2: `Model.upsert` no referencia `Engine.*` (anti-patrón eliminado)."""
+    from encino_orm.model.model import Model
+
+    src = inspect.getsource(Model.upsert)
+    assert "Engine.MYSQL" not in src
+    assert "Engine.MSSQL" not in src
+    assert "Engine.ORACLE" not in src
