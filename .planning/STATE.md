@@ -4,13 +4,13 @@ milestone: v0.2.6
 milestone_name: milestone
 status: executing
 stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-09-18T04:27:53.142Z"
+last_updated: "2026-09-18T04:35:13.468Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
   percent: 13
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 02 (Dialect Seam & Engine Parity) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-09-18
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [███████░░░] 70%
 | Phase 01 P05 | 3 min | 3 tasks | 1 files |
 | Phase 02 P01 | 4 min | 3 tasks | 11 files |
 | Phase 02 P02 | 8 min | 5 tasks | 16 files |
+| Phase 02 P03 | 6 min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,10 @@ Recent decisions affecting current work:
 - [Phase 02]: El anclaje $ del allowlist acepta un salto final (tabla\n); se conserva tal cual por ser refactor puro y se caracteriza en un test en lugar de endurecerlo silenciosamente.
 - [Phase ?]: MariaDB conserva UPSERT_KIND='on_conflict' verbatim (identidad exacta Engine.MYSQL); se marca como hallazgo para fase posterior, no se arregla en 02-02.
 - [Phase ?]: Los dos separadores del objetivo de conflicto quedan pinados: build_upsert usa ',' sin espacio y build_insert usa ', ' con espacio.
+- [Phase ?]: D-03 literal: hash/eq de Query sobre (sql_template, fields), EXCLUYE ignore_duplicated; si DATA-07 usa este hash como clave, debe anadir el flag.
+- [Phase 02]: La inmutabilidad de Query es de ATRIBUTO, no profunda: reasignar lanza, pero q.fields.append(v) y q.params[...] = v no lanzan y ademas invalidan el hash calculado del estado vivo; documentado en el docstring y en 0-design.md.
+- [Phase 02]: En LIMITS solo sqlite (32766) y postgresql (32767) estan verificados empiricamente/en fuente; mysql/mariadb (65535), mssql (2100) y oracle (65535) quedan marcados NO verificados y su sonda pertenece al job engine-heavy de 02-05.
+- [Phase 02]: Query.__slots__ se ordeno (RUF023) y se anadieron anotaciones de clase desnudas (mypy no ve slots escritos con object.__setattr__); los slots siguen siendo privados con properties sin setter, sin cambio de comportamiento.
 
 ### Pending Todos
 
@@ -120,6 +125,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T04:27:53.128Z
+Last session: 2026-09-18T04:34:54.233Z
 Stopped at: Completed 02-01-PLAN.md
 Resume file: None

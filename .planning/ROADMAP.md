@@ -146,7 +146,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-03-PLAN.md — `Query` correctness (regex over real `{n}`, immutable/hashable, `rebind` replaced by `with_params()`) plus per-dialect `MAX_PARAMS`/`MAX_ROWS` constants with provenance — DIAL-05, DIAL-06
+- [x] 02-03-PLAN.md — `Query` correctness (regex over real `{n}`, immutable/hashable, `rebind` replaced by `with_params()`) plus per-dialect `MAX_PARAMS`/`MAX_ROWS` constants with provenance — DIAL-05, DIAL-06
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -387,7 +387,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 2/5 | In Progress|  |
+| 2. Dialect Seam & Engine Parity | 3/5 | In Progress|  |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |

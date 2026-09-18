@@ -25,8 +25,8 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 - [x] **DIAL-02**: Los builders DML (`insert`/`update`/`delete`) son compartidos en `dialects/` y validan cada tabla/columna en los seis motores
 - [ ] **DIAL-03**: `count`/`paginate`/`list_tables` devuelven resultados correctos en PostgreSQL, SQL Server y Oracle (alias `AS n`)
 - [x] **DIAL-04**: Los identificadores derivados de introspección se validan antes de interpolarlos en `ALTER TABLE` (`sync_schema`)
-- [ ] **DIAL-05**: `Query` es correcto: sin sentinel frágil `{0}`, inmutable/hashable, y con `with_params()` que devuelve una copia (reemplaza al mutante `rebind`, que se elimina)
-- [ ] **DIAL-06**: Existen constantes `MAX_PARAMS`/`MAX_ROWS` por dialecto
+- [x] **DIAL-05**: `Query` es correcto: sin sentinel frágil `{0}`, inmutable/hashable, y con `with_params()` que devuelve una copia (reemplaza al mutante `rebind`, que se elimina)
+- [x] **DIAL-06**: Existen constantes `MAX_PARAMS`/`MAX_ROWS` por dialecto
 - [ ] **DIAL-07**: Los snapshots de SQL por dialecto (syrupy) corren en el job SQLite siempre activo
 - [ ] **DIAL-08**: La matriz de CI cubre múltiples motores (MariaDB + Redis como servicios; MSSQL/Oracle en un job separado)
 - [ ] **DIAL-09**: Existen tests de integración por motor para `count`/`paginate`/`list_tables`/`sync_schema`/`last_id`
@@ -143,8 +143,8 @@ Qué fase cubre cada requisito.
 | DIAL-02 | Phase 2 | Complete |
 | DIAL-03 | Phase 2 | Pending |
 | DIAL-04 | Phase 2 | Complete |
-| DIAL-05 | Phase 2 | Pending |
-| DIAL-06 | Phase 2 | Pending |
+| DIAL-05 | Phase 2 | Complete |
+| DIAL-06 | Phase 2 | Complete |
 | DIAL-07 | Phase 2 | Pending |
 | DIAL-08 | Phase 2 | Pending |
 | DIAL-09 | Phase 2 | Pending |
