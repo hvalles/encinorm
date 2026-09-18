@@ -138,7 +138,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Centralize `_IDENTIFIER_RE`/`_check_identifier` into `dialects/identifiers.py` as a pure refactor with zero behavior change, in its own commit — DIAL-01
+- [x] 02-01-PLAN.md — Centralize `_IDENTIFIER_RE`/`_check_identifier` into `dialects/identifiers.py` as a pure refactor with zero behavior change, in its own commit — DIAL-01
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -387,7 +387,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 0/5 | Not started | - |
+| 2. Dialect Seam & Engine Parity | 1/5 | In Progress|  |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |

@@ -21,7 +21,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 ### Dialect Seam & Engine Parity
 
-- [ ] **DIAL-01**: `_IDENTIFIER_RE`/`_check_identifier` están centralizados en un único módulo como refactor puro, sin cambio de comportamiento
+- [x] **DIAL-01**: `_IDENTIFIER_RE`/`_check_identifier` están centralizados en un único módulo como refactor puro, sin cambio de comportamiento
 - [ ] **DIAL-02**: Los builders DML (`insert`/`update`/`delete`) son compartidos en `dialects/` y validan cada tabla/columna en los seis motores
 - [ ] **DIAL-03**: `count`/`paginate`/`list_tables` devuelven resultados correctos en PostgreSQL, SQL Server y Oracle (alias `AS n`)
 - [ ] **DIAL-04**: Los identificadores derivados de introspección se validan antes de interpolarlos en `ALTER TABLE` (`sync_schema`)
@@ -139,7 +139,7 @@ Qué fase cubre cada requisito.
 | CI-07 | Phase 1 | Complete |
 | CI-08 | Phase 1 | Complete |
 | CI-09 | Phase 1 | Complete |
-| DIAL-01 | Phase 2 | Pending |
+| DIAL-01 | Phase 2 | Complete |
 | DIAL-02 | Phase 2 | Pending |
 | DIAL-03 | Phase 2 | Pending |
 | DIAL-04 | Phase 2 | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-09-18T04:10:05.424Z"
-last_activity: 2026-09-18 -- Phase 02 planning complete
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-09-18T04:16:33.880Z"
+last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 10
-  completed_plans: 5
+  completed_plans: 6
   percent: 13
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-17)
 
 **Core value:** El ORM debe ser confiable en producción sobre cualquiera de los seis motores — correcto bajo concurrencia, seguro frente a inyección y configuraciones erróneas, y predecible en rendimiento.
-**Current focus:** Phase 2 — dialect seam & engine parity
+**Current focus:** Phase 02 — Dialect Seam & Engine Parity
 **Milestone:** encino_orm 0.2.6 → 0.3.0 (production hardening)
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 02 (Dialect Seam & Engine Parity) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 02 planning complete
+Last activity: 2026-09-18
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [██████████] 100%
 | Phase 01 P03 | 8 min | 3 tasks | 10 files |
 | Phase 01 P04 | 12 min | 3 tasks | 12 files |
 | Phase 01 P05 | 3 min | 3 tasks | 1 files |
+| Phase 02 P01 | 4 min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Los tests del arnes llevan el nombre del modulo en el metodo (test_check_skips_*, test_require_engines_*) para que -k seleccione de verdad. — TestCheckSkipsMain no contiene el literal check_skips (falta el guion bajo), asi que -k deseleccionaba los 13 tests y pasaba en vacio.
 - [Phase 01]: Los tests de caracterizacion del pool capturan el comportamiento actual tal cual (D-09): la carrera de acquire() con 5 tareas y max_size=2 produce _size=5 de forma determinista gracias a una barrera hecha con asyncio.Event (piso 3.10); la asercion _size > _max_size se espera invertir en Fase 4 (POOL-02).
 - [Phase 01]: Baselines medidos para Fase 4: last_id fuera de transaccion lee un cache a nivel de pool compartido entre tareas (POOL-03); release() no confirma, no revierte ni comprueba liveness (POOL-04); close() cierra una conexion que un llamador aun mantiene (POOL-06).
+- [Phase 02]: La allowlist de identificadores NO se relaja para aceptar nombres cualificados; el caso schema.tabla se resuelve con un parametro schema= validado por separado en 02-02 (Pitfall 10).
+- [Phase 02]: sql.py:_COLUMN_RE y model/query_builder.py:_COLUMN_RE se conservan sin unificar: aceptan puntos a proposito y unificarlas seria un cambio de comportamiento; queda documentado con comentario y como candidata de seguimiento.
+- [Phase 02]: El anclaje $ del allowlist acepta un salto final (tabla\n); se conserva tal cual por ser refactor puro y se caracteriza en un test en lugar de endurecerlo silenciosamente.
 
 ### Pending Todos
 
@@ -113,6 +117,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T03:28:59.127Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-dialect-seam-engine-parity/02-CONTEXT.md
+Last session: 2026-09-18T04:16:33.864Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None
