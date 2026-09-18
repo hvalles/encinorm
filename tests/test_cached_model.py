@@ -1,7 +1,13 @@
 import pytest
 from pydantic import Field
 
-from encino_orm.model import CachedModel, MemoryCacheBackend
+from encino_orm.model import (
+    CachedModel,
+    FailOnUpdate,
+    Filter,
+    MemoryCacheBackend,
+    scope,
+)
 from encino_orm.query import Query
 
 
@@ -46,6 +52,24 @@ DDL_PK = (
 )
 
 
+class ClienteScope(CachedModel):
+    """Modelo para CR-01 multi-fila y CR-02: `grupo` NO es único (una escritura por
+    él afecta a varias filas) y `tenant` es la columna de aislamiento por `scope()`."""
+
+    _table = "clientes_scope"
+    rfc: str | None = Field(default=None)
+    grupo: str | None = Field(default=None)
+    tenant: str | None = Field(default=None)
+    nombre: str | None = Field(default=None)
+
+
+DDL_SCOPE = (
+    "CREATE TABLE clientes_scope (id INTEGER PRIMARY KEY AUTOINCREMENT, rfc TEXT UNIQUE, "
+    "grupo TEXT, tenant TEXT, nombre TEXT, enabled INTEGER DEFAULT 1, created_at TEXT, "
+    "updated_at TEXT)"
+)
+
+
 def _pk_key() -> str:
     """Clave del dominio canónico (`id=1`) que `load()` debe escribir SIEMPRE."""
     return ClientePK._cache_key_for(("id",), {"id": 1})
@@ -54,6 +78,11 @@ def _pk_key() -> str:
 def _rfc_key() -> str:
     """Clave de LECTURA no-PK que el dominio canónico ya NO debe poblar."""
     return ClientePK._cache_key_for(("rfc",), {"rfc": "R1"})
+
+
+def _scope_pk_key(i: int) -> str:
+    """Clave canónica (`id=i`) del modelo con `grupo` no-único."""
+    return ClienteScope._cache_key_for(("id",), {"id": i})
 
 
 @pytest.fixture
@@ -65,6 +94,12 @@ async def db(connected_db):
 @pytest.fixture
 async def db_pk(connected_db):
     await connected_db.execute(Query(DDL_PK, []))
+    return connected_db
+
+
+@pytest.fixture
+async def db_scope(connected_db):
+    await connected_db.execute(Query(DDL_SCOPE, []))
     return connected_db
 
 
@@ -292,3 +327,102 @@ class TestCachedModel:
         assert await cache.get(_pk_key()) is None
         again = await ClientePK(db_pk, cache=cache, rfc="R1").load(keys=["rfc"])
         assert again.nombre == "Nuevo"
+
+    @pytest.mark.asyncio
+    async def test_cr01_multifila_invalida_todas_las_pks(self, db_scope):
+        """CR-01 multi-fila: una escritura por una clave NO-única (`grupo`) afecta a
+        VARIAS filas; la invalidación debe borrar la entrada de PK de TODAS, no solo
+        la de una sonda `fetch_one`."""
+        cache = MemoryCacheBackend()
+        await ClienteScope(
+            db_scope, cache=cache, rfc="R1", grupo="G", tenant="T", nombre="A"
+        ).insert()
+        await ClienteScope(
+            db_scope, cache=cache, rfc="R2", grupo="G", tenant="T", nombre="B"
+        ).insert()
+
+        loaded1 = await ClienteScope(db_scope, cache=cache, id=1).load()
+        loaded2 = await ClienteScope(db_scope, cache=cache, id=2).load()
+        assert loaded1.nombre == "A"
+        assert loaded2.nombre == "B"
+        assert await cache.get(_scope_pk_key(1)) is not None
+        assert await cache.get(_scope_pk_key(2)) is not None
+
+        w = ClienteScope(db_scope, cache=cache, grupo="G", nombre="Nuevo")
+        assert w.id is None
+        await w.update(keys=["grupo"])
+
+        assert await cache.get(_scope_pk_key(1)) is None
+        assert await cache.get(_scope_pk_key(2)) is None
+
+        again1 = await ClienteScope(db_scope, cache=cache, id=1).load()
+        again2 = await ClienteScope(db_scope, cache=cache, id=2).load()
+        assert again1.nombre == "Nuevo"
+        assert again2.nombre == "Nuevo"
+
+    @pytest.mark.asyncio
+    async def test_cr02_scope_no_aislado_no_sirve_otro_tenant(self, db_scope):
+        """CR-02 lectura: la clave de caché incluye el `scope()` activo, así que una
+        entrada poblada por el tenant A no se sirve al tenant B."""
+        await ClienteScope(db_scope, rfc="R1", grupo="G", tenant="A", nombre="secreto").insert()
+
+        cache = MemoryCacheBackend()
+        with scope(Filter.eq("tenant", "A")):
+            propio = await ClienteScope(db_scope, id=1, cache=cache).load()
+            assert propio.nombre == "secreto"
+            assert getattr(propio, "__exists") is True
+
+        with scope(Filter.eq("tenant", "B")):
+            ajeno = await ClienteScope(db_scope, id=1, cache=cache).load()
+            assert getattr(ajeno, "__exists") is False
+            assert ajeno.nombre is None
+
+    @pytest.mark.asyncio
+    async def test_cr02_scope_bloquea_escritura_cruzada(self, db_scope):
+        """CR-02 escritura: sin un acierto de caché que salte el `scope`, el tenant B
+        no puede ver la fila de A, así que `update()` lanza `FailOnUpdate` y la fila
+        conserva su valor."""
+        await ClienteScope(db_scope, rfc="R1", grupo="G", tenant="A", nombre="secreto").insert()
+
+        cache = MemoryCacheBackend()
+        with scope(Filter.eq("tenant", "A")):
+            await ClienteScope(db_scope, id=1, cache=cache).load()
+
+        with scope(Filter.eq("tenant", "B")), pytest.raises(FailOnUpdate):
+            await ClienteScope(db_scope, id=1, cache=cache, nombre="PWNED").update()
+
+        row = await db_scope.fetch_one(
+            Query("SELECT nombre FROM clientes_scope WHERE id = {0}", [1])
+        )
+        assert row["nombre"] == "secreto"
+
+    @pytest.mark.asyncio
+    async def test_cr02_mismo_scope_si_acierta(self, db_scope):
+        """CR-02 intra-tenant: el aislamiento por scope no rompe el cacheo del MISMO
+        tenant; un segundo `load()` bajo el mismo scope se sirve de la caché."""
+        await ClienteScope(db_scope, rfc="R1", grupo="G", tenant="A", nombre="secreto").insert()
+
+        cache = MemoryCacheBackend()
+        with scope(Filter.eq("tenant", "A")):
+            await ClienteScope(db_scope, id=1, cache=cache).load()
+
+        # borrar de la BD para demostrar que el segundo load sale de la caché
+        await db_scope.execute(Query("DELETE FROM clientes_scope WHERE id = {0}", [1]))
+
+        with scope(Filter.eq("tenant", "A")):
+            obj = await ClienteScope(db_scope, id=1, cache=cache).load()
+            assert obj.nombre == "secreto"
+            assert getattr(obj, "__exists") is True
+
+    @pytest.mark.asyncio
+    async def test_cr02_clave_depende_del_scope(self, db_scope):
+        """CR-02 clave: la clave de caché cambia con el `scope` activo y sin scope es
+        la original (compatibilidad)."""
+        k_out = ClienteScope._cache_key_for(("id",), {"id": 1})
+        with scope(Filter.eq("tenant", "A")):
+            k_a = ClienteScope._cache_key_for(("id",), {"id": 1})
+        with scope(Filter.eq("tenant", "B")):
+            k_b = ClienteScope._cache_key_for(("id",), {"id": 1})
+        assert k_a != k_out
+        assert k_a != k_b
+        assert k_b != k_out
