@@ -319,6 +319,24 @@ class TestMysqlParity:
         assert "test_parity" in {r["name"].lower() for r in tablas.rows}
 
     @pytest.mark.asyncio
+    async def test_list_tables_filtrado_por_nombre(self, mysql_connected_db):
+        # GAP 4: el filtro `name=` debe funcionar en los seis motores. Se usa el
+        # nombre en MINÚSCULAS a propósito: Oracle devuelve los nombres en
+        # MAYÚSCULAS y PostgreSQL es sensible por defecto, así que solo la
+        # normalización `LOWER()` hace que el MISMO filtro funcione en los seis.
+        db = mysql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+        await _seed_parity(db)
+
+        filtrado = await db.list_tables(name="test_parity", limit=1000)
+        assert filtrado.total >= 1
+        assert "test_parity" in {r["name"].lower() for r in filtrado.rows}
+
+        ausente = await db.list_tables(name="zzz_no_existe_zzz", limit=1000)
+        assert ausente.total == 0
+        assert ausente.rows == []
+
+    @pytest.mark.asyncio
     async def test_query_builder_aggregates(self, mysql_connected_db):
         db = mysql_connected_db
         await _reset(db, "test_parity", _PARITY_DDL)

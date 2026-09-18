@@ -3,36 +3,43 @@
 Items discovered during execution that are **out of scope** for the plan that found
 them. They are logged here, not fixed, per the executor scope boundary.
 
-## Found during 02-04 (aggregate result alias + per-engine parity)
-
-### `Db.list_tables(name=...)` filter is broken on every engine except SQLite
-
-- **Found in:** Task 2/3 when adding per-engine `list_tables` integration coverage.
-- **Symptom:** PostgreSQL raises `asyncpg.exceptions.UndefinedColumnError: column "name" does not exist`;
-  Oracle raises `oracledb.exceptions.DatabaseError: ORA-00911` (same root cause).
-- **Root cause:** `Db.list_tables` (`encino_orm/base.py`) appends
-  `" AND name LIKE {0}"` to the *base* SQL returned by `_tables_sql()`. The
-  `name` there is a SELECT **alias** (`tablename AS name`, `table_name AS name`,
-  `TABLE_NAME AS name`), and PostgreSQL, MySQL, SQL Server and Oracle do **not**
-  allow a column alias to be referenced in `WHERE` (only `ORDER BY`/`HAVING`).
-  It only works on SQLite, where `sqlite_master.name` is a real column.
-- **Impact:** the documented `name=` filter of `list_tables` is dead on 4 of 6
-  engines. The unfiltered path (the one this phase required) works and is now
-  covered per engine.
-- **Suggested fix (future phase):** push the filter into `_tables_sql()` (e.g.
-  `_tables_sql(name: str | None)`) so each adapter filters on its real catalog
-  column, or wrap the base SQL in a derived table before filtering.
-- **Not fixed in 02-04:** the plan scoped DIAL-03 to the `COUNT(*)` alias; the
-  `name` filter is a distinct pre-existing defect and touching `_tables_sql` in
-  six adapters would widen this plan's blast radius.
-- **Closed by:** plan `02-09` (gap-closure round) — see
-  `## Cerrados en la ronda de gap closure`.
-
 ## Cerrados en la ronda de gap closure
 
 Items that `02-VERIFICATION.md` / `02-REVIEW.md` flagged and that the gap-closure
-plans (`02-06`…`02-09`) take ownership of. The `list_tables(name=)` item above is
-closed by `02-09`; the two entries below are closed by `02-08`.
+plans (`02-06`…`02-09`) take ownership of. The three entries below are closed:
+`list_tables(name=)` by `02-09`; WR-03 and WR-04 by `02-08`. **Ya NO queda ningún
+item de la Fase 02 sin dueño** — este era el último diferido huérfano.
+
+### `Db.list_tables(name=...)` — filtro roto en 4 de 6 motores (GAP 4) — CERRADO
+
+- **Found in:** 02-04 (Task 2/3), al añadir cobertura de `list_tables` por motor.
+- **Causa raíz confirmada:** `Db.list_tables` (`encino_orm/base.py`) añadía
+  `" AND name LIKE {0}"` al SQL base de `_tables_sql()`. Ahí `name` es un
+  **alias de SELECT** (`tablename AS name`, `table_name AS name`,
+  `TABLE_NAME AS name`), y PostgreSQL, MySQL, SQL Server y Oracle NO permiten
+  referenciar un alias de columna en `WHERE` (solo `ORDER BY`/`HAVING`); solo
+  SQLite tiene una columna real `name`.
+- **Evidencia RED capturada en 02-09** (con el código previo al fix): PostgreSQL
+  `asyncpg.exceptions.UndefinedColumnError: column "name" does not exist`; Oracle
+  `oracledb.exceptions.DatabaseError: ORA-00907: missing right parenthesis`. El
+  log original citaba `ORA-00911`; el error real del catálogo es ORA-00907, misma
+  causa raíz (el filtro inválido se anida dentro del wrapper de conteo).
+- **Solución aplicada (02-09):** envolver el SQL base en una **tabla derivada** —
+  `SELECT * FROM (<base>) encino_orm_tables WHERE LOWER(name) LIKE LOWER({0})` —
+  de modo que `name` pase a ser una columna REAL de la derivada, válido en los
+  seis dialectos. Comparación con `LOWER()` en AMBOS lados (Oracle devuelve los
+  nombres en MAYÚSCULAS; PostgreSQL es sensible por defecto) y valor del filtro
+  **ligado** como `{0}`, nunca interpolado. El camino SIN filtro queda
+  byte-idéntico: `test_list_tables_snapshot` no cambia y el `.ambr` solo GANA la
+  entrada filtrada.
+- **Motores cubiertos:** los seis. Snapshot DB-free del SQL filtrado por dialecto
+  (`tests/test_sql_snapshots.py::test_list_tables_filtered_snapshot`, entrada
+  nueva del `.ambr`) más un test de integración por motor
+  (`test_list_tables_filtrado_por_nombre`) en `tests/test_sqlite.py`,
+  `test_mysql.py`, `test_mariadb.py`, `test_postgresql.py`, `test_mssql.py` y
+  `test_oracle.py`. La cobertura por motor pasa a existir en los seis ficheros.
+- **Cierre:** el item deja de ser un diferido huérfano; DIAL-03 deja de ser
+  parcial.
 
 ### WR-03 — `QueryBuilder.all()/first()/exists()` emitted inline `LIMIT`
 
