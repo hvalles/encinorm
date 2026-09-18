@@ -233,7 +233,7 @@ Plans:
 
 **Wave 2 (gap-closure ronda 3)** *(docs-only: describen lo entregado por 03-08 y 03-09)*
 
-- [ ] 03-10-PLAN.md — Alinea `docs/guide.md`, `docs/design/5-security.md` y `CHANGELOG.md` con la invalidación multi-fila, el namespace de scope y el residual TOCTOU (cierra WR-03) — DATA-03, DATA-02
+- [x] 03-10-PLAN.md — Alinea `docs/guide.md`, `docs/design/5-security.md` y `CHANGELOG.md` con la invalidación multi-fila, el namespace de scope y el residual TOCTOU (cierra WR-03) — DATA-03, DATA-02
 
 ### Phase 4: Pool Correctness & Concurrency
 
@@ -439,7 +439,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 9/10 | In Progress|  |
+| 3. Data Correctness | 10/10 | Complete   | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
