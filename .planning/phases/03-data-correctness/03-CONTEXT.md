@@ -53,6 +53,19 @@ Cubre **DATA-01…DATA-04**. Módulos: `encino_orm/migration.py`, `encino_orm/mo
 - Si `insert_many` invalida por lote o clave a clave.
 - Si `migrate_status()` cambia de forma al exponer `status`.
 
+### Enmiendas tras la investigación (03-RESEARCH.md)
+La investigación contradijo dos decisiones ya tomadas. Se enmiendan aquí; `03-RESEARCH.md` es la referencia técnica.
+
+- **D-15 (enmienda a D-10 — el hook `after_commit` NO sirve):** la investigación verificó en el código que `after_commit` **no se dispara** para `upsert` (tiene su propio `retry`/transacción, `model/model.py:648-652`) ni para `insert_many` (su propio `db.transaction()`, `:572`), y que **no recibe ni la acción ni la clave**. **Mecanismo corregido:** `CachedModel` **sobreescribe `update`, `delete` y `upsert`** e invalida la clave tras el retorno de `super()` (que ya es post-commit); `save` queda cubierto por delegación. El principio de D-10 (store-then-invalidate, solo tras el commit) se mantiene; cambia el punto de enganche.
+- **D-16 (enmienda a D-09 — `insert_many`):** `insert_many` es un `classmethod` sin acceso a la instancia `_cache`. **Gana un parámetro opcional `cache=`**; cuando se pasa, invalida las claves afectadas. Sin `cache=`, no invalida (documentado, consistente con `insert` puro). El resto de D-09 no cambia.
+- **D-17 (enmienda a D-08 — semántica del parámetro):** el parámetro `applied` significa **"¿debe quedar la migración como aplicada?"**, no "¿corrió el SQL?". Con ese significado la tabla de D-08 queda coherente tal cual (incluida la fila `rolling_back`+`True` → restaurar `applied`); solo se corrige el encabezado que decía "¿corrió el SQL?".
+
+**Restricciones técnicas verificadas por la investigación (el planner DEBE respetarlas):**
+- El runner **no puede llamar `db.commit()`**: `PoolDb.commit()` lanza `ConnectionError` por diseño (`pool.py:245-248`). Usar `async with db.transaction()`, que funciona igual en adaptadores directos y en pools. En MySQL/MariaDB/Oracle el commit implícito del DDL es lo que publica la fila `pending`.
+- `ALTER TABLE ADD COLUMN IF NOT EXISTS` **no es portable** (solo PostgreSQL y MariaDB). Receta: consultar el catálogo con el `columns_of()` que ya existe en los 6 adaptadores + `ADD ... NOT NULL DEFAULT 'applied'` + guard "verify-then-swallow" que **re-lee el catálogo** en vez de matchear códigos de error del driver.
+- **Pitfall 8 (teatro de seguridad) es evitable y testeable:** la ambigüedad es real (MySQL/MariaDB commitean implícitamente *antes* del DDL), así que el test de inyección de fallo debe asertar que `reconcile_migrations` **detecta** el `pending`, no que sea imposible.
+
+
 ### Folded Todos
 Ninguno — no había todos pendientes para esta fase.
 
