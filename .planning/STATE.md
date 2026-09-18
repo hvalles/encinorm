@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-09-18T17:27:44.596Z"
-last_activity: 2026-09-18 -- Completed 03-01-PLAN.md
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-09-18T17:37:53.258Z"
+last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 22
-  completed_plans: 17
-  percent: 77
+  completed_plans: 18
+  percent: 25
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 3
-Plan: 1 of 5
-Status: In progress
-Last activity: 2026-09-18 -- Completed 03-01-PLAN.md
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-09-18
 
-Progress: [████████░░] 77%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [████████░░] 77%
 | Phase 02 P11 | 4 min | 2 tasks | 6 files |
 | Phase 02 P12 | 2 min | 2 tasks | 4 files |
 | Phase 03 P01 | 7 min | 3 tasks | 9 files |
+| Phase 03 P03 | 7 min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -139,6 +140,9 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-01: columna status en los 6 motores con DEFAULT 'applied' y ALTER TABLE idempotente verify-then-swallow (re-lee el catalogo; no matchea codigos de error del driver). — ADD COLUMN IF NOT EXISTS no es portable; el catalogo es la fuente de verdad.
 - [Phase 03]: 03-01: S608 per-file-ignore para migration.py y tests/test_migrations.py (nombre de tabla validado con check_identifier; name/status ligados como parametros). — Mantiene noqa=0 y el patron ya usado por los 6 adaptadores.
 - [Phase 03]: 03-01: se corrigio un I001 preexistente en tests/test_ci_harness.py (reproducido en un git-archive limpio de HEAD) que bloqueaba el gate de lint en una corrida sin cache. — El gate ruff check encino_orm tests debe salir 0; reordenamiento mecanico sin cambio de comportamiento.
+- [Phase ?]: 03-03: CachedModel invalida por overrides de update/delete/upsert tras super() (post-commit), NO por el hook after_commit (no dispara en upsert/insert_many ni recibe la clave); save queda cubierto por delegacion (D-15).
+- [Phase ?]: 03-03: insert_many(cache=...) invalida la clave de la PK del modelo presente en rows (mismo dominio que load()); sin cache= no invalida; _cache_key_for classmethod construye la clave sin instancia (D-16).
+- [Phase ?]: 03-03: un fallo de cache.delete registra un warning de logging y NO propaga (fail-open, D-12); solo se invalida la clave afectada, sin namespace (D-11).
 
 ### Pending Todos
 
@@ -163,6 +167,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T17:27:44.585Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-09-18T17:37:53.231Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None
