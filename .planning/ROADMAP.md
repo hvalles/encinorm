@@ -131,7 +131,7 @@ library demonstrably returns correct results on all six engines — not just SQL
   4. `Query` is immutable and hashable, **`with_params()` returns a copy** (`rebind` is DELETED per D-01/D-06, not fixed), per-dialect `MAX_PARAMS`/`MAX_ROWS` constants exist, and committed SQL snapshots assert dialect output on the always-on SQLite job
   5. The CI matrix runs per-engine integration tests for `count`/`paginate`/`list_tables`/`sync_schema`/`last_id` on MariaDB, Redis, MSSQL and Oracle
 
-**Plans**: 5 plans
+**Plans**: 5 plans executed + 4 gap-closure plans (`02-06`…`02-09`, added after verification returned `gaps_found`)
 **Research**: needed — syrupy dialect-snapshot adoption, `testcontainers` Oracle/MSSQL topology, and the `Query` immutability refactor shape are design recommendations without documented consensus
 
 Plans:
@@ -159,6 +159,23 @@ Plans:
 **Waves:** 1 → 02-01; 2 → 02-02; 3 → 02-03; 4 → 02-04; 5 → 02-05. The chain is fully serial: `02-01` must be a pure-refactor commit before any validation lands (Hard Ordering Constraint #2); `02-02`'s builders need the `Query` construction contract that `02-03` finalizes, and its acceptance is byte-identical SQL; `02-04` fixes the aggregate result keys on top of the settled `Query`; `02-05` freezes the SQL in snapshots and proves parity in CI. `02-05` is the only non-autonomous plan (a blocking `syrupy` package-legitimacy checkpoint).
 
 **Deviation from the roadmap's original 3-task cap:** `02-02` carries 5 tasks and `02-05` carries 4, documented in-plan with reasons (atomic seam + `Model.upsert` absorption in the first; a blocking package-legitimacy checkpoint in the second). Splitting `02-02` would break the byte-identical-SQL acceptance oracle and the `02-VALIDATION.md` task map.
+
+**Gap closure (added after `02-VERIFICATION.md` returned `gaps_found`).** The five ROADMAP Success Criteria pass, but the two goal clauses do not hold as functional statements. Four new plans close the verified gaps. They do NOT re-run `02-01`…`02-05`; they extend the seam those plans built.
+
+**Wave 1** *(independent of each other; both build on the executed `02-01`…`02-05`)*
+
+- [ ] 02-06-PLAN.md — Make the identifier allowlist a real choke point: validate `QueryBuilder`'s `alias=`/`join()`/`join_subquery()` aliases and the default pydantic field name in `_build_column_map`, and close the raw `indexes_ddl` fallback — closes GAP 1 (CR-01 reproduced SQL-injection primitive + WR-06) — DIAL-01, DIAL-02
+- [ ] 02-07-PLAN.md — Enforce `Query`'s documented cardinality contract (no `indices and` carve-out) and compile from the normalised index so `{00}` cannot leak a `KeyError`; sync the published `docs/design/0-design.md` §2.1 sketch and example with the code and guard it with a source test — closes GAP 2 (WR-01/WR-02/WR-07) — DIAL-05
+
+**Wave 2** *(blocked on `02-06`: shared `query_builder.py` / `model/model.py` / `test_query_builder.py`)*
+
+- [ ] 02-08-PLAN.md — Engine parity: route `QueryBuilder.all()/first()/exists()` through `fetch_many`/`fetch_one` and cover them on all six engines (today: zero coverage); make MariaDB `upsert` emit `ON DUPLICATE KEY UPDATE`; derive `Model.insert(replace=True)`'s conflict target from the primary key — closes GAP 3 (WR-03/WR-04/WR-05) — DIAL-02, DIAL-03, DIAL-09
+
+**Wave 3** *(blocked on `02-08`: same six per-engine test files and the same `deferred-items.md`)*
+
+- [ ] 02-09-PLAN.md — Fix `Db.list_tables(name=)` on the four engines where it is dead (filter on a real column of a derived table, value bound, `LOWER()` on both sides), with a per-engine test and a DB-free dialect snapshot — closes GAP 4 and leaves no unowned deferral — DIAL-03, DIAL-09
+
+**Gap-closure waves:** 1 → `02-06`, `02-07`; 2 → `02-08`; 3 → `02-09`. GAP 5 (per-adapter coverage floors) stays deferred pending a green `engine-heavy` run and is NOT planned here; the gap-closure plans do not contradict it.
 
 ### Phase 3: Data Correctness
 
