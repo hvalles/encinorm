@@ -13,8 +13,11 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 - **CAMBIO DE COMPORTAMIENTO (formato de clave de caché).** La clave de caché de
   `CachedModel` ahora incluye la huella del `scope()` activo:
   `sha1(tabla:[pk=...]|scope=<huella>)`. Una entrada cacheada bajo un tenant ya no
-  se sirve a otro, cerrando la lectura cruzada y la escritura cruzada de tenant
-  (CR-02). Sin `scope()` activo la clave no cambia respecto al formato anterior.
+  se sirve a otro: el acierto de caché ya no sirve datos de otro tenant **ni
+  habilita una escritura cruzada** (CR-02). La escritura cruzada con claves de
+  escritura no-PK se cierra aparte: `Model.update`/`delete` aplican el `scope()`
+  activo al DML (SEC-01; detalle en la sección Corregido). Sin `scope()` activo la
+  clave no cambia respecto al formato anterior.
   Al ser un cambio de formato, un backend compartido entre versiones puede
   conservar claves del formato viejo como entradas huérfanas hasta que expire su
   TTL; el nuevo formato no las sirve. Nota de ownership: esta entrada es ADITIVA y
@@ -23,6 +26,20 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ### Corregido
 
+- `Model.update`/`delete` aplican el `scope()` activo al `WHERE` del DML (parámetros
+  ligados): una escritura identificada por una clave no-PK (no única) ya no
+  modifica/borra filas de otro tenant. Antes solo se PRE-comprobaba el `scope` con
+  `load()` y el `UPDATE`/`DELETE` se emitía sin predicado de alcance (SEC-01). Sin
+  `scope()` activo el DML es idéntico al de siempre. Nota de ownership: esta entrada
+  es ADITIVA y no prejuzga la enumeración de cambios incompatibles del milestone,
+  que posee la Fase 8 (`08-04`).
+- La invalidación post-escritura de `CachedModel` es fail-open incluso cuando una PK
+  tiene un valor no hashable (`list`/`dict`, que pydantic y `_from_db` admiten):
+  `_union` deduplica por una huella `repr` y la unión de sondas va envuelta en
+  `try/except`, de modo que un fallo de la invalidación nunca propaga una excepción
+  después del commit (WR-R3-02). Antes, un `TypeError` en la unión podía reportar
+  como fallida una escritura ya persistida. Nota de ownership: esta entrada es
+  ADITIVA y no prejuzga la enumeración del milestone, que posee la Fase 8 (`08-04`).
 - `indexes_ddl` valida las columnas de índice no mapeadas con la allowlist
   estricta: un spec que no es un campo del modelo ni un identificador simple
   (p. ej. `"a; DROP TABLE x --"`) antes se interpolaba tal cual en la DDL y ahora
@@ -72,8 +89,8 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 - En los dialectos `merge` (MSSQL/Oracle), el objetivo de conflicto de un `MERGE`
   DEBE ser una columna presente en los datos insertados; si no lo es, el builder
   lanza `ValueError` con un mensaje accionable en vez de emitir
-  `ON (dst.<col> = src.<col>)` sobre una columna inexistente (antes: MSSQL 207
-  `Invalid column name` / Oracle `ORA-00904`). En consecuencia, `Model.upsert()` con
+  `ON (dst.<col> = src.<col>)` sobre una columna inexistente (antes: `Invalid column
+  name` de MSSQL / `ORA-00904` de Oracle). En consecuencia, `Model.upsert()` con
   el conflicto por defecto (PK) sobre un modelo de PK autoincremental ahora falla en
   voz alta, y el llamador debe pasar `conflict=` con una columna de datos (la PK `id`
   no está en el INSERT). No es una mejora de la semántica del upsert: es un fallo
@@ -115,8 +132,8 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 - El dominio de la caché de `CachedModel` pasa a ser la **PK de la fila** (canónico):
   `load(keys=<no-PK>)` consulta la BD, aprende la PK y recachea bajo ella en vez de
   cachear bajo la clave de lectura, y `update`/`delete`/`upsert` resuelven la PK real
-  de la fila afectada —de la instancia si las claves de escritura son la PK; de la BD
-  con un `SELECT` ligado y con `scope` si no— antes de invalidar esa única entrada.
+  de las filas afectadas —de la instancia si las claves de escritura son la PK; de la
+  BD con un `SELECT` ligado y con `scope` si no— antes de invalidar sus entradas.
   Antes, un write por una clave distinta de la PK (`update(keys=['rfc'])` /
   `upsert(conflict=['rfc'])`) dejaba obsoleta la entrada cacheada bajo la PK y una
   lectura posterior podía servir la fila vieja hasta el TTL (CR-01). CAMBIO DE
@@ -140,9 +157,9 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   la **identidad de la fila** que ESTA llamada insertó (`{id: ledger_id}`,
   capturado best-effort con `last_id()`), no por `{name, status='pending'}`: el
   compare-and-delete podía borrar la fila `pending` que otro runner re-publicaba
-  tras nuestro rollback (WR-01 residual). Si el motor no expone un `last_id()`
-  utilizable (Oracle devuelve 0), se cae al compare-and-delete documentado,
-  residual estrecho asignado a la Fase 4 (`04-02`, POOL-03). Además, un fallo de la
+  tras nuestro rollback (WR-01 residual). Si `last_id()` falla (o no expone un id
+  utilizable), se cae al compare-and-delete documentado, residual estrecho asignado
+  a la Fase 4 (`04-02`, POOL-03). Además, un fallo de la
   compensación ya no enmascara la excepción original del DDL (IN-01). Nota de
   ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
   que posee la Fase 8 (`08-04`).
