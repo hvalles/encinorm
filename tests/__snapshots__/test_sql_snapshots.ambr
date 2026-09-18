@@ -1,0 +1,343 @@
+# serializer version: 1
+# name: test_count_snapshot
+  dict({
+    'mariadb': dict({
+      'count': 'SELECT COUNT(*) AS n FROM snap_tabla WHERE enabled = {0}',
+    }),
+    'mssql': dict({
+      'count': 'SELECT COUNT(*) AS n FROM snap_tabla WHERE enabled = {0}',
+    }),
+    'mysql': dict({
+      'count': 'SELECT COUNT(*) AS n FROM snap_tabla WHERE enabled = {0}',
+    }),
+    'oracle': dict({
+      'count': 'SELECT COUNT(*) AS n FROM snap_tabla WHERE enabled = {0}',
+    }),
+    'postgresql': dict({
+      'count': 'SELECT COUNT(*) AS n FROM snap_tabla WHERE enabled = {0}',
+    }),
+    'sqlite': dict({
+      'count': 'SELECT COUNT(*) AS n FROM snap_tabla WHERE enabled = {0}',
+    }),
+  })
+# ---
+# name: test_delete_snapshot
+  dict({
+    'mariadb': dict({
+      'sql': 'DELETE FROM t WHERE id = %s',
+      'values': list([
+        1,
+      ]),
+    }),
+    'mssql': dict({
+      'sql': 'DELETE FROM t WHERE id = ?',
+      'values': list([
+        1,
+      ]),
+    }),
+    'mysql': dict({
+      'sql': 'DELETE FROM t WHERE id = %s',
+      'values': list([
+        1,
+      ]),
+    }),
+    'oracle': dict({
+      'sql': 'DELETE FROM t WHERE id = :parameter_0000',
+      'values': dict({
+        'parameter_0000': 1,
+      }),
+    }),
+    'postgresql': dict({
+      'sql': 'DELETE FROM t WHERE id = $1',
+      'values': list([
+        1,
+      ]),
+    }),
+    'sqlite': dict({
+      'sql': 'DELETE FROM t WHERE id = ?',
+      'values': list([
+        1,
+      ]),
+    }),
+  })
+# ---
+# name: test_insert_ignore_duplicated_snapshot
+  dict({
+    'mariadb': dict({
+      'sql': 'INSERT IGNORE INTO t (a) VALUES (%s)',
+      'values': list([
+        1,
+      ]),
+    }),
+    'mssql': dict({
+      'sql': 'INSERT INTO t (a) VALUES (?)',
+      'values': list([
+        1,
+      ]),
+    }),
+    'mysql': dict({
+      'sql': 'INSERT IGNORE INTO t (a) VALUES (%s)',
+      'values': list([
+        1,
+      ]),
+    }),
+    'oracle': dict({
+      'sql': 'INSERT INTO t (a) VALUES (:parameter_0000) RETURNING id INTO :ret_id',
+      'values': dict({
+        'parameter_0000': 1,
+      }),
+    }),
+    'postgresql': dict({
+      'sql': 'INSERT INTO t (a) VALUES ($1) ON CONFLICT DO NOTHING',
+      'values': list([
+        1,
+      ]),
+    }),
+    'sqlite': dict({
+      'sql': 'INSERT OR IGNORE INTO t (a) VALUES (?)',
+      'values': list([
+        1,
+      ]),
+    }),
+  })
+# ---
+# name: test_insert_plain_snapshot
+  dict({
+    'mariadb': dict({
+      'sql': 'INSERT INTO t (a,b) VALUES (%s,%s)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'mssql': dict({
+      'sql': 'INSERT INTO t (a,b) VALUES (?,?)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'mysql': dict({
+      'sql': 'INSERT INTO t (a,b) VALUES (%s,%s)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'oracle': dict({
+      'sql': 'INSERT INTO t (a,b) VALUES (:parameter_0000,:parameter_0001) RETURNING id INTO :ret_id',
+      'values': dict({
+        'parameter_0000': 1,
+        'parameter_0001': 'x',
+      }),
+    }),
+    'postgresql': dict({
+      'sql': 'INSERT INTO t (a,b) VALUES ($1,$2)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'sqlite': dict({
+      'sql': 'INSERT INTO t (a,b) VALUES (?,?)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+  })
+# ---
+# name: test_insert_replace_snapshot
+  dict({
+    'mariadb': dict({
+      'sql': 'REPLACE INTO t (a,b) VALUES (%s,%s)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'mssql': dict({
+      'sql': 'MERGE INTO t AS dst USING (SELECT ? AS a, ? AS b) AS src ON (dst.a = src.a) WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'mysql': dict({
+      'sql': 'REPLACE INTO t (a,b) VALUES (%s,%s)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'oracle': dict({
+      'sql': 'MERGE INTO t dst USING (SELECT :parameter_0000 AS a, :parameter_0001 AS b) src ON (dst.a = src.a) WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
+      'values': dict({
+        'parameter_0000': 1,
+        'parameter_0001': 'x',
+      }),
+    }),
+    'postgresql': dict({
+      'sql': 'INSERT INTO t (a,b) VALUES ($1,$2) ON CONFLICT (a) DO UPDATE SET a = EXCLUDED.a, b = EXCLUDED.b',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'sqlite': dict({
+      'sql': 'INSERT OR REPLACE INTO t (a,b) VALUES (?,?)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+  })
+# ---
+# name: test_insert_replace_with_conflict_snapshot
+  dict({
+    'mariadb': dict({
+      'sql': 'REPLACE INTO t (a,b) VALUES (%s,%s)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'mssql': dict({
+      'sql': 'MERGE INTO t AS dst USING (SELECT ? AS a, ? AS b) AS src ON (dst.b = src.b) WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'mysql': dict({
+      'sql': 'REPLACE INTO t (a,b) VALUES (%s,%s)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'oracle': dict({
+      'sql': 'MERGE INTO t dst USING (SELECT :parameter_0000 AS a, :parameter_0001 AS b) src ON (dst.b = src.b) WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
+      'values': dict({
+        'parameter_0000': 1,
+        'parameter_0001': 'x',
+      }),
+    }),
+    'postgresql': dict({
+      'sql': 'INSERT INTO t (a,b) VALUES ($1,$2) ON CONFLICT (b) DO UPDATE SET a = EXCLUDED.a, b = EXCLUDED.b',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+    'sqlite': dict({
+      'sql': 'INSERT OR REPLACE INTO t (a,b) VALUES (?,?)',
+      'values': list([
+        1,
+        'x',
+      ]),
+    }),
+  })
+# ---
+# name: test_list_tables_snapshot
+  dict({
+    'mariadb': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()) encino_orm_count',
+      'tables': 'SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()',
+    }),
+    'mssql': dict({
+      'count_wrapper': "SELECT COUNT(*) AS n FROM (SELECT TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE') encino_orm_count",
+      'tables': "SELECT TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'",
+    }),
+    'mysql': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()) encino_orm_count',
+      'tables': 'SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE()',
+    }),
+    'oracle': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT table_name AS name FROM user_tables) encino_orm_count',
+      'tables': 'SELECT table_name AS name FROM user_tables',
+    }),
+    'postgresql': dict({
+      'count_wrapper': "SELECT COUNT(*) AS n FROM (SELECT tablename AS name FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema')) encino_orm_count",
+      'tables': "SELECT tablename AS name FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema')",
+    }),
+    'sqlite': dict({
+      'count_wrapper': "SELECT COUNT(*) AS n FROM (SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_encino_orm_migrations') encino_orm_count",
+      'tables': "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_encino_orm_migrations'",
+    }),
+  })
+# ---
+# name: test_paginate_snapshot
+  dict({
+    'mariadb': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT id FROM t WHERE a = {0}) encino_orm_count',
+      'page': 'SELECT id FROM t WHERE a = {0}',
+    }),
+    'mssql': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT id FROM t WHERE a = {0}) encino_orm_count',
+      'page': 'SELECT id FROM t WHERE a = {0}',
+    }),
+    'mysql': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT id FROM t WHERE a = {0}) encino_orm_count',
+      'page': 'SELECT id FROM t WHERE a = {0}',
+    }),
+    'oracle': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT id FROM t WHERE a = {0}) encino_orm_count',
+      'page': 'SELECT id FROM t WHERE a = {0}',
+    }),
+    'postgresql': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT id FROM t WHERE a = {0}) encino_orm_count',
+      'page': 'SELECT id FROM t WHERE a = {0}',
+    }),
+    'sqlite': dict({
+      'count_wrapper': 'SELECT COUNT(*) AS n FROM (SELECT id FROM t WHERE a = {0}) encino_orm_count',
+      'page': 'SELECT id FROM t WHERE a = {0}',
+    }),
+  })
+# ---
+# name: test_update_snapshot
+  dict({
+    'mariadb': dict({
+      'sql': 'UPDATE t SET nombre = %s WHERE id = %s',
+      'values': list([
+        'mod',
+        1,
+      ]),
+    }),
+    'mssql': dict({
+      'sql': 'UPDATE t SET nombre = ? WHERE id = ?',
+      'values': list([
+        'mod',
+        1,
+      ]),
+    }),
+    'mysql': dict({
+      'sql': 'UPDATE t SET nombre = %s WHERE id = %s',
+      'values': list([
+        'mod',
+        1,
+      ]),
+    }),
+    'oracle': dict({
+      'sql': 'UPDATE t SET nombre = :parameter_0000 WHERE id = :parameter_0001',
+      'values': dict({
+        'parameter_0000': 'mod',
+        'parameter_0001': 1,
+      }),
+    }),
+    'postgresql': dict({
+      'sql': 'UPDATE t SET nombre = $1 WHERE id = $2',
+      'values': list([
+        'mod',
+        1,
+      ]),
+    }),
+    'sqlite': dict({
+      'sql': 'UPDATE t SET nombre = ? WHERE id = ?',
+      'values': list([
+        'mod',
+        1,
+      ]),
+    }),
+  })
+# ---

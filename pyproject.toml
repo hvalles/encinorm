@@ -271,4 +271,9 @@ dev = [
     "pytest-cov>=7.1.0",
     "coverage>=7.16.1",
     "pip-audit>=2.10.1",
+    # Pin exacto: el FORMATO DE SERIALIZACION de los snapshots `.ambr` está
+    # versionado igual que la salida de ruff. Sin fijar, CI podría resolver una
+    # versión más nueva que reformatee los `.ambr` y romper la suite en un PR no
+    # relacionado. Actualizar el pin es un cambio deliberado + `--snapshot-update`.
+    "syrupy==6.1.1",
 ]
