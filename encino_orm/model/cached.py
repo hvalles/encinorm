@@ -6,7 +6,7 @@ from encino_orm.base import Db
 
 from .cache_backend import CacheBackend
 from .filter import Filter
-from .model import Model, _set_private
+from .model import Model, _serialize, _set_private
 from .scope import current_scope
 
 logger = logging.getLogger("encino_orm")
@@ -85,7 +85,11 @@ class CachedModel(Model):
                 return None
             cond = None
             for k in write_keys:
-                eq = Filter.eq(k, getattr(self, k))
+                # El DML liga el valor SERIALIZADO (`Model.update` usa `_serialize`),
+                # así que la sonda debe ligar el mismo valor: con un `datetime`/
+                # `Decimal`/JSON crudo el WHERE de la sonda no casaría ninguna fila y
+                # la entrada de la PK sobreviviría obsoleta (CR-R4-01).
+                eq = Filter.eq(k, _serialize(getattr(self, k)))
                 cond = eq if cond is None else cond & eq
             rows = await self.search(
                 filter=cond,
@@ -156,9 +160,9 @@ class CachedModel(Model):
             return
         pk_keys = list(type(self)._pk_fields())
         for values in pk_values:
-            if any(v is None for v in values.values()):
-                continue
             try:
+                if not isinstance(values, dict) or any(v is None for v in values.values()):
+                    continue
                 key = type(self)._cache_key_for(pk_keys, values)
                 await self._cache.delete(key)
             except Exception as exc:

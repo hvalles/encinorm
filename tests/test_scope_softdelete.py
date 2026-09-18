@@ -159,6 +159,19 @@ class TestScope:
         assert rows[0].titulo == "nuevo"
 
     @pytest.mark.asyncio
+    async def test_cr_r3_01_delete_fisico_no_cruza_tenant(self, db):
+        """SEC-01: el borrado FÍSICO con clave no-PK también queda acotado por scope."""
+        await Doc(db, tenant_id=1, titulo="a", grupo="G").insert()
+        await Doc(db, tenant_id=2, titulo="b", grupo="G").insert()
+
+        with scope(Filter.eq("tenant_id", 1)):
+            assert await Doc(db, grupo="G").delete(keys=["grupo"], physical=True) is True
+
+        rows = await Doc(db).search(include_deleted=True)
+        assert len(rows) == 1
+        assert rows[0].tenant_id == 2
+
+    @pytest.mark.asyncio
     async def test_cr_r3_01_update_no_cruza_tenant(self, db):
         # CR-R3-01: una clave de escritura no-PK (no única) NO debe modificar
         # filas de otro tenant cuando hay `scope()` activo.

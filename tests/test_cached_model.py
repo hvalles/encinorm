@@ -90,6 +90,26 @@ DDL_PK_LISTA = (
 )
 
 
+class ClienteJson(CachedModel):
+    """Modelo con clave de escritura no-PK de tipo JSON (`list`) (CR-R4-01).
+
+    El DML liga el valor SERIALIZADO (`_serialize` → `json.dumps`), así que la sonda
+    de invalidación debe ligar el mismo valor; con la `list` cruda el driver no puede
+    ligar el parámetro, la sonda falla en silencio y la entrada de la PK sobrevive
+    obsoleta.
+    """
+
+    _table = "clientes_json"
+    etiquetas: list | None = Field(default=None)
+    nombre: str | None = Field(default=None)
+
+
+DDL_JSON = (
+    "CREATE TABLE clientes_json (id INTEGER PRIMARY KEY AUTOINCREMENT, etiquetas TEXT, "
+    "nombre TEXT, enabled INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)"
+)
+
+
 def _pk_key() -> str:
     """Clave del dominio canónico (`id=1`) que `load()` debe escribir SIEMPRE."""
     return ClientePK._cache_key_for(("id",), {"id": 1})
@@ -126,6 +146,12 @@ async def db_scope(connected_db):
 @pytest.fixture
 async def db_pk_lista(connected_db):
     await connected_db.execute(Query(DDL_PK_LISTA, []))
+    return connected_db
+
+
+@pytest.fixture
+async def db_json(connected_db):
+    await connected_db.execute(Query(DDL_JSON, []))
     return connected_db
 
 
@@ -480,3 +506,23 @@ class TestCachedModel:
         )
         assert row["nombre"] == "Nuevo"
         assert await cache.get(pk_key) is None
+
+    @pytest.mark.asyncio
+    async def test_cr_r4_01_clave_serializada_invalida_entrada(self, db_json):
+        """CR-R4-01: una clave de escritura no-PK serializada (JSON) debe resolver la
+        PK real e invalidar su entrada. HOY la sonda liga la `list` cruda (el driver no
+        puede ligarla), la sonda falla en silencio y la caché queda obsoleta."""
+        cache = MemoryCacheBackend()
+        await ClienteJson(db_json, cache=cache, etiquetas=[1, 2], nombre="Viejo").insert()
+
+        loaded = await ClienteJson(db_json, cache=cache, id=1).load()
+        assert loaded.nombre == "Viejo"
+        pk_key = ClienteJson._cache_key_for(("id",), {"id": 1})
+        assert await cache.get(pk_key) is not None
+
+        w = ClienteJson(db_json, cache=cache, etiquetas=[1, 2], nombre="Nuevo")
+        await w.update(keys=["etiquetas"])
+
+        assert await cache.get(pk_key) is None
+        again = await ClienteJson(db_json, cache=cache, id=1).load()
+        assert again.nombre == "Nuevo"
