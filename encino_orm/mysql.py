@@ -8,7 +8,7 @@ import aiomysql
 from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
 from .dialects.identifiers import check_identifier
-from .dialects.strategies import MYSQL_INSERT, InsertStrategy
+from .dialects.strategies import LIMITS, MYSQL_INSERT, InsertStrategy
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
@@ -50,6 +50,8 @@ def _to_mysql(sql: str, params: dict) -> tuple[str, list]:
 
 class MysqlDb(Db):
     dialect = "mysql"
+    MAX_PARAMS = LIMITS["mysql"].max_params
+    MAX_ROWS = LIMITS["mysql"].max_rows
 
     def __init__(self):
         self._connection = None

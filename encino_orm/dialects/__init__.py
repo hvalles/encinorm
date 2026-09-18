@@ -3,6 +3,7 @@
 from .builders import build_delete, build_insert, build_update, build_upsert
 from .identifiers import IDENTIFIER_RE, check_identifier
 from .strategies import (
+    LIMITS,
     MARIADB_INSERT,
     MSSQL_INSERT,
     MYSQL_INSERT,
@@ -11,12 +12,14 @@ from .strategies import (
     SQLITE_INSERT,
     UPSERT_KIND,
     UPSERT_KINDS,
+    DialectLimits,
     InsertStrategy,
     strategy_for,
 )
 
 __all__ = [
     "IDENTIFIER_RE",
+    "LIMITS",
     "MARIADB_INSERT",
     "MSSQL_INSERT",
     "MYSQL_INSERT",
@@ -25,6 +28,7 @@ __all__ = [
     "SQLITE_INSERT",
     "UPSERT_KIND",
     "UPSERT_KINDS",
+    "DialectLimits",
     "InsertStrategy",
     "build_delete",
     "build_insert",

@@ -6,7 +6,7 @@ import asyncpg
 
 from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
-from .dialects.strategies import POSTGRES_INSERT, InsertStrategy
+from .dialects.strategies import LIMITS, POSTGRES_INSERT, InsertStrategy
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
@@ -49,6 +49,8 @@ def _rowcount(status) -> int:
 
 class PostgresDb(Db):
     dialect = "postgresql"
+    MAX_PARAMS = LIMITS["postgresql"].max_params
+    MAX_ROWS = LIMITS["postgresql"].max_rows
 
     def __init__(self):
         self._connection = None

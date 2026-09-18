@@ -79,6 +79,16 @@ class PoolDb(Db):
         return self._engine
 
     @property
+    def MAX_PARAMS(self) -> int:
+        """Techo de parámetros por sentencia del motor subyacente (no del pool)."""
+        return self._template.MAX_PARAMS
+
+    @property
+    def MAX_ROWS(self) -> int:
+        """Techo de filas por lote del motor subyacente (no del pool)."""
+        return self._template.MAX_ROWS
+
+    @property
     def stats(self) -> dict:
         """Métricas básicas del pool (adquisiciones, esperas, timeouts, tamaño)."""
         return {

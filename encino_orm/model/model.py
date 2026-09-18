@@ -507,11 +507,16 @@ class Model(BaseModel):
         return await self.insert()
 
     @classmethod
-    async def insert_many(cls, db=None, rows: list[dict] | None = None, *, chunk: int = 500) -> int:
+    async def insert_many(
+        cls, db=None, rows: list[dict] | None = None, *, chunk: int | None = None
+    ) -> int:
         """Inserta varios registros en una transacción (multi-filas `VALUES`).
 
         Devuelve el total de filas insertadas. Los registros se particionan en
-        *chunks* de `chunk` para no exceder el límite de parámetros del motor.
+        *chunks* para no exceder el techo de parámetros del motor. Si `chunk` es
+        `None` se deriva del motor resuelto: `min(MAX_PARAMS // n_columnas,
+        MAX_ROWS)`, con `500` como último recurso para objetos que no exponen las
+        constantes. Un `chunk` explícito del llamador se respeta tal cual.
         """
         if not rows:
             return 0
@@ -520,6 +525,13 @@ class Model(BaseModel):
         auto = cls._is_auto_pk()
         fields = [f for f in col_map if not (auto and f == "id")]
         columns = [col_map[f] for f in fields]
+        if chunk is None:
+            max_params = getattr(db, "MAX_PARAMS", None)
+            max_rows = getattr(db, "MAX_ROWS", None)
+            if max_params and max_rows:
+                chunk = max(1, min(max_params // max(len(columns), 1), max_rows))
+            else:
+                chunk = 500
         now = datetime.now(timezone.utc)
 
         total = 0

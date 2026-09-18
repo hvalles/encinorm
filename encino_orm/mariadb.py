@@ -1,5 +1,6 @@
 from dataclasses import replace
 
+from .dialects.strategies import LIMITS
 from .mysql import MysqlDb
 
 
@@ -11,6 +12,10 @@ class MariadbDb(MysqlDb):
     """
 
     dialect = "mariadb"
+    # Sobrescribe los techos heredados de `MysqlDb` para que el valor sea el del
+    # dialecto correcto aunque hoy coincidan.
+    MAX_PARAMS = LIMITS["mariadb"].max_params
+    MAX_ROWS = LIMITS["mariadb"].max_rows
 
     async def columns_of(self, table):
         cols = await super().columns_of(table)

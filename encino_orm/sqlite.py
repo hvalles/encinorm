@@ -6,7 +6,7 @@ import aiosqlite
 from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
 from .dialects.identifiers import check_identifier
-from .dialects.strategies import SQLITE_INSERT, InsertStrategy
+from .dialects.strategies import LIMITS, SQLITE_INSERT, InsertStrategy
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
@@ -39,6 +39,8 @@ def _to_positional(sql: str, params: dict) -> tuple[str, list]:
 
 class SqliteDb(Db):
     dialect = "sqlite"
+    MAX_PARAMS = LIMITS["sqlite"].max_params
+    MAX_ROWS = LIMITS["sqlite"].max_rows
 
     def __init__(self):
         self._connection = None

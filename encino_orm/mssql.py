@@ -4,7 +4,7 @@ import time
 from ._rows import _rows_to_dicts
 from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
-from .dialects.strategies import MSSQL_INSERT, InsertStrategy
+from .dialects.strategies import LIMITS, MSSQL_INSERT, InsertStrategy
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
 from .observability import current_trace_id
@@ -37,6 +37,8 @@ def _to_mssql(sql: str, params: dict) -> tuple[str, list]:
 
 class MssqlDb(Db):
     dialect = "mssql"
+    MAX_PARAMS = LIMITS["mssql"].max_params
+    MAX_ROWS = LIMITS["mssql"].max_rows
 
     def __init__(self):
         self._connection = None
