@@ -10,7 +10,11 @@ Los nombres de metodo incluyen `check_skips` / `require_engines` a proposito:
 deseleccionarlos en silencio (la investigacion de la fase los cita por nombre).
 """
 
+import json
+
 import pytest
+from tools.ci.check_coverage_floors import FLOORS
+from tools.ci.check_coverage_floors import main as coverage_floors_main
 
 from tests.conftest import engine_unavailable, required_engines
 from tools.ci.check_skips import main, total_skipped
@@ -110,3 +114,74 @@ class TestEngineUnavailable:
         monkeypatch.delenv("ENCINO_ORM_REQUIRE_ENGINES", raising=False)
         with pytest.raises(pytest.skip.Exception):
             engine_unavailable("postgresql", RuntimeError("sin conexion"))
+
+
+def _coverage_json(tmp_path, files: dict) -> str:
+    """Escribe un `coverage.json` minimo con el esquema real de coverage.py."""
+    data = {
+        "meta": {"format": 3},
+        "files": {
+            name: {"summary": {"percent_covered": pct, "num_statements": 10}}
+            for name, pct in files.items()
+        },
+        "totals": {"percent_covered": 100.0},
+    }
+    path = tmp_path / "coverage.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return str(path)
+
+
+def _all_above(floor_offset: float = 0.0) -> dict:
+    return {module: floor + floor_offset for module, floor in FLOORS.items()}
+
+
+class TestCheckCoverageFloors:
+    """Gate de pisos por modulo sobre `coverage json` (D-04/D-06 de Fase 1)."""
+
+    def test_check_coverage_floors_map_has_required_modules(self):
+        assert FLOORS["encino_orm/dialects/identifiers.py"] == 100.0
+        assert FLOORS["encino_orm/dialects/builders.py"] == 95.0
+        assert FLOORS["encino_orm/query.py"] == 95.0
+
+    def test_check_coverage_floors_all_above_returns_zero(self, tmp_path, capsys):
+        code = coverage_floors_main(
+            ["check_coverage_floors.py", _coverage_json(tmp_path, _all_above())]
+        )
+        assert code == 0
+        assert capsys.readouterr().out.strip()
+
+    def test_check_coverage_floors_below_floor_returns_one(self, tmp_path, capsys):
+        files = _all_above()
+        files["encino_orm/query.py"] = FLOORS["encino_orm/query.py"] - 1.0
+        code = coverage_floors_main(["check_coverage_floors.py", _coverage_json(tmp_path, files)])
+        assert code == 1
+        err = capsys.readouterr().err
+        assert "FALLO:" in err
+        assert "encino_orm/query.py" in err
+        assert str(FLOORS["encino_orm/query.py"]) in err
+
+    def test_check_coverage_floors_missing_module_returns_one(self, tmp_path, capsys):
+        files = _all_above()
+        del files["encino_orm/dialects/builders.py"]
+        code = coverage_floors_main(["check_coverage_floors.py", _coverage_json(tmp_path, files)])
+        assert code == 1
+        err = capsys.readouterr().err
+        assert "FALLO:" in err
+        assert "encino_orm/dialects/builders.py" in err
+
+    def test_check_coverage_floors_missing_file_returns_one(self, tmp_path, capsys):
+        code = coverage_floors_main(["check_coverage_floors.py", str(tmp_path / "no-existe.json")])
+        assert code == 1
+        assert "FALLO:" in capsys.readouterr().err
+
+    def test_check_coverage_floors_invalid_json_returns_one(self, tmp_path, capsys):
+        path = tmp_path / "coverage.json"
+        path.write_text("{no es json", encoding="utf-8")
+        code = coverage_floors_main(["check_coverage_floors.py", str(path)])
+        assert code == 1
+        assert "FALLO:" in capsys.readouterr().err
+
+    def test_check_coverage_floors_windows_paths_are_normalized(self, tmp_path, capsys):
+        files = {module.replace("/", "\\"): pct for module, pct in _all_above().items()}
+        code = coverage_floors_main(["check_coverage_floors.py", _coverage_json(tmp_path, files)])
+        assert code == 0
