@@ -196,7 +196,7 @@ Plans:
   3. `CachedModel.update()` and `CachedModel.delete()` never leave a stale cached row readable (store-then-invalidate)
   4. `MemoryCacheBackend` is bounded, or explicitly documented as dev/test-only
 
-**Plans**: 5 plans
+**Plans**: 7 plans (5 originales + 2 de cierre: `03-06`, `03-07`)
 **Research**: not needed — `transactional_ddl` branching and cache-aside invalidation follow Alembic and Microsoft's documented patterns
 
 Plans:
@@ -428,7 +428,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 5/5 | Complete   | 2026-09-18 |
+| 3. Data Correctness | 5/7 | In Progress   | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |

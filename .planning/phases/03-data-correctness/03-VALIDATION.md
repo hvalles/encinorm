@@ -55,6 +55,11 @@ created: 2026-09-18
 | 03-04-01 | 03-04 | 3 | DATA-04 | — | El contrato dev/test y la cota LRU están documentados en `docs/guide.md`, y la limitación multi-proceso queda explícita | source | `grep -c "dev/test" docs/guide.md` ≥ 1 | ❌ W0 | ⬜ pending |
 | 03-04-02 | 03-04 | 3 | DATA-04 | — | `CHANGELOG.md` registra los cuatro cambios incompatibles sin duplicar `### Corregido` | source | `sed -n '/## \[Unreleased\]/,/## \[0.2.6\]/p' CHANGELOG.md \| grep -c "### Corregido"` == 1 | ❌ W0 | ⬜ pending |
 
+| 03-06-01 | 03-06 | 1 | DATA-03 | — | `load()` cachea SOLO bajo la PK; la lectura no-PK aprende la PK y recachea bajo ella | unit | `uv run pytest tests/test_cached_model.py -k cr01 -x` | ❌ W0 | ⬜ pending |
+| 03-06-02 | 03-06 | 1 | DATA-03 | — | Cada escritura resuelve la PK real de la fila afectada e invalida esa clave | unit | `uv run pytest tests/test_cached_model.py -x` | ❌ W0 | ⬜ pending |
+| 03-07-01 | 03-07 | 1 | DATA-02 | — | La compensación de `_apply` solo borra la fila que ESTE intento insertó (compare-and-delete) | unit | `uv run pytest tests/test_migration_reconcile.py -k compensa -x` | ❌ W0 | ⬜ pending |
+| 03-07-02 | 03-07 | 1 | DATA-02 | — | `resolve_migration` documenta el re-envío de `rollback_migration` (docstring + texto del error de reconciliación) | unit | `uv run pytest tests/test_migration_reconcile.py -k resolve -x` | ❌ W0 | ⬜ pending |
+
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
 ---
