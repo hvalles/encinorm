@@ -136,15 +136,29 @@ library demonstrably returns correct results on all six engines — not just SQL
 
 Plans:
 
+**Wave 1**
+
 - [ ] 02-01-PLAN.md — Centralize `_IDENTIFIER_RE`/`_check_identifier` into `dialects/identifiers.py` as a pure refactor with zero behavior change, in its own commit — DIAL-01
-- [ ] 02-02-PLAN.md — Shared `dialects/builders.py` + `strategies.py` with `build_insert`/`update`/`delete` validating every table and column; validate introspection-derived identifiers in `sync_schema` before `ALTER TABLE`; `PoolDb.insert` stops dropping `conflict` — DIAL-02, DIAL-04
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-02-PLAN.md — Shared `dialects/builders.py` + `strategies.py` with `build_insert`/`update`/`delete`/`build_upsert` validating every table and column; `Model.upsert`'s dialect branches (`ON DUPLICATE KEY`/`MERGE`/`ON CONFLICT`) move into the seam; validate introspection-derived identifiers in `sync_schema` before `ALTER TABLE`; `PoolDb.insert` stops dropping `conflict` — DIAL-02, DIAL-04
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 02-03-PLAN.md — `Query` correctness (regex over real `{n}`, immutable/hashable, `rebind` replaced by `with_params()`) plus per-dialect `MAX_PARAMS`/`MAX_ROWS` constants with provenance — DIAL-05, DIAL-06
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 02-04-PLAN.md — Dialect-correct `AS n` alias for `count`/`paginate`/`list_tables` **and** `QueryBuilder.sum/avg/min/max` (7 sites, not 3), with per-engine integration tests covering `sync_schema` and `last_id` as well — DIAL-03, DIAL-09
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 02-05-PLAN.md — Per-dialect SQL snapshots via syrupy on the always-on SQLite job, the full multi-engine CI matrix (MariaDB + Redis as services; MSSQL/Oracle in a separate single-Python-version job), and the per-module coverage-floor gate owed by Phase 1 D-04/D-06 — DIAL-07, DIAL-08
 
 **Waves:** 1 → 02-01; 2 → 02-02; 3 → 02-03; 4 → 02-04; 5 → 02-05. The chain is fully serial: `02-01` must be a pure-refactor commit before any validation lands (Hard Ordering Constraint #2); `02-02`'s builders need the `Query` construction contract that `02-03` finalizes, and its acceptance is byte-identical SQL; `02-04` fixes the aggregate result keys on top of the settled `Query`; `02-05` freezes the SQL in snapshots and proves parity in CI. `02-05` is the only non-autonomous plan (a blocking `syrupy` package-legitimacy checkpoint).
 
-**Deviation from the roadmap's original 3-task cap:** `02-02` and `02-05` carry 4 tasks each, documented in-plan with reasons (atomic seam + an independent small addition in the first; a blocking package-legitimacy checkpoint in the second). Splitting either would break the 5-plan contract and the `02-VALIDATION.md` task map.
+**Deviation from the roadmap's original 3-task cap:** `02-02` carries 5 tasks and `02-05` carries 4, documented in-plan with reasons (atomic seam + `Model.upsert` absorption in the first; a blocking package-legitimacy checkpoint in the second). Splitting `02-02` would break the byte-identical-SQL acceptance oracle and the `02-VALIDATION.md` task map.
 
 ### Phase 3: Data Correctness
 
@@ -338,23 +352,29 @@ These corrections override statements elsewhere in the repo. Do not build on the
      The correct pattern already exists at `base.py:174-177` (`AS n` → `row["n"]`). Leaving
      `sum/avg/min/max` unfixed falsifies the phase goal. DIAL-03 is satisfied only when all seven
      are aliased.
+
    - **`rebind` is DELETED, not fixed** (CONTEXT D-01/D-06). Success Criterion 4 and the original
      02-03 bullet said "fix `rebind`"; both are stale and have been rewritten to `with_params()`.
+
    - **`Query` is mutated post-construction** by `mssql.py:223` and `oracle.py:225`
      (`q.ignore_duplicated = True`), and two existing tests assert that attribute. The immutability
      refactor must promote it to a constructor field, not delete it.
+
    - **The `Query` typed accessors must exist before the builder seam** (`02-02`) can pass
      `ignore_duplicated` at construction and read `.sql`/`.params`. Hence `02-02` adds the
      accessors additively and `02-03` delivers the breaking change (immutability, cardinality,
      `with_params()`), so DIAL-05 never touches the six adapters (CONTEXT D-02).
+
    - **`PoolDb.insert` silently drops `conflict`** (`pool.py:180`); through a pool, PostgreSQL's
      `replace` always falls back to `columns[0]`.
+
    - **CI blockers for the MSSQL/Oracle job:** `ubuntu-latest` (24.04) ships no ODBC driver, so an
      explicit `msodbcsql18` + `unixodbc` install step is mandatory; and the lighter `oracle-free`
      image uses `FREEPDB1` while `docker-compose.yml` uses `XE`/`XEPDB1`, so the job must override
      `ENCINO_ORM_ORACLE_SERVICE`. The `engine-heavy` job must select tests by FILE, not by marker,
      or the `optional_engine` markers would deselect every MSSQL/Oracle test and the job would run
      zero tests.
+
    - **`syrupy` install is gated behind a blocking `checkpoint:human-verify`** (slopcheck `[SUS]`,
      a name-similarity false positive vs `scrapy`).
 

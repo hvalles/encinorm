@@ -338,9 +338,9 @@ def _set_private(obj, name, value):
 
 **Target shape:** see RESEARCH §Code Examples "`Query` — the target shape (DIAL-05)" (lines 571-652). Invariants the planner must not relax:
 
-- `__slots__ = ("sql_template", "fields", "ignore_duplicated", "_sql", "_params")` (excludes `__dict__` → typo assignment raises).
-- Constructor `Query(sql, fields, *, ignore_duplicated=False)`; `ignore_duplicated` is a **field**, not set post-construction.
-- `.sql` = compiled `%(parameter_0000)s` (today's `query[0]`); `.params` = dict (today's `query[1]`); `.fields` = input list; `.query` = read-only property returning a **fresh** `[sql, params]`.
+- `__slots__ = ("_sql_template", "_fields", "_ignore_duplicated", "_sql", "_params")` — slots **privados** (excluyen `__dict__` → una errata de nombre lanza). La superficie legible `sql_template`/`fields`/`ignore_duplicated` se expone con **properties sin setter**: un slot plano es un descriptor ESCRIBIBLE (así que `q.fields = []` tendría éxito) y un slot llamado igual que una property lanza `ValueError: 'fields' in __slots__ conflicts with class variable` al crear la clase. Ver la corrección anotada en RESEARCH §Code Examples.
+- Constructor `Query(sql, fields, *, ignore_duplicated=False)`; `ignore_duplicated` es un **campo**, no se fija post-construcción.
+- `.sql` = compilado `%(parameter_0000)s` (el antiguo `query[0]`); `.params` = dict (el antiguo `query[1]`); `.fields` = property de solo lectura que devuelve la MISMA lista de entrada; `.query` = property de solo lectura que devuelve un `[sql, params]` **nuevo**.
 - `.with_params(values)` returns a **new** `Query`; re-validates cardinality.
 - Cardinality: `set(re.findall(r"\{(\d+)\}", sql)) == set(range(len(values)))`; duplicates legal; raise `ValueError` with indices + count.
 - `__eq__` compares `(sql_template, fields, ignore_duplicated)`; `__hash__` over `(sql_template, tuple(fields), ignore_duplicated)` and raises an explicit `TypeError` on unhashable params.

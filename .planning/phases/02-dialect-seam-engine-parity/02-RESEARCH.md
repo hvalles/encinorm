@@ -75,7 +75,7 @@ Phase 2 is a **seam-and-parity** phase: collapse six copy-pasted DML builders an
 |------------|-------------|----------------|-----------|
 | Identifier validation policy (`check_identifier`) | Core (`encino_orm/dialects/identifiers.py`) | Adapters (import only) | One definition, six importers. Pitfall 10: "fixing one and missing five is the expected outcome." |
 | DML SQL construction (`build_insert/update/delete`) | Core (`encino_orm/dialects/builders.py`) | — | Pure functions, no I/O, no driver knowledge. Adapters stop owning DML text (ARCHITECTURE.md Anti-Pattern 6). |
-| Dialect DML variance (upsert/merge shape) | Adapter hook (`_insert_strategy`) | Core (`dialects/strategies.py` data) | Strategy *objects* are data; the choice of strategy is adapter-local, preserving "no engine branches outside the adapter". |
+| Dialect DML variance (upsert/merge shape) | Core (`dialects/strategies.py` data + `dialects/builders.py` render) | Adapter hook (`_insert_strategy`) on the public `Db.insert` path; ORM layer (`model/model.py`) on the `Model.upsert` path | Strategy *objects* are data; on the public `Db.insert` path the choice is adapter-local (`_insert_strategy`), preserving "no engine branches outside the adapter". For `Model.upsert` the resolution site is the **ORM layer**: it does a data lookup (`UPSERT_KIND[dialect]` + `strategy_for(dialect)`) rather than an `Engine.*` branch, and that is enforced by an `ast` test. The dialect **data** itself lives in `dialects/strategies.py`; `model.py` owns only the lookup. |
 | `Query` compilation (`{n}` → `%(name)s`) | Core (`encino_orm/query.py`) | — | Value object; no dialect knowledge (native translation stays in `_prepare`). |
 | Native placeholder translation (`%(name)s` → `$1`/`?`/`:name`) | Adapter (`_prepare`) | — | Unchanged contract; the phase must not move it. |
 | Count/aggregate result-key aliasing | Core (`base.py`, `model/model.py`, `model/query_builder.py`) | — | The label must be dialect-independent (`AS n`) because the result-shape contract differs per driver. |
@@ -484,7 +484,7 @@ The `ubuntu-24.04` runner image (Image Version 20260907.300.1) lists **no `unixo
 ### Pitfall A: The identifier regex is duplicated six times and the call sites have two shapes
 **What goes wrong:** 02-01 rewrites `base.py` and declares victory; `sqlite.py`, `mysql.py`, `transfer.py`, `model/model.py`, `model/types.py` keep their own copies; `sql.py:_COLUMN_RE` is either silently unified (behavior change) or forgotten. 02-02 then validates only in `base.py`'s builders and five dialects stay unvalidated.
 **Why it happens:** the duplication is invisible in a diff review and the copies are byte-identical, so grep for the regex *value* returns everything and nothing looks wrong.
-**How to avoid:** in 02-01, grep for **both** `_IDENTIFIER_RE` and `_check_identifier` and update all 7 files; add a test that asserts `len(re.findall(r"_IDENTIFIER_RE\s*=", <all sources>)) == 1` (a source-level single-definition guard, cheap and decisive). Leave `_COLUMN_RE` untouched and add a comment saying why.
+**How to avoid:** in 02-01, grep for **both** `_IDENTIFIER_RE` and `_check_identifier` and update all **6** files that hold the strict allowlist/checker (`base.py`, `sqlite.py`, `mysql.py`, `model/model.py`, `model/types.py`, `transfer.py`); add a test that asserts `len(re.findall(r"_IDENTIFIER_RE\s*=", <all sources>)) == 1` (a source-level single-definition guard, cheap and decisive). Leave `_COLUMN_RE` untouched in the 2 files that define it (`sql.py`, `model/query_builder.py`) and add a comment saying why; `mariadb.py` needs no edit because it inherits from `MysqlDb`.
 **Warning signs:** `grep -rn "_IDENTIFIER_RE =" encino_orm/` returns more than one line after 02-01.
 
 ### Pitfall B: The validation commit is not actually separate, or not actually bisectable
@@ -587,7 +587,7 @@ class Query:
     como placeholder (no se parsean literales en esta versión).
     """
 
-    __slots__ = ("sql_template", "fields", "ignore_duplicated", "_sql", "_params")
+    __slots__ = ("_sql_template", "_fields", "_ignore_duplicated", "_sql", "_params")
 
     def __init__(self, sql: str, fields: list, *, ignore_duplicated: bool = False):
         values = list(fields or [])
@@ -604,9 +604,9 @@ class Query:
         params = {f"{name}{i}": v for i, v in enumerate(values)}
         compiled = _PLACEHOLDER_RE.sub(lambda m: f"%({name}{m.group(1)})s", sql)
 
-        object.__setattr__(self, "sql_template", sql)
-        object.__setattr__(self, "fields", values)
-        object.__setattr__(self, "ignore_duplicated", ignore_duplicated)
+        object.__setattr__(self, "_sql_template", sql)
+        object.__setattr__(self, "_fields", values)
+        object.__setattr__(self, "_ignore_duplicated", bool(ignore_duplicated))
         object.__setattr__(self, "_sql", compiled)
         object.__setattr__(self, "_params", params)
 
@@ -624,6 +624,21 @@ class Query:
     def query(self) -> list:
         """Compatibilidad de lectura (D-02): `[sql_compilado, params]`. Lista nueva."""
         return [self._sql, self._params]
+
+    @property
+    def sql_template(self) -> str:
+        """Plantilla original con los `{n}` (la leen `pool.py` y `base.paginate`)."""
+        return self._sql_template
+
+    @property
+    def fields(self) -> list:
+        """Valores de entrada. Devuelve la MISMA lista subyacente, no una copia."""
+        return self._fields
+
+    @property
+    def ignore_duplicated(self) -> bool:
+        """Flag de constructor. Property sin setter: reasignarlo lanza `AttributeError`."""
+        return self._ignore_duplicated
 
     def with_params(self, fields: list) -> "Query":
         """Devuelve una COPIA con nuevos valores (reemplaza al mutante `rebind`)."""
@@ -656,6 +671,7 @@ class Query:
 - `_PLACEHOLDER_RE.sub` with a callable replaces **all** occurrences, including duplicates — `{0}` twice becomes the same `%(parameter_0000)s` twice, which is correct.
 - Empty `fields` and no placeholders → `compiled == sql`, `params == {}` — matching today's `[sql, {}]` for the no-placeholder path.
 - `__slots__` deliberately excludes `__dict__`, so a typo'd attribute assignment raises — this is the immutability guarantee.
+- **Corrección al boceto (revisión de checker):** los slots van con guion bajo y la superficie legible (`sql_template`, `fields`, `ignore_duplicated`) se expone con properties SIN setter. Un `__slots__` plano es un descriptor ESCRIBIBLE (por eso `q.fields = []` tendría éxito y la inmutabilidad prometida sería falsa), y declarar a la vez el slot `"fields"` y la property `fields` lanza `ValueError: 'fields' in __slots__ conflicts with class variable` al crear la clase. La property `fields` devuelve la lista subyacente (no una copia) para que `list(qry.fields)` y `qry.fields == [1, "x"]` sigan funcionando; la inmutabilidad es de ATRIBUTO, no profunda.
 
 ### `dialects/identifiers.py` (02-01, pure move)
 
@@ -894,29 +910,34 @@ For MSSQL/Oracle, the equivalent probe belongs in the `engine-heavy` job and sho
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **What exactly are Oracle's and MSSQL's ad-hoc parameter ceilings?**
    - What we know: asyncpg 32767 (verified in source), SQLite 32766 (verified empirically), MSSQL 2100 (official, stored-proc/UDF context).
    - What's unclear: the ad-hoc-statement caps that `MAX_PARAMS` actually governs.
    - Recommendation: land the constants with documented provenance, then have the `engine-heavy` job run a probe test that measures the real ceiling and asserts it; adjust the constants from the measured value. This is a Phase 2 deliverable (DIAL-06), not a Phase 7 one — Phase 7 only *consumes* them.
+   - **RESOLVED as: the constants land WITH PROVENANCE (each `DialectLimits.provenance` states whether the number is empirically verified or not) and the empirical value is pinned by the `engine-heavy` probe added in plan 02-05 (Task 3 wires the job; the manual probe is listed in `02-VALIDATION.md` §Manual-Only Verifications).** The constants are never frozen from this document alone.
 
 2. **Should the `engine-heavy` job run on every PR or only on `main`?**
    - What we know: Oracle cold start is 60-120 s; the job will add ~3-5 min to every PR.
    - What's unclear: the project's tolerance for CI latency on PRs.
    - Recommendation: run on PR + push with `timeout-minutes: 30`. If it becomes painful, move to `main`-only + `workflow_dispatch` — but never make it advisory.
+   - **RESOLVED as: adopted — the job runs on PR + push with `timeout-minutes: 30`; if latency becomes unacceptable the only permitted mitigation is gating on `push` to `main` + `workflow_dispatch`. `continue-on-error` is forbidden (plan 02-05 Task 3).**
 
 3. **Does `Query.__hash__` include `ignore_duplicated`?**
    - What we know: for MSSQL the SQL text is identical with and without the flag; behavior differs.
    - Recommendation: include it (correctness over minimalism). If the planner disagrees, the reasoning must be recorded, because DATA-07 will use this hash as a cache key.
+   - **RESOLVED as: SUPERSEDED by locked decision D-03.** The user fixed `__hash__` over `(sql_template, tupla_de_params)` with `ignore_duplicated` **intentionally excluded**; this research recommendation (include it) is NOT adopted. The consequence is recorded as a caveat in `Query.__hash__` and in the 02-03 SUMMARY: if DATA-07 ever uses this hash as a cache key it MUST add `ignore_duplicated` to the key. There is no live bug in this phase because no per-`Query` cache exists.
 
 4. **Should `QueryBuilder.sum/avg/min/max` be fixed in this phase?**
    - What we know: DIAL-03 names only `count`/`paginate`/`list_tables`; the four aggregate methods have the identical defect.
    - Recommendation: yes, fix all seven in 02-04 and add per-engine assertions. Record the scope addition in the plan and the traceability table.
+   - **RESOLVED as: adopted — plan 02-04 Task 1 fixes all seven sites with a fixed `AS n` alias, and Task 2/3 add per-engine integration assertions for the five `QueryBuilder` aggregates.**
 
 5. **Do the six adapter `S608` per-file-ignores shrink after the seam?**
    - What we know: the adapters still interpolate in `columns_of` (`PRAGMA table_info({table})`, `SHOW COLUMNS FROM {table}`) and `migrate`.
    - Recommendation: keep them in this phase; add `"encino_orm/dialects/builders.py" = ["S608"]`. Note the ratchet opportunity (e.g. `mariadb.py`'s `S608` is arguably removable) but do not force it.
+   - **RESOLVED as: adopted — the six adapter ignores stay in this phase; plan 02-02 Task 2 adds exactly one new entry, `"encino_orm/dialects/builders.py" = ["S608"]`, with the trust boundary documented in the module. The ratchet is noted but not forced (the `noqa == 0` invariant of Phase 1 is preserved).**
 
 ---
 
