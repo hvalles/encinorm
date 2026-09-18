@@ -1,38 +1,74 @@
-class Query:
-    """Sentencia SQL + parámetros, con placeholders `{n}` compilados a `%(name)s`.
+import re
 
-    Los accesores `sql` y `params` son la superficie tipada que consumen los
-    adaptadores; `query` se conserva como property de SOLO LECTURA que devuelve
-    una lista nueva `[sql, params]` en cada acceso (compatibilidad de lectura,
-    D-02). La inmutabilidad real y `with_params()` llegan en DIAL-05; aquí el
-    cambio es puramente aditivo.
+# Detección de los placeholders REALES `{n}` de la plantilla (D-04). No es el
+# sentinel frágil `sql.find("{0}")`: reconoce cualquier índice, no solo el 0.
+_PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
+
+
+class Query:
+    """Sentencia SQL + valores, inmutable a nivel de atributo y hashable.
+
+    Contrato de entrada: ``Query("… {0} … {1}", [v0, v1])``. Los índices pueden
+    aparecer dispersos o repetidos en el texto, pero el conjunto de índices
+    detectados debe ser exactamente ``range(len(values))``: ningún índice fuera
+    de rango y ningún parámetro declarado sin usar. La violación lanza
+    ``ValueError`` en la construcción. Los valores SIEMPRE viajan como
+    parámetros ligados; la plantilla nunca se interpola con valores.
+
+    Los `{n}` se compilan a ``%(parameter_0000)s`` y los nombres se preservan
+    EXACTAMENTE, de modo que el ``sql_text`` ya almacenado en
+    ``_encino_orm_migrations`` no necesita migración.
+
+    Accesores: ``sql`` (compilado), ``params`` (dict), ``sql_template`` (la
+    plantilla con los `{n}`), ``fields`` (los valores de entrada) y
+    ``ignore_duplicated``. ``query`` se conserva como property de SOLO LECTURA
+    que devuelve una lista nueva ``[sql, params]`` en cada acceso.
+
+    Limitaciones conocidas, declaradas explícitamente:
+
+    1. Un ``{n}`` dentro de un literal de cadena se interpreta como placeholder;
+       esta versión no parsea literales SQL.
+    2. La inmutabilidad es de ATRIBUTO, no profunda. Los slots privados más las
+       properties sin setter impiden REASIGNAR ``sql``/``fields``/
+       ``ignore_duplicated`` (y una errata de nombre lanza ``AttributeError``,
+       porque no hay ``__dict__``), pero ``fields`` es una lista mutable y
+       ``params`` expone el dict interno por referencia: ``q.fields.append(v)``
+       y ``q.params["x"] = v`` NO lanzan. Mutar en sitio es un uso NO soportado
+       y además rompe el contrato de ``__hash__``, porque el hash se calcula en
+       cada llamada a partir del estado vivo. La property ``fields`` devuelve la
+       lista subyacente (no una copia) para no romper ``list(qry.fields)`` ni
+       ``qry.fields == [...]``.
     """
 
+    # Orden natural exigido por RUF023. Las anotaciones de clase son necesarias
+    # para que mypy vea los slots escritos con `object.__setattr__` (no crean
+    # variables de clase, así que no chocan con `__slots__`).
+    __slots__ = ("_fields", "_ignore_duplicated", "_params", "_sql", "_sql_template")
+    _fields: list
+    _ignore_duplicated: bool
+    _params: dict
+    _sql: str
+    _sql_template: str
+
     def __init__(self, sql: str, fields: list | None = None, *, ignore_duplicated: bool = False):
-        self.sql_template: str = sql
-        self.fields: list = fields if fields is not None else []
-        self.ignore_duplicated: bool = ignore_duplicated
-        self._param_name: str = "parameter_000"
+        values = list(fields or [])
+        indices = {int(m) for m in _PLACEHOLDER_RE.findall(sql)}
+        if indices and indices != set(range(len(values))):
+            raise ValueError(
+                f"placeholders {sorted(indices)} no cuadran con {len(values)} parámetros"
+            )
 
-        compiled = self.format(sql, self.fields, self._param_name)
-        self._sql: str = compiled[0]
-        self._params: dict = compiled[1]
+        params = {f"parameter_000{i}": v for i, v in enumerate(values)}
+        compiled = _PLACEHOLDER_RE.sub(lambda m: f"%(parameter_000{m.group(1)})s", sql)
 
-    def format(self, sql, columns: list | None = None, name="parameter_000"):
-        if columns is None:
-            columns = []
-        if not columns:
-            return [sql, {}]
-
-        cols = {}
-        for i, val in enumerate(columns):
-            cols[f"{name}{i}"] = val
-
-        formatted_sql = sql
-        for i, key in enumerate(cols):
-            formatted_sql = formatted_sql.replace(f"{{{i}}}", f"%({key})s")
-
-        return [formatted_sql, cols]
+        # `object.__setattr__` escribe los slots privados saltándose las
+        # properties de solo lectura; no hay `__dict__`, así que una errata de
+        # nombre lanza AttributeError.
+        object.__setattr__(self, "_sql_template", sql)
+        object.__setattr__(self, "_fields", values)
+        object.__setattr__(self, "_ignore_duplicated", bool(ignore_duplicated))
+        object.__setattr__(self, "_sql", compiled)
+        object.__setattr__(self, "_params", params)
 
     @property
     def sql(self) -> str:
@@ -45,16 +81,50 @@ class Query:
         return self._params
 
     @property
+    def sql_template(self) -> str:
+        """Plantilla original con los `{n}` (la leen `pool.py` y `base.paginate`)."""
+        return self._sql_template
+
+    @property
+    def fields(self) -> list:
+        """Valores de entrada. Devuelve la MISMA lista subyacente, no una copia."""
+        return self._fields
+
+    @property
+    def ignore_duplicated(self) -> bool:
+        """Flag de constructor (MSSQL/Oracle suprimen la violación en `execute`)."""
+        return self._ignore_duplicated
+
+    @property
     def query(self) -> list:
-        """Compatibilidad de lectura: lista nueva `[sql, params]` en cada acceso."""
+        """Compatibilidad de lectura (D-02): `[sql_compilado, params]`. Lista nueva."""
         return [self._sql, self._params]
 
-    def rebind(self, fields: list):
-        self.fields = fields
-        compiled = self.format(self.sql_template, fields, self._param_name)
-        self._sql = compiled[0]
-        self._params = compiled[1]
-        return self
+    def with_params(self, fields: list) -> "Query":
+        """Devuelve una COPIA con nuevos valores (sustituye al mutante `rebind`).
 
-    def __str__(self):
-        return str(self._sql) + str(self._params)
+        Revalida la cardinalidad por construcción y nunca muta ``self``.
+        """
+        return Query(self.sql_template, fields, ignore_duplicated=self.ignore_duplicated)
+
+    def __eq__(self, other) -> bool:
+        # D-03: la igualdad se define sobre (plantilla SQL, valores). El flag
+        # `ignore_duplicated` queda EXCLUIDO a propósito: dos Queries con el
+        # mismo texto y flags distintos comparan iguales.
+        if not isinstance(other, Query):
+            return NotImplemented
+        return self.sql_template == other.sql_template and self.fields == other.fields
+
+    def __hash__(self) -> int:
+        # Nota DATA-07: si un futuro caché usa este hash como clave, DEBE añadir
+        # `ignore_duplicated` a la clave — el flag no entra aquí (D-03).
+        try:
+            return hash((self.sql_template, tuple(self.fields)))
+        except TypeError as exc:
+            raise TypeError(
+                f"Query no hashable: hay un parámetro no hashable ({exc}). "
+                "Usa valores inmutables o no uses Query como clave."
+            ) from exc
+
+    def __str__(self) -> str:
+        return f"{self._sql}{self._params}"
