@@ -159,12 +159,11 @@ class TestSyncSchema:
 
         async def fake_existing(self):
             # Contrato real de `_existing_columns_info`: dict nombre_columna -> tipo.
-            return {
-                "id": "INTEGER",
-                "a": "TEXT",
-                "b": "TEXT",
-                "x; DROP TABLE t; --": "TEXT",
-            }
+            # Todas las columnas del modelo ya existen; el catálogo añade una
+            # columna hostil que el modelo no conoce.
+            catalogo = dict.fromkeys(T1._column_map().values(), "TEXT")
+            catalogo["x; DROP TABLE t; --"] = "TEXT"
+            return catalogo
 
         async def spy_execute(qry):
             ejecutados.append(qry)

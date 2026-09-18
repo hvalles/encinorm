@@ -878,6 +878,9 @@ class Model(BaseModel):
         from .types import _field_datatype, ddl_type
 
         engine = engine or getattr(self._get_db(), "dialect", "sqlite") or "sqlite"
+        # Fail-closed: los nombres derivados del catálogo son entrada NO confiable
+        # y se interpolan en ALTER TABLE; se validan antes de construir el Query.
+        check_identifier(self._table, "tabla")
         existing = await self._existing_columns_info()
         model_cols = self._column_map()
 
@@ -885,6 +888,7 @@ class Model(BaseModel):
         for field, col in model_cols.items():
             if col in existing or (field == "id" and type(self)._is_auto_pk()):
                 continue
+            check_identifier(col, "columna")
             dt = _field_datatype(type(self), field, type(self).model_fields[field])
             ddl = ddl_type(dt, engine)
             await self._get_db().execute(
@@ -895,6 +899,7 @@ class Model(BaseModel):
         dropped = []
         if drop_missing:
             for col in set(existing) - set(model_cols.values()):
+                check_identifier(col, "columna")
                 await self._get_db().execute(
                     Query(f"ALTER TABLE {self._table} DROP COLUMN {col}", [])
                 )
@@ -904,6 +909,7 @@ class Model(BaseModel):
         if alter_types:
             for c in (await self.diff_schema(engine))["changed"]:
                 col = c["column"]
+                check_identifier(col, "columna")
                 ddl = ddl_type(c["model"], engine)
                 if engine == Engine.POSTGRESQL:
                     await self._get_db().execute(
