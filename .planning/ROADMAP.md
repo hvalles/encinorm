@@ -64,7 +64,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Safety Net — CI Gates & Test Infrastructure** - Make CI able to fail: lint, types, per-engine coverage, required-engine switch, and pool characterization tests before any refactor (completed 2026-09-17)
 - [x] **Phase 2: Dialect Seam & Engine Parity** - One identifier-validation choke point, shared DML builders, `Query` correctness, and proof that count/paginate/list_tables work on all six engines (completed 2026-09-18)
-- [ ] **Phase 3: Data Correctness** - Migration ledger, atomic-or-reconciled `migrate()`, and `CachedModel` write-invalidation (parallel to Phase 2)
+- [x] **Phase 3: Data Correctness** - Migration ledger, atomic-or-reconciled `migrate()`, and `CachedModel` write-invalidation (parallel to Phase 2) (completed 2026-09-18)
 - [ ] **Phase 4: Pool Correctness & Concurrency** - `PooledConnection` handle, race-free `acquire()`, in-insert `last_id`, explicit release policy, lazy reaper, deterministic stress tests
 - [ ] **Phase 5: Resilience** - Classified disconnects, single reconnect outside transactions, `pre_ping`/lifetime for direct connections, public error taxonomy
 - [ ] **Phase 6: Config & Optional-Layer Hygiene** - `ConnectionRegistry` + `SecurityConfig` replace mutable globals; `exec()` codegen becomes closures; trust boundaries documented
@@ -213,7 +213,7 @@ Plans:
 
 **Wave 3** *(blocked on `03-01`, `03-02`, `03-03` y `03-05`: el CHANGELOG y la guía documentan sus cambios)*
 
-- [ ] 03-04-PLAN.md — Documenta en `docs/guide.md` §10 el contrato dev/test-only y la limitación multi-proceso, y registra en `CHANGELOG.md` los cambios incompatibles de la fase — DATA-04
+- [x] 03-04-PLAN.md — Documenta en `docs/guide.md` §10 el contrato dev/test-only y la limitación multi-proceso, y registra en `CHANGELOG.md` los cambios incompatibles de la fase — DATA-04
 
 **Waves:** 1 → `03-01`, `03-03`, `03-05` (disjuntos: migraciones, invalidación de caché y backend LRU); 2 → `03-02` (comparte `migration.py` y los seis adaptadores con `03-01`); 3 → `03-04` (docs-only: la guía y el CHANGELOG describen los cambios de los otros cuatro). Los cinco planes son autónomos.
 
@@ -421,7 +421,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 4/5 | In Progress|  |
+| 3. Data Correctness | 5/5 | Complete   | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
