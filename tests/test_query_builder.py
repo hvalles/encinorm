@@ -1,5 +1,5 @@
 import pytest
-from pydantic import Field
+from pydantic import Field, create_model
 
 from encino_orm.model import DuplicateAliasError, Filter, Model, QueryBuilder, col
 from encino_orm.query import Query
@@ -299,3 +299,66 @@ class TestAliasInjection:
         qb.join(Region, "r", Filter.eq("mm.region_id", col("r.id")))
         with pytest.raises(DuplicateAliasError):
             qb.join(Region, "r", Filter.eq("mm.region_id", col("r.id")))
+
+
+class TestTablaInjection:
+    """Regresión de CR-01 (ronda 2): ningún `_table` llega a `FROM`/`JOIN` sin validar.
+
+    La ronda anterior cerró el vector público `alias=`, pero `_build_base()`
+    seguía interpolando `self._model_class._table` (y cada `_table` de destino de
+    `join`) sin pasar por la allowlist estricta: `Model._table` solo se validaba
+    dentro de `Model._build_column_map()`, que `QueryBuilder` nunca dispara. El
+    escenario real es el de los modelos dinámicos/code-generated
+    (`create_model`, `introspection.generate_model`), no una constante escrita a
+    mano. Se reproduce el payload literal del informe de verificación.
+    """
+
+    @staticmethod
+    def _modelo_tabla_hostil():
+        M = create_model("Evil", __base__=Model, **{"nombre": (str | None, None)})
+        M._table = "t; DROP TABLE usuarios --"
+        return M
+
+    def test_tabla_con_inyeccion_en_constructor_lanza(self):
+        Evil = self._modelo_tabla_hostil()
+        with pytest.raises(ValueError) as exc:
+            QueryBuilder(Evil, None)
+        assert "nombre de tabla inválido" in str(exc.value)
+        assert repr("t; DROP TABLE usuarios --") in str(exc.value)
+
+    def test_tabla_hostil_en_join_lanza(self):
+        # El alias `h` es válido a propósito: el fallo solo puede venir del `_table`.
+        Evil = self._modelo_tabla_hostil()
+        qb = QueryBuilder(Agente, None)
+        with pytest.raises(ValueError) as exc:
+            qb.join(Evil, "h", Filter.eq("mm.agente", col("h.agente")))
+        assert "nombre de tabla inválido" in str(exc.value)
+
+    def test_tabla_no_identificador_en_constructor_lanza(self):
+        for table in ["a b", "a.b", "1x", "", "a-b", None, "t;--"]:
+            M = create_model("Evil", __base__=Model, **{"nombre": (str | None, None)})
+            M._table = table
+            with pytest.raises(ValueError):
+                QueryBuilder(M, None)
+
+    @pytest.mark.asyncio
+    async def test_el_driver_nunca_se_alcanza_con_tabla_hostil(self):
+        Evil = self._modelo_tabla_hostil()
+        fake = _RecordingDb({"id": 1})
+        with pytest.raises(ValueError):
+            await QueryBuilder(Evil, fake).all()
+        assert fake.queries == []
+
+    def test_tabla_valida_sigue_byte_identica(self):
+        assert QueryBuilder(Agente, None)._build_base()[0] == "FROM agentes mm"
+        qb = QueryBuilder(Agente, None)
+        qb.join(Region, "r", Filter.eq("mm.region_id", col("r.id")))
+        sql, _ = qb._build_base()
+        assert "JOIN regiones r ON" in sql
+
+    def test_tabla_hostil_en_subquery_no_construye(self):
+        # La subquery se valida en su PROPIO constructor: no puede inyectarse por
+        # `join_subquery` porque el `QueryBuilder` hostil ni siquiera se construye.
+        Evil = self._modelo_tabla_hostil()
+        with pytest.raises(ValueError):
+            QueryBuilder(Evil, None)
