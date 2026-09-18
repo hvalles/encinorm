@@ -151,3 +151,49 @@ class TestSyncSchema:
         await T1(db).create_table()
         with pytest.raises(NotImplementedError):
             await T3(db).sync_schema(alter_types=True)
+
+    @pytest.mark.asyncio
+    async def test_sync_schema_rechaza_columna_maliciosa_del_catalogo(self, db, monkeypatch):
+        """Un nombre de columna derivado del catálogo no puede llegar al ALTER TABLE."""
+        ejecutados = []
+
+        async def fake_existing(self):
+            # Contrato real de `_existing_columns_info`: dict nombre_columna -> tipo.
+            return {
+                "id": "INTEGER",
+                "a": "TEXT",
+                "b": "TEXT",
+                "x; DROP TABLE t; --": "TEXT",
+            }
+
+        async def spy_execute(qry):
+            ejecutados.append(qry)
+            return 0
+
+        monkeypatch.setattr(T1, "_existing_columns_info", fake_existing)
+        monkeypatch.setattr(db, "execute", spy_execute)
+
+        with pytest.raises(ValueError) as exc:
+            await T1(db).sync_schema(drop_missing=True)
+
+        assert "x; DROP TABLE t; --" in str(exc.value)
+        assert ejecutados == []
+
+    @pytest.mark.asyncio
+    async def test_sync_schema_anade_columna_valida(self, db, monkeypatch):
+        ejecutados = []
+
+        async def fake_existing(self):
+            return {"id": "INTEGER", "a": "TEXT"}
+
+        async def spy_execute(qry):
+            ejecutados.append(qry)
+            return 0
+
+        monkeypatch.setattr(T2, "_existing_columns_info", fake_existing)
+        monkeypatch.setattr(db, "execute", spy_execute)
+
+        result = await T2(db).sync_schema()
+        assert "c" in result["added"]
+        # Una ejecución por columna añadida (el camino válido no se bloquea).
+        assert len(ejecutados) == len(result["added"])
