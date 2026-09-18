@@ -153,3 +153,10 @@ None. Los cambios endurecen la frontera runnerâ†’ledger (T-03-09-01) y backendâ†
 ---
 *Phase: 03-data-correctness*
 *Completed: 2026-09-18*
+
+## Self-Check: PASSED
+
+- FOUND: `encino_orm/migration.py`
+- FOUND: `tests/test_migration_reconcile.py`
+- FOUND: `.planning/phases/03-data-correctness/03-09-SUMMARY.md`
+- FOUND commits: `1f22ce1`, `081a1b5`, `491bcc5`, `e156a51`
