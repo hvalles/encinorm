@@ -61,6 +61,14 @@ xfail_strict = true
 # debilita el "error" global.
 filterwarnings = [
     "error",
+    # Python 3.12 deprecó el adaptador datetime implicito de sqlite3. aiosqlite
+    # pasa objetos datetime sin registrar adaptador, asi que el aviso aparece en
+    # cada INSERT con fecha y, bajo "error", tumba la suite en las patas 3.12 y
+    # 3.13 (verificado en el run 35290398072). Se silencia UNICAMENTE ese aviso;
+    # cualquier otro warning sigue siendo error.
+    # Fix definitivo: registrar un adaptador datetime explicito en el adaptador
+    # SQLite (cambia el formato de almacenamiento) -> Fase 2 (DIAL) o Fase 7.
+    "ignore:The default datetime adapter is deprecated:DeprecationWarning",
 ]
 # D-08: los cuatro markers registrados para que `--strict-markers` no falle y
 # para que el comando del README (`-m "not integration"`) sea real.
