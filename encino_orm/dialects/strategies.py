@@ -45,16 +45,18 @@ ORACLE_INSERT = InsertStrategy(
     returning_id=True,
 )
 
-# Tipo de UPSERT por dialecto. Reproduce LITERALMENTE el comportamiento actual de
-# `Model.upsert`, que ramifica con `dialect is Engine.MYSQL` (identidad exacta):
-# por eso `"mariadb"` NO entra en la rama MySQL y cae en `on_conflict`. Preservar
-# ese comportamiento es el criterio de aceptación de este refactor; que MariaDB
-# soporte o no `ON CONFLICT` queda como HALLAZGO a verificar en una fase
-# posterior, nunca como arreglo silencioso aquí.
+# Tipo de UPSERT por dialecto. MariaDB NO implementa `ON CONFLICT` (sintaxis de
+# PostgreSQL/SQLite): MariaDB 11 —la imagen de CI promovida a motor REQUERIDO por
+# 02-05— espera `ON DUPLICATE KEY UPDATE`, la misma forma que MySQL. Este dato
+# CAMBIA el SQL que antes se generaba para MariaDB (que era `ON CONFLICT` y el
+# motor rechazaba con error de sintaxis 1064); no es un cambio silencioso, queda
+# documentado en `CHANGELOG.md` y en `deferred-items.md`. `MARIADB_INSERT` sigue
+# siendo idéntico a `MYSQL_INSERT` (kind="prefix"): solo cambia la cláusula de
+# conflicto, no la estrategia de INSERT.
 UPSERT_KIND: dict[str, str] = {
     "sqlite": "on_conflict",
     "mysql": "on_duplicate",
-    "mariadb": "on_conflict",
+    "mariadb": "on_duplicate",
     "postgresql": "on_conflict",
     "mssql": "merge",
     "oracle": "merge",
