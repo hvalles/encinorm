@@ -29,23 +29,26 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - ✓ Red de seguridad de CI verificable: `ruff` (lint+format) bloqueante, `mypy` no estricto con ratchet por módulo + `py.typed` en el wheel, `pytest-cov` con combine por pata y ratchet no-baja (82), y escaneo de dependencias (`uv lock --check` + `uv audit` + `pip-audit`) — Validated in Phase 1
 - ✓ Interruptor de motores requeridos (`ENCINO_ORM_REQUIRE_ENGINES`) que falla en vez de omitir, gate JUnit `skipped > 0` fail-closed, y release gateado por CI (`needs: [ci]` vía reusable workflow) — Validated in Phase 1
 - ✓ Suite de 19 tests de caracterización del pool que congelan el comportamiento actual antes del refactor de Fase 4 — Validated in Phase 1
+- ✓ Seam único `encino_orm/dialects/` para validación de identificadores y construcción DML (builders compartidos `insert`/`update`/`delete`/`upsert`, con allowlist estricta y escape hatch `schema=`); el alias de `QueryBuilder` y el nombre de columna por defecto también se validan — Validated in Phase 2
+- ✓ `Query` inmutable y hashable, con `with_params()` (reemplaza a `rebind`), compilación `{n}` por regex y validación de cardinalidad — Validated in Phase 2
+- ✓ Alias explícito `AS n` en los 7 sitios de agregados (`Model.count`, `Db.list_tables`, `QueryBuilder.count/sum/avg/min/max`) — Validated in Phase 2
+- ✓ `list_tables(name=)` funcional en los seis motores (tabla derivada + valor ligado) — Validated in Phase 2
+- ✓ `MAX_PARAMS`/`MAX_ROWS` por dialecto con procedencia documentada; `insert_many` deriva su `chunk` — Validated in Phase 2
+- ✓ Snapshots de SQL por dialecto (syrupy) en el job SQLite sin BD; CI con MariaDB + Redis requeridos y job `engine-heavy` para MSSQL/Oracle — Validated in Phase 2 (run live de `engine-heavy` pendiente de CI)
 
 ### Active
 
 <!-- Alcance actual: hardening hacia 0.3.0. Son hipótesis hasta que se implementen y verifiquen. -->
 
 **Corrección de bugs conocidos**
-- [ ] `count()` / `paginate()` / `list_tables()` devuelven resultados correctos en PostgreSQL, SQL Server y Oracle (eliminar `KeyError: 'COUNT(*)'` alineando el alias `AS n`)
 - [ ] `CachedModel` invalida la caché en `update()` y `delete()`; no hay lecturas obsoletas
 - [ ] `rollback_migration` + `apply_migration` permite re-aplicar una migración correctamente
 - [ ] `migrate()` es atómico o reconcilia el estado tras fallo parcial
 - [ ] Cada corrección incluye un test de regresión que falla antes y pasa después
 
 **Seguridad**
-- [ ] `Db.insert` / `Db.update` / `Db.delete` validan `tabla` y cada clave de columna con `_check_identifier` en los seis dialectos
 - [ ] La configuración de JWT/secretos deja de depender de globales mutables; se prefiere inyección explícita por dependencia
 - [ ] Las credenciales de desarrollo (`docker-compose.yml`) están marcadas como solo-desarrollo y los workflows de release migran a trusted publishing/OIDC
-- [ ] `sync_schema` valida los nombres de columna derivados de introspección antes de interpolarlos en `ALTER TABLE`
 - [ ] Documentación explícita de superficies de confianza (`Filter.raw`, `Query`, fragmentos `db.fn.*`)
 
 **Concurrencia y pool**
@@ -56,7 +59,7 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - [ ] Tests de concurrencia y estrés del pool que cubran estos caminos
 
 **Calidad y CI**
-- [ ] Matriz multi-motor en CI (MariaDB, SQL Server, Oracle, Redis) mediante servicios o contenedores, o mocks equivalentes justificados
+- [ ] (Fase 2 dejó el job `engine-heavy` cableado; falta su primer run verde en CI)
 
 **Rendimiento**
 - [ ] `copy_table` inserta por lotes en lugar de una fila por round-trip
@@ -93,6 +96,8 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - Builders de bajo nivel (`Db.insert/update/delete`) no validan identificadores, a diferencia de la capa `Model`.
 
 **Estado tras Fase 1 (2026-09-18):** la red de seguridad de CI ya está en pie — ruff, mypy+`py.typed`, coverage con ratchet, escaneo de dependencias, interruptor de motores requeridos, gate JUnit y release gateado. La suite pasó de ~507 a 553 tests. Pendiente de verificación humana/CI: que un gate rojo bloquee de verdad la publicación y que quitar un servicio de motor haga fallar el job (ver `01-HUMAN-UAT.md`). Riesgo residual registrado: 5 GHSA de PyJWT 2.12.1 en allowlist temporal hasta Fase 6.
+
+**Estado tras Fase 2 (2026-09-18):** el seam `dialects/` es el único punto de validación de identificadores y construcción DML; `Query` es inmutable; los 7 sitios del bug `COUNT(*)` corregidos; `list_tables(name=)` funciona en los seis motores; y hay snapshots de SQL por dialecto más matriz CI con MariaDB/Redis requeridos y job `engine-heavy` para MSSQL/Oracle. La fase necesitó **3 rondas de gap closure** (12 planes) porque las revisiones descubrieron, uno tras otro, vectores hermanos del mismo defecto: el alias de `QueryBuilder`, luego `_table`, luego `upsert`/`last_id`. Lección: un "choke point" declarado no es un choke point hasta que se barren TODAS las posiciones de interpolación. La suite pasó de 553 a **790 tests**. Pendiente de verificación humana/CI: primer run verde del job `engine-heavy`. Deuda con dueño asignado: captura real de `last_id` en MERGE (`OUTPUT INSERTED.id`) y el `SET` del MERGE de Oracle (ORA-38104) → Fase 4 / `04-02` / POOL-03.
 
 **Entorno técnico:** Python 3.10+, `pydantic>=2.13.4`, `asyncio` de un solo hilo con estado por tarea en `contextvars`. Desarrollo en Windows con `uv`.
 
@@ -133,4 +138,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-18 after Phase 1 completion*
+*Last updated: 2026-09-18 after Phase 2 completion*
