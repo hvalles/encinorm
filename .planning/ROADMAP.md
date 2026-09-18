@@ -217,7 +217,7 @@ Plans:
 
 **Wave 1 (gap-closure ronda 2)** *(ficheros disjuntos: caché vs runner de migraciones)*
 
-- [ ] 03-06-PLAN.md — Dominio de caché canónico por PK en `CachedModel` + resolución de la PK real de la fila antes de invalidar (cierra CR-01/GAP A): una escritura sin la PK en la instancia (`id=None`) invalida la entrada de la PK; el residual inverso desaparece por construcción — DATA-03
+- [x] 03-06-PLAN.md — Dominio de caché canónico por PK en `CachedModel` + resolución de la PK real de la fila antes de invalidar (cierra CR-01/GAP A): una escritura sin la PK en la instancia (`id=None`) invalida la entrada de la PK; el residual inverso desaparece por construcción — DATA-03
 - [ ] 03-07-PLAN.md — `_apply` solo borra la fila del ledger si esta llamada la insertó y sigue `pending` (cierra WR-01/GAP B) y documenta la re-emisión de `rollback_migration` en el docstring + el error de reconciliación (cierra IN-01/GAP C) — DATA-02
 
 **Waves:** 1 → `03-01`, `03-03`, `03-05` (disjuntos: migraciones, invalidación de caché y backend LRU); 2 → `03-02` (comparte `migration.py` y los seis adaptadores con `03-01`); 3 → `03-04` (docs-only: la guía y el CHANGELOG describen los cambios de los otros cuatro). Los cinco planes son autónomos.
@@ -428,7 +428,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 5/7 | In Progress   | 2026-09-18 |
+| 3. Data Correctness | 6/7 | In Progress|  |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |

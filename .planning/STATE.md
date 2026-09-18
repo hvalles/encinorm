@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-09-18T18:46:58.111Z"
-last_activity: 2026-09-18 -- Phase 03 planning complete
+stopped_at: Completed 03-06-PLAN.md
+last_updated: "2026-09-18T18:55:38.208Z"
+last_activity: 2026-09-18 -- Completed 03-06-PLAN.md (CR-01 canonical PK cache domain)
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 24
-  completed_plans: 22
+  completed_plans: 23
   percent: 25
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 3
-Plan: 5 of 5
+Plan: 6 of 7
 Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 03 planning complete
+Last activity: 2026-09-18 -- Completed 03-06-PLAN.md (CR-01 canonical PK cache domain)
 
-Progress: [██████████] 100%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [██████████] 100%
 | Phase 3 P5 | 5 min | 1 tasks | 2 files |
 | Phase 03 P02 | 3 min | 3 tasks | 14 files |
 | Phase 03 P04 | 1 min | 2 tasks | 2 files |
+| Phase 03 P06 | 8 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -153,6 +154,7 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-02: el parametro applied de resolve_migration significa 'debe quedar registrada como aplicada?', no 'corrio el SQL?' (D-17); ejecuta las cuatro acciones de D-08.
 - [Phase 03]: 03-04: la guia documenta el contrato dev/test-only de MemoryCacheBackend (LRU max_size=1024) y la invalidacion local al proceso, post-commit y fail-open de CachedModel; remite a docs/design/5-security.md 5.4 para el mecanismo.
 - [Phase 03]: 03-04: las entradas de CHANGELOG son aditivas y no prejuzgan la enumeracion completa de cambios incompatibles del milestone, que posee la Fase 8 (08-04).
+- [Phase 03]: 03-06: el dominio de caché de CachedModel pasa a ser canónico (SOLO la PK de la fila); load() escribe siempre bajo la PK y update/delete/upsert resuelven la PK real de la fila afectada antes de invalidar (de la instancia si las claves de escritura son la PK; de la BD con un SELECT ligado y con scope si no). — Cierra CR-01: una escritura sin la PK en la instancia (id=None) ya no deja viva la entrada [id=1]; el residual inverso desaparece por construcción. Supersede la premisa de D-11 (la lectura no-PK deja de acierto en caché); D-12 y D-16 intactos.
 
 ### Pending Todos
 
@@ -177,6 +179,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T17:55:20.801Z
-Stopped at: Completed 03-04-PLAN.md
+Last session: 2026-09-18T18:55:38.195Z
+Stopped at: Completed 03-06-PLAN.md
 Resume file: None
