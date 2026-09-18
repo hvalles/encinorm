@@ -498,12 +498,22 @@ implemente el `Protocol` `CacheBackend`.
 
 ### Invalidación y limitación multi-proceso
 
-`CachedModel` invalida la clave afectada tras `update`, `delete` y `upsert` (y,
-de forma opcional, en `insert_many(cache=...)`). La invalidación ocurre **después**
-del commit (nunca antes) y es **fail-open**: si el borrado de la caché falla, se
-registra un warning y la escritura no se revierte; el peor caso es una lectura
-obsoleta acotada por el TTL. El mecanismo (sobrescrituras de
-`update`/`delete`/`upsert` en `CachedModel`) está descrito en
+La caché de `CachedModel` indexa **siempre por la PK de la fila** (dominio
+canónico). Una lectura por otra clave (`load(keys=["rfc"])`) consulta la BD,
+aprende la PK de la fila devuelta y recachea bajo ella, de modo que **una lectura
+no-PK no acierta en caché** (se comporta como una consulta directa). La razón: así
+toda escritura puede invalidar la única entrada posible, incluso cuando la
+instancia de escritura no lleva la PK (`upsert(conflict=["rfc"])` con el auto-`id`
+sin asignar).
+
+`CachedModel` invalida esa entrada tras `update`, `delete` y `upsert` (y, de forma
+opcional, en `insert_many(cache=...)`): `update`/`delete`/`upsert` resuelven la PK
+de la fila afectada —de la instancia si las claves de escritura son la PK, o de la
+BD con un `SELECT` ligado y con `scope` si no— y borran esa única clave. La
+invalidación ocurre **después** del commit (nunca antes) y es **fail-open**: si el
+borrado de la caché falla, se registra un warning y la escritura no se revierte; el
+peor caso es una lectura obsoleta acotada por el TTL. El mecanismo (sobrescrituras
+de `update`/`delete`/`upsert` en `CachedModel`) está descrito en
 [`docs/design/5-security.md` §5.4](design/5-security.md#54-caché-opcional).
 
 **Limitación conocida:** la invalidación es **local al proceso**. No hay pub/sub

@@ -99,6 +99,17 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   expirara el TTL. La invalidación es local al proceso: no hay pub/sub distribuido, de
   modo que en despliegues multi-proceso las entradas obsoletas quedan acotadas por el
   TTL. Nota de ownership: ADITIVA, no prejuzga la enumeración del milestone (`08-04`).
+- El dominio de la caché de `CachedModel` pasa a ser la **PK de la fila** (canónico):
+  `load(keys=<no-PK>)` consulta la BD, aprende la PK y recachea bajo ella en vez de
+  cachear bajo la clave de lectura, y `update`/`delete`/`upsert` resuelven la PK real
+  de la fila afectada —de la instancia si las claves de escritura son la PK; de la BD
+  con un `SELECT` ligado y con `scope` si no— antes de invalidar esa única entrada.
+  Antes, un write por una clave distinta de la PK (`update(keys=['rfc'])` /
+  `upsert(conflict=['rfc'])`) dejaba obsoleta la entrada cacheada bajo la PK y una
+  lectura posterior podía servir la fila vieja hasta el TTL (CR-01). CAMBIO DE
+  COMPORTAMIENTO: una lectura no-PK deja de acierto en caché. Nota de ownership: esta
+  entrada es ADITIVA y no prejuzga la enumeración completa del milestone, que posee la
+  Fase 8 (`08-04`).
 - `MemoryCacheBackend` pasa a estar acotado con LRU (`max_size=1024` por defecto,
   configurable) y se documenta como backend **dev/test-only**; para producción se usa
   `RedisCacheBackend`. Antes era un `dict` sin cota y las claves nunca releídas se

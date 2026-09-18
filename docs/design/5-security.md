@@ -200,15 +200,19 @@ class PermissionSet:
 ### 5.4. Caché (opcional)
 
 El `PermissionSet` puede cachearse por `user_id` reutilizando `CacheBackend`
-(sección de caché de `1-model.md`). La invalidación la realiza `CachedModel`:
-sobreescribe `update`, `delete` y `upsert` e invalida la clave afectada
-**después** de que `super()` retorna (ya es post-commit), mientras que `save`
-queda cubierto por delegación en `update`. No se usa el hook de post-commit de
-`_transactional` porque no se dispara para `upsert` ni para `insert_many`
-(tienen su propia transacción) y no recibe ni la acción ni la clave. Un fallo
-de invalidación es fail-open: se registra un warning y no se propaga, ya que la
-escritura está commiteada y la lectura obsoleta queda acotada por el TTL. En
-apps pequeñas se omite.
+(sección de caché de `1-model.md`). La clave de caché es la **PK de la fila**
+(dominio canónico): `load()` escribe siempre bajo la PK, y una lectura por otra
+clave consulta la BD, aprende la PK y recachea bajo ella (no acierta en caché). La
+invalidación la realiza `CachedModel`: sobreescribe `update`, `delete` y `upsert`
+y, tras `super()` (ya post-commit), resuelve la PK de la fila afectada —de la
+instancia si las claves de escritura son la PK; de la BD con un `SELECT` ligado y
+con `scope` si no— y borra esa única entrada, mientras que `save` queda cubierto
+por delegación en `update`. No se usa el hook de post-commit de `_transactional`
+porque no se dispara para `upsert` ni para `insert_many` (tienen su propia
+transacción) y no recibe ni la acción ni la clave. Un fallo de invalidación es
+fail-open: se registra un warning y no se propaga, ya que la escritura está
+commiteada y la lectura obsoleta queda acotada por el TTL. En apps pequeñas se
+omite.
 
 ---
 
