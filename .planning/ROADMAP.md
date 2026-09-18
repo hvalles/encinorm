@@ -383,7 +383,8 @@ These corrections override statements elsewhere in the repo. Do not build on the
    returns stale data or raises `ObjectNotInPrerequisiteState`. **The only correct answer on
    PostgreSQL is `INSERT ... RETURNING <pk>`**, which changes `Db.insert`'s return contract. POOL-03
    must capture the id inside the insert (`RETURNING` / `SCOPE_IDENTITY` / immediate `lastrowid`).
-   Correct `ARCHITECTURE.md` before Phase 4 planning.
+   **Corregido 2026-09-18** en `.planning/research/ARCHITECTURE.md` (session-scoped, no
+   transaction-scoped).
 
 2. **Neither `pytest-benchmark` nor `pytest-codspeed` measures coroutines.** Verified by reading
    plugin source: pytest-codspeed's `BenchmarkFixture.__call__` is literally

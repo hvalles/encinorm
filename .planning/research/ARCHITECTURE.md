@@ -654,7 +654,7 @@ technique in the phase — fallback is `request.path_params` + explicit pydantic
 
 | Service | Integration Pattern | Notes |
 |---------|---------------------|-------|
-| PostgreSQL (`asyncpg`) | Direct `asyncpg.connect` | `is_disconnect_error` → `ConnectionDoesNotExistError`/`InterfaceError`; `last_id` uses `lastval()` (transaction-scoped) |
+| PostgreSQL (`asyncpg`) | Direct `asyncpg.connect` | `is_disconnect_error` → `ConnectionDoesNotExistError`/`InterfaceError`; `last_id` uses `lastval()` (**session-scoped**, NOT transaction-scoped: the value survives a `COMMIT`/`ROLLBACK` and is overwritten by any later `nextval` in the same session, so it is only reliable immediately after the producing insert on the same connection) |
 | MySQL/MariaDB (`aiomysql`) | Direct connect | `cursor.lastrowid` per connection; no autocommit — reset-on-return is critical |
 | SQLite (`aiosqlite`) | Direct connect | WAL; `last_insert_rowid()`; `is_lock_error` on "locked"/"busy" |
 | SQL Server (`aioodbc`) | Direct connect | Tuple rows via `_rows._rows_to_dicts`; `MERGE` upsert |

@@ -344,9 +344,16 @@ jobs:
         # 02-VALIDATION.md §Manual-Only Verifications debe correrse en ESTE job y
         # anotar el valor medido junto a las constantes. NO convertir la sonda en
         # un gate advisory.
+        #
+        # `--cov-fail-under=0`: esta pata corre SOLO dos ficheros, asi que su
+        # cobertura parcial (35%) no puede compararse con el piso global de 82
+        # (`[tool.coverage.report]`). El piso real lo aplica el job `coverage`
+        # sobre la union combinada de todas las patas; sin este override el job
+        # falla SIEMPRE por cobertura aunque los 46 tests pasen.
         run: >
           uv run pytest -q tests/test_mssql.py tests/test_oracle.py
           --junitxml=junit.xml --cov=encino_orm --cov-branch --cov-report=
+          --cov-fail-under=0
 
       - name: Gate — ningún test omitido
         if: always()
