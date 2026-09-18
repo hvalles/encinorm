@@ -494,12 +494,13 @@ class Model(BaseModel):
         # src.id)` referenciaría una columna inexistente (MSSQL 4104 / ORA-00904).
         # En un modelo autoincremental `id` no viaja en `data`, pero para PostgreSQL
         # sigue siendo el objetivo correcto de `ON CONFLICT` — ese era el bug WR-05.
-        strategy = strategy_for(engine_of(self._get_db()).value)
-        conflict = (
-            [self._col(k) for k in type(self)._pk_fields()]
-            if (replace and strategy.kind == "suffix")
-            else None
-        )
+        # La estrategia solo se resuelve con `replace`: el camino normal no toca el
+        # dialecto (respeta dobles sin `dialect` de `Engine`, p. ej. en tests).
+        conflict = None
+        if replace:
+            strategy = strategy_for(engine_of(self._get_db()).value)
+            if strategy.kind == "suffix":
+                conflict = [self._col(k) for k in type(self)._pk_fields()]
 
         async def do_insert():
             qry = self._get_db().insert(self._table, data, ignore_duplicated, replace, conflict)
