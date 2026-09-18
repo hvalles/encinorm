@@ -21,6 +21,11 @@ in performance — on any of the six engines.
 *where a concern belongs* inside existing layers; no phase may regress the import-lazy contract, the
 `contextvars` state model, or adapter-localized dialect behavior.
 
+**Mode note:** las ocho fases están en `**Mode:** standard`. El flag `mvp` se retiró de todas ellas
+tras la verificación de la Fase 1: este milestone es hardening/infraestructura (dialectos, datos,
+pool, resiliencia, config, rendimiento, release) y ninguna fase entrega un user flow, así que la
+guía de "vertical slice" no aplica. Ver `01-HUMAN-UAT.md` ítem 3 para el caso original.
+
 ## Hard Ordering Constraints
 
 These are not preferences. Violating any of them invalidates later verification.
@@ -115,7 +120,7 @@ Plans:
 
 **Goal**: Identifier validation and DML construction live in exactly one place inside the core, and the
 library demonstrably returns correct results on all six engines — not just SQLite.
-**Mode:** mvp
+**Mode:** standard
 **Depends on**: Phase 1
 **Requirements**: DIAL-01, DIAL-02, DIAL-03, DIAL-04, DIAL-05, DIAL-06, DIAL-07, DIAL-08, DIAL-09
 **Success Criteria** (what must be TRUE):
@@ -141,7 +146,7 @@ Plans:
 
 **Goal**: Migrations and the read cache stop lying. A rolled-back migration can be re-applied, a failed
 `migrate()` leaves a reconcilable state, and cached rows are never stale after a write.
-**Mode:** mvp
+**Mode:** standard
 **Depends on**: Phase 1 (parallel to Phase 2 — disjoint modules, no file overlap)
 **Requirements**: DATA-01, DATA-02, DATA-03, DATA-04
 **Success Criteria** (what must be TRUE):
@@ -166,7 +171,7 @@ Plans:
 **Goal**: `PoolDb` is correct under concurrency. Per-connection state lives on a per-connection handle,
 admission never exceeds `max_size`, `last_id` belongs to the insert that produced it, and release
 semantics are explicit instead of accidental.
-**Mode:** mvp
+**Mode:** standard
 **Depends on**: Phase 1 (CI-09 characterization tests) and Phase 2 (dialect constants used by reset paths)
 **Requirements**: POOL-01, POOL-02, POOL-03, POOL-04, POOL-05, POOL-06, POOL-07
 **Success Criteria** (what must be TRUE):
@@ -192,7 +197,7 @@ Plans:
 
 **Goal**: Connection loss is classified, handled once, and never silently duplicates a write. Direct
 (non-pooled) connections survive idle periods, and driver failures surface as library exceptions.
-**Mode:** mvp
+**Mode:** standard
 **Depends on**: Phase 4 (needs `PooledConnection` + generation counter)
 **Requirements**: RESL-01, RESL-02, RESL-03, RESL-04
 **Success Criteria** (what must be TRUE):
@@ -216,7 +221,7 @@ Plans:
 
 **Goal**: No mutable module-level global decides which database or which secret is in play, and
 generated handlers stop being built with `exec()` — without changing the HTTP or GraphQL contract.
-**Mode:** mvp
+**Mode:** standard
 **Depends on**: Phase 1 (independent of Phases 4/5; may run in parallel). Level 4 (config) must precede Level 5 (codegen) so public signatures change once.
 **Requirements**: CFG-01, CFG-02, CFG-03, CFG-04, CFG-05
 **Success Criteria** (what must be TRUE):
@@ -242,7 +247,7 @@ Plans:
 
 **Goal**: Every performance claim is measured before it is made. Profiler output is committed first,
 batched inserts remove real round-trips, and a benchmark gate fails on a deliberate regression.
-**Mode:** mvp
+**Mode:** standard
 **Depends on**: Phase 2 (per-dialect `MAX_PARAMS`/`MAX_ROWS`) and Phase 4 (pool handle for reaper work)
 **Requirements**: PERF-01, PERF-02, PERF-03, PERF-04
 **Success Criteria** (what must be TRUE):
@@ -266,7 +271,7 @@ Plans:
 
 **Goal**: The deprecation path is shipped, not planned. Users on `>=0.2.6` get warned by 0.2.7, then
 get a release candidate, then a documented 0.3.0 — with no way to publish past a red CI gate.
-**Mode:** mvp
+**Mode:** standard
 **Depends on**: Phases 2–7 (all breaking-change semantics must be settled). Phase 6 may run in parallel but its API changes must be frozen before 0.3.0rc1.
 **Requirements**: REL-01, REL-02, REL-03, REL-04, REL-05
 **Success Criteria** (what must be TRUE):
