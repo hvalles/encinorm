@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-09-18T17:37:53.258Z"
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-09-18T17:46:46.867Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 22
-  completed_plans: 18
+  completed_plans: 19
   percent: 25
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 3
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-09-18
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Progress: [████████░░] 82%
 | Phase 02 P12 | 2 min | 2 tasks | 4 files |
 | Phase 03 P01 | 7 min | 3 tasks | 9 files |
 | Phase 03 P03 | 7 min | 3 tasks | 4 files |
+| Phase 3 P5 | 5 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -143,6 +144,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 03-03: CachedModel invalida por overrides de update/delete/upsert tras super() (post-commit), NO por el hook after_commit (no dispara en upsert/insert_many ni recibe la clave); save queda cubierto por delegacion (D-15).
 - [Phase ?]: 03-03: insert_many(cache=...) invalida la clave de la PK del modelo presente en rows (mismo dominio que load()); sin cache= no invalida; _cache_key_for classmethod construye la clave sin instancia (D-16).
 - [Phase ?]: 03-03: un fallo de cache.delete registra un warning de logging y NO propaga (fail-open, D-12); solo se invalida la clave afectada, sin namespace (D-11).
+- [Phase 3]: 03-05: MemoryCacheBackend acotado con LRU (OrderedDict + move_to_end en get/set + popitem(last=False), max_size=1024 por defecto); el docstring declara el contrato dev/test-only (D-13/D-14). _store se anota OrderedDict[str, tuple[bytes, float|None]] porque anotar max_size activa el chequeo de cuerpo de mypy (el modulo no estaba en el ratchet).
 
 ### Pending Todos
 
@@ -167,6 +169,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T17:37:53.231Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-09-18T17:46:46.855Z
+Stopped at: Completed 03-05-PLAN.md
 Resume file: None

@@ -205,7 +205,7 @@ Plans:
 
 - [x] 03-01-PLAN.md — Ledger con columna `status` en los seis motores (+ `ALTER` idempotente para instalaciones legacy) y `rollback_migration` corregido: marca `rolling_back`, ejecuta el `down` y **borra** `{name}` (nunca inserta `{name}:down`), con `MIGRATIONS_TABLE` como fuente única — DATA-01, DATA-02
 - [x] 03-03-PLAN.md — `CachedModel` invalida la clave afectada tras `update`/`delete`/`upsert` (overrides post-commit, fail-open) y `insert_many(cache=...)` invalida opcionalmente — DATA-03
-- [ ] 03-05-PLAN.md — `MemoryCacheBackend` acotado con LRU (`max_size=1024`) y contrato dev/test-only en el docstring, con tests DB-free — DATA-04
+- [x] 03-05-PLAN.md — `MemoryCacheBackend` acotado con LRU (`max_size=1024`) y contrato dev/test-only en el docstring, con tests DB-free — DATA-04
 
 **Wave 2** *(blocked on `03-01`: mismos ficheros `migration.py` y los seis adaptadores)*
 
@@ -421,7 +421,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 2/5 | In Progress|  |
+| 3. Data Correctness | 3/5 | In Progress|  |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |

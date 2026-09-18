@@ -36,7 +36,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 - [x] **DATA-01**: El ledger de `rollback_migration` está corregido: re-aplicar una migración tras el rollback funciona
 - [x] **DATA-02**: `migrate()` es atómico o registra la intención primero y reconcilia al arrancar (`transactional_ddl` por dialecto)
 - [x] **DATA-03**: `CachedModel` invalida la caché en `update` **y** `delete` (store-then-invalidate), sin lecturas obsoletas
-- [ ] **DATA-04**: `MemoryCacheBackend` está acotado o documentado explícitamente como solo dev/test
+- [x] **DATA-04**: `MemoryCacheBackend` está acotado o documentado explícitamente como solo dev/test
 
 ### Pool Correctness & Concurrency
 
@@ -151,7 +151,7 @@ Qué fase cubre cada requisito.
 | DATA-01 | Phase 3 | Complete |
 | DATA-02 | Phase 3 | Complete |
 | DATA-03 | Phase 3 | Complete |
-| DATA-04 | Phase 3 | Pending |
+| DATA-04 | Phase 3 | Complete |
 | POOL-01 | Phase 4 | Pending |
 | POOL-02 | Phase 4 | Pending |
 | POOL-03 | Phase 4 | Pending |
