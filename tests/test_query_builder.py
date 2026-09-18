@@ -5,6 +5,18 @@ from encino_orm.model import Filter, Model, QueryBuilder, col
 from encino_orm.query import Query
 
 
+class _RecordingDb:
+    """Db mínima que registra los `Query` y devuelve una fila fija."""
+
+    def __init__(self, row):
+        self.row = row
+        self.queries = []
+
+    async def fetch_one(self, qry):
+        self.queries.append(qry)
+        return self.row
+
+
 class Region(Model):
     _table = "regiones"
     region: str | None = Field(default=None)
@@ -82,8 +94,27 @@ class TestQueryBuilder:
         await _seed(db)
         assert await QueryBuilder(Agente, db).count() == 2
         assert await QueryBuilder(Agente, db).sum("monto") == 60.0
+        assert await QueryBuilder(Agente, db).avg("monto") == 30.0
+        assert await QueryBuilder(Agente, db).min("monto") == 10.0
+        assert await QueryBuilder(Agente, db).max("monto") == 50.0
         assert await QueryBuilder(Agente, db).where(Filter.eq("agente", "Ana")).exists() is True
         assert await QueryBuilder(Agente, db).where(Filter.eq("agente", "Zzz")).exists() is False
+
+    @pytest.mark.asyncio
+    async def test_aggregate_sql_aliases_as_n(self):
+        fake = _RecordingDb({"n": 5})
+        qb = QueryBuilder(Agente, fake)
+
+        assert await qb.count() == 5
+        assert "COUNT(*) AS n" in fake.queries[-1].sql_template
+        assert await qb.sum("monto") == 5
+        assert "SUM(monto) AS n" in fake.queries[-1].sql_template
+        assert await qb.avg("monto") == 5
+        assert "AVG(monto) AS n" in fake.queries[-1].sql_template
+        assert await qb.min("monto") == 5
+        assert "MIN(monto) AS n" in fake.queries[-1].sql_template
+        assert await qb.max("monto") == 5
+        assert "MAX(monto) AS n" in fake.queries[-1].sql_template
 
     @pytest.mark.asyncio
     async def test_join_subquery(self, db):
