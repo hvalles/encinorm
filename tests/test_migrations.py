@@ -1,6 +1,8 @@
 import pytest
 
 from encino_orm.migration import (
+    MIGRATIONS_TABLE,
+    STATUS_ROLLING_BACK,
     Migration,
     apply_migration,
     apply_migrations,
@@ -66,6 +68,98 @@ class TestMigrationRunner:
         await apply_migration(db, m)
         with pytest.raises(Exception):
             await rollback_migration(db, m)
+
+    @pytest.mark.asyncio
+    async def test_rollback_ledger_deletes_row_and_inserts_no_down(self, db):
+        m = Migration(
+            "v1",
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY)", []),
+            Query("DROP TABLE t", []),
+        )
+        await apply_migration(db, m)
+        await rollback_migration(db, m)
+
+        names = [r["name"] for r in await db.migrate_status()]
+        assert m.name not in names
+        assert f"{m.name}:down" not in names
+
+    @pytest.mark.asyncio
+    async def test_reapply_after_rollback(self, db):
+        m = Migration(
+            "v1",
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY)", []),
+            Query("DROP TABLE t", []),
+        )
+        await apply_migration(db, m)
+        await rollback_migration(db, m)
+
+        gone = await db.fetch_one(
+            Query("SELECT name FROM sqlite_master WHERE type='table' AND name='t'", [])
+        )
+        assert gone is None
+
+        await apply_migration(db, m)  # re-aplicar debe re-ejecutar el `up`
+        back = await db.fetch_one(
+            Query("SELECT name FROM sqlite_master WHERE type='table' AND name='t'", [])
+        )
+        assert back is not None
+
+        names = [r["name"] for r in await db.migrate_status()]
+        assert names == [m.name]
+
+    @pytest.mark.asyncio
+    async def test_rollback_marks_rolling_back_during_down(self, db):
+        m = Migration(
+            "v1",
+            Query("CREATE TABLE t_rb (id INTEGER PRIMARY KEY)", []),
+            Query("DROP TABLE t_rb", []),
+        )
+        await apply_migration(db, m)
+
+        estados = []
+        original_execute = db.execute
+
+        async def spy_execute(qry):
+            if "DROP TABLE t_rb" in qry.sql:
+                # Lee la fila del ledger DENTRO de la transacción del `down`.
+                row = await db.fetch_one(
+                    Query(
+                        f"SELECT status FROM {MIGRATIONS_TABLE} WHERE name = {{0}}",
+                        [m.name],
+                    )
+                )
+                estados.append(row["status"])
+            return await original_execute(qry)
+
+        db.execute = spy_execute
+        await rollback_migration(db, m)
+
+        assert estados == [STATUS_ROLLING_BACK]
+
+    @pytest.mark.asyncio
+    async def test_ensure_status_is_idempotent(self, db):
+        await db.execute(
+            Query(
+                f"CREATE TABLE {MIGRATIONS_TABLE} ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "name TEXT NOT NULL UNIQUE, "
+                "applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+                "sql_text TEXT NOT NULL)",
+                [],
+            )
+        )
+        await db.commit()
+
+        cols_before = {c.name.lower() for c in await db.columns_of(MIGRATIONS_TABLE)}
+        assert "status" not in cols_before
+
+        await db.migrate_status()  # añade la columna a la tabla legacy
+        cols_after = {c.name.lower() for c in await db.columns_of(MIGRATIONS_TABLE)}
+        assert "status" in cols_after
+
+        await db.migrate_status()  # la segunda llamada es un no-op
+        cols_again = {c.name.lower() for c in await db.columns_of(MIGRATIONS_TABLE)}
+        assert "status" in cols_again
 
 
 class TestMigrationsFromDir:

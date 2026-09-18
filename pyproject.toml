@@ -143,6 +143,10 @@ select = [
 "encino_orm/oracle.py" = ["S608"]
 "encino_orm/transfer.py" = ["S608"]
 "encino_orm/model/model.py" = ["S608"]
+# S608: el runner del ledger interpola el nombre de tabla (constante de modulo
+# validada con check_identifier antes de construir el SQL); `name`/`status`
+# viajan SIEMPRE como parametros ligados (T-03-01-01/T-03-01-02).
+"encino_orm/migration.py" = ["S608"]
 # S102: handlers generados con exec(); se sustituyen en Fase 6 (CFG-03).
 # B008: Depends(...) en defaults de inyección de dependencias de FastAPI; se
 # levanta en Fase 6 (CFG-02).
@@ -167,6 +171,9 @@ select = [
 "tests/test_security.py" = ["B008", "S105"]
 # Interpola SQL a propósito para ejercitar los fragmentos portables.
 "tests/test_sql_functions.py" = ["S608"]
+# S608: los tests del ledger interpolan la constante MIGRATIONS_TABLE (fuente
+# unica) para crear/leer el ledger legacy; no hay entrada no confiable.
+"tests/test_migrations.py" = ["S608"]
 # S603: los guards de tests/test_pytest_config.py lanzan pytest en un
 # subproceso con `sys.executable` y argumentos construidos por el propio test
 # (rutas de `tmp_path`); no hay entrada no confiable. La regla exige un comando
