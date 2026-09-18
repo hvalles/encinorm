@@ -1,7 +1,7 @@
 ---
 phase: 02-dialect-seam-engine-parity
 verified: 2026-09-18T14:07:19Z
-status: gaps_found
+status: superseded
 score: 2/5 original gaps fully closed, 2 partial, 1 deferred; 0/5 new findings closed
 overrides_applied: 0
 re_verification:
@@ -119,6 +119,8 @@ human_verification:
     expected: "An explicit decision recorded in frontmatter (`overrides:`) or a follow-up plan."
     why_human: "Whether the phase's goal clauses must be made literally true now, or the defects accepted as pre-existing/regression work for later phases, is a developer call."
 ---
+
+> **SUPERSEDED** — este reporte es histórico. La verificación vigente y aprobada es `02-VERIFICATION-FINAL.md` (status: passed). Se conserva como registro de la evolución de los gaps.
 
 # Phase 2 (GAP-CLOSURE ROUND): Re-verification Report
 

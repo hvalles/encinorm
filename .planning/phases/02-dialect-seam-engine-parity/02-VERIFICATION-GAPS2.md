@@ -1,7 +1,7 @@
 ---
 phase: 02-dialect-seam-engine-parity
 verified: 2026-09-18T14:54:58Z
-status: gaps_found
+status: superseded
 score: 5/5 original gaps (A-E) closed; 1 open WARNING (WR-01) + 5 INFO residuals from the round-2 review
 overrides_applied: 0
 re_verification:
@@ -122,6 +122,8 @@ human_verification:
     expected: "Either fix the `_merge_sql` guard (reject absent `update_cols` and empty `conflict_cols`) and correct the Phase 2 status note, or record explicit `overrides:` for the re-scoped CR-03 truth and the incomplete guard."
     why_human: "Whether the phase's goal clauses must be made literally true now, or the residuals accepted as documented WARNING/INFO items for later phases, is a developer call."
 ---
+
+> **SUPERSEDED** — este reporte es histórico. La verificación vigente y aprobada es `02-VERIFICATION-FINAL.md` (status: passed). Se conserva como registro de la evolución de los gaps.
 
 # Phase 2 (GAP-CLOSURE ROUND 2): Re-verification Report
 

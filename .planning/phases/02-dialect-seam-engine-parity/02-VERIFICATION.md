@@ -1,7 +1,7 @@
 ---
 phase: 02-dialect-seam-engine-parity
 verified: 2026-09-18T05:09:52Z
-status: gaps_found
+status: superseded
 score: 29/32 must-haves verified
 overrides_applied: 0
 re_verification: false
@@ -135,6 +135,8 @@ human_verification:
     expected: "An explicit decision recorded in this file's frontmatter (`overrides:`) or in a follow-up plan."
     why_human: "These are pre-existing defects the phase did not introduce and partially planned around (the plan explicitly documents `sql.py`/`query_builder.py` `_COLUMN_RE` as a deliberately different allowlist). Accepting vs blocking is a developer call, not a code fact."
 ---
+
+> **SUPERSEDED** — este reporte es histórico. La verificación vigente y aprobada es `02-VERIFICATION-FINAL.md` (status: passed). Se conserva como registro de la evolución de los gaps.
 
 # Phase 2: Dialect Seam & Engine Parity — Verification Report
 
