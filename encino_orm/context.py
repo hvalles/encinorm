@@ -46,9 +46,13 @@ def bind(db):
 
 def resolve_db():
     """Resuelve la conexión actual. Lanza `ConnectionError` si no hay ninguna."""
-    from .pool import _current_connection  # lazy: evita import circular
+    from .pool import PooledConnection, _current_connection  # lazy: evita import circular
 
     conn = _current_connection.get()  # 1. transacción activa del pool
+    if isinstance(conn, PooledConnection):
+        # El contextvar guarda el handle del pool; `Model`/`engine_of` esperan
+        # un `Db` (con `.dialect` y los métodos de CRUD), así que se desenvaina.
+        return conn.driver
     if conn is not None:
         return conn
     ambient = _ambient_db.get()  # 2. bind()/session()

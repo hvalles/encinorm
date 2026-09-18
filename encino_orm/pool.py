@@ -2,6 +2,7 @@ import asyncio
 import contextvars
 import time
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 
 from .base import Db
 from .context import bind
@@ -37,6 +38,41 @@ def _get_engine_cls(engine):
     return cls
 
 
+@dataclass(eq=False)
+class PooledConnection:
+    """Handle que concentra el estado por conexión del pool (POOL-01).
+
+    Reúne el driver y el estado que antes vivía repartido entre `PoolDb` (el
+    cache de id y el registro de último uso) y el propio adaptador: el id de la
+    última inserción es **por conexión/tarea** (nunca un cache compartido entre
+    tareas) y ``last_used`` permite decidir si la conexión está ociosa.
+    ``eq=False`` conserva la identidad de objeto, de modo que el handle es
+    hashable y puede vivir en los conjuntos ``_connections``/``_checked_out``
+    del pool.
+    """
+
+    driver: Db
+    last_id: int = 0
+    last_used: float = field(default_factory=time.monotonic)
+    generation: int = 0
+    checked_out: bool = False
+    owner_task: object | None = None
+
+    def touch(self) -> None:
+        """Marca la conexión como usada ahora mismo."""
+        self.last_used = time.monotonic()
+
+    def is_idle_for(self, timeout: float | None) -> bool:
+        """Indica si la conexión lleva más de `timeout` segundos ociosa.
+
+        `timeout=None` desactiva la detección de ociosidad: nunca se considera
+        ociosa.
+        """
+        if timeout is None:
+            return False
+        return time.monotonic() - self.last_used > timeout
+
+
 class PoolDb(Db):
     """Wrapper que administra un pool de conexiones para entornos concurrentes.
 
@@ -62,12 +98,12 @@ class PoolDb(Db):
         self._idle_timeout = idle_timeout
         self._conn_kwargs = conn_kwargs
         self._template = self._engine_cls()
-        self._pool = asyncio.Queue()
+        self._idle = asyncio.Queue()
         self._connections = set()
+        self._checked_out = set()
         self._size = 0
+        self._generation = 0
         self._connected = False
-        self._last_id = 0
-        self._last_used = {}
         self._stats = {"acquires": 0, "waits": 0, "timeouts": 0, "creates": 0}
 
     @property
@@ -112,88 +148,91 @@ class PoolDb(Db):
 
     async def connect(self):
         for _ in range(self._min_size):
-            db = await self._create_connection()
-            self._connections.add(db)
+            handle = await self._create_connection()
+            self._connections.add(handle)
             self._size += 1
-            self._last_used[db] = time.monotonic()
-            await self._pool.put(db)
+            await self._idle.put(handle)
         self._connected = True
 
-    async def _create_connection(self) -> Db:
+    async def _create_connection(self) -> PooledConnection:
         db = self._engine_cls()
         await db.connect(**self._conn_kwargs)
         self._stats["creates"] += 1
-        return db
+        return PooledConnection(driver=db, generation=self._generation)
 
-    def _needs_check(self, db: Db) -> bool:
-        if self._idle_timeout is None:
-            return True
-        last = self._last_used.get(db)
-        if last is None:
-            return True
-        return time.monotonic() - last > self._idle_timeout
-
-    async def acquire(self, timeout: float | None = None) -> Db:
+    async def acquire(self, timeout: float | None = None) -> PooledConnection:
         if not self._connected:
             raise ConnectionError("Pool no conectado")
         while True:
             try:
-                db = self._pool.get_nowait()
+                handle = self._idle.get_nowait()
             except asyncio.QueueEmpty:
                 if self._size < self._max_size:
-                    db = await self._create_connection()
-                    self._connections.add(db)
+                    handle = await self._create_connection()
+                    self._connections.add(handle)
                     self._size += 1
-                    self._last_used[db] = time.monotonic()
                     self._stats["acquires"] += 1
-                    return db
+                    return handle
                 self._stats["waits"] += 1
                 if timeout is None:
-                    db = await self._pool.get()
+                    handle = await self._idle.get()
                     self._stats["acquires"] += 1
-                    return db
+                    return handle
                 try:
-                    db = await asyncio.wait_for(self._pool.get(), timeout=timeout)
+                    handle = await asyncio.wait_for(self._idle.get(), timeout=timeout)
                     self._stats["acquires"] += 1
-                    return db
+                    return handle
                 except asyncio.TimeoutError:
                     self._stats["timeouts"] += 1
                     raise PoolExhaustedError(
                         f"Pool agotado tras {timeout}s de espera (max_size={self._max_size})"
                     ) from None
             else:
-                if not self._needs_check(db) or await db.is_alive():
+                # Una conexión reciente se devuelve aunque esté caída; una ociosa
+                # (o cualquier conexión si `idle_timeout=None`) se comprueba con
+                # `is_alive()` y se descarta si no responde.
+                needs_check = self._idle_timeout is None or handle.is_idle_for(self._idle_timeout)
+                if not needs_check or await handle.driver.is_alive():
                     self._stats["acquires"] += 1
-                    return db
-                self._connections.discard(db)
+                    return handle
+                self._connections.discard(handle)
                 self._size -= 1
-                self._last_used.pop(db, None)
-                await db.close()
+                await handle.driver.close()
 
-    async def release(self, db: Db):
-        self._last_used[db] = time.monotonic()
-        await self._pool.put(db)
+    async def release(self, conn):
+        handle = self._as_handle(conn)
+        handle.touch()
+        await self._idle.put(handle)
+
+    def _as_handle(self, conn) -> PooledConnection:
+        """Normaliza un `PooledConnection` o un `Db` crudo al handle del pool."""
+        if isinstance(conn, PooledConnection):
+            return conn
+        for handle in self._connections:
+            if handle.driver is conn:
+                return handle
+        return conn
 
     async def close(self):
         self._connected = False
-        while not self._pool.empty():
-            self._pool.get_nowait()
-        for db in list(self._connections):
-            await db.close()
+        while not self._idle.empty():
+            self._idle.get_nowait()
+        for handle in list(self._connections):
+            await handle.driver.close()
         self._connections.clear()
+        self._checked_out.clear()
         self._size = 0
-        self._last_used.clear()
 
     @asynccontextmanager
     async def transaction(self):
-        db = await self.acquire()
-        token = _current_connection.set(db)
+        handle = await self.acquire()
+        token = _current_connection.set(handle)
         try:
-            async with db.transaction():
-                yield db
+            async with handle.driver.transaction():
+                yield handle.driver
         finally:
             _current_connection.reset(token)
-            await self.release(db)
+            await self.release(handle)
 
     # --- Builders (no requieren conexión) ---
     def insert(
@@ -229,25 +268,25 @@ class PoolDb(Db):
 
     # --- Delegación ---
     async def _run(self, method: str, *args):
-        db = _current_connection.get()
-        if db is not None:
-            return await getattr(db, method)(*args)
-        db = await self.acquire()
+        handle = _current_connection.get()
+        if handle is not None:
+            return await getattr(handle.driver, method)(*args)
+        handle = await self.acquire()
         try:
-            return await getattr(db, method)(*args)
+            return await getattr(handle.driver, method)(*args)
         finally:
             # dejar la conexión limpia antes de devolverla al pool: si la
             # operación dejó una transacción abierta (SQLite/MySQL no
             # autocommit), se confirma para que sea visible entre conexiones.
-            if await db.in_transaction():
-                await db.commit()
-            await self.release(db)
+            if await handle.driver.in_transaction():
+                await handle.driver.commit()
+            await self.release(handle)
 
     async def _run_scoped(self, method: str, *args):
-        db = _current_connection.get()
-        if db is None:
+        handle = _current_connection.get()
+        if handle is None:
             raise ConnectionError(f"{method}() solo es válido dentro de pool.transaction()")
-        return await getattr(db, method)(*args)
+        return await getattr(handle.driver, method)(*args)
 
     async def is_alive(self):
         return await self._run("is_alive")
@@ -271,19 +310,16 @@ class PoolDb(Db):
         return await self._run_scoped("save_point", name)
 
     async def execute(self, qry):
-        db = _current_connection.get()
-        if db is not None:
-            return await db.execute(qry)
-        db = await self.acquire()
+        handle = _current_connection.get()
+        if handle is not None:
+            return await handle.driver.execute(qry)
+        handle = await self.acquire()
         try:
-            result = await db.execute(qry)
-            if qry.sql_template.lstrip().upper().startswith(("INSERT", "REPLACE")):
-                self._last_id = await db.last_id()
-            return result
+            return await handle.driver.execute(qry)
         finally:
-            if await db.in_transaction():
-                await db.commit()
-            await self.release(db)
+            if await handle.driver.in_transaction():
+                await handle.driver.commit()
+            await self.release(handle)
 
     async def fetch_all(self, qry):
         return await self._run("fetch_all", qry)
@@ -298,10 +334,12 @@ class PoolDb(Db):
         return await self._run("exists", qry)
 
     async def last_id(self):
-        db = _current_connection.get()
-        if db is not None:
-            return await db.last_id()
-        return self._last_id
+        handle = _current_connection.get()
+        if handle is not None:
+            return await handle.driver.last_id()
+        # Sin cache a nivel de pool: fuera de una transacción no hay una
+        # conexión/tarea a la que asociar el id, así que se devuelve 0.
+        return 0
 
     async def migrate(self, name: str, qry):
         return await self._run("migrate", name, qry)
@@ -334,19 +372,19 @@ async def session(db):
     ```
     """
     if isinstance(db, PoolDb):
-        conn = await db.acquire()
+        handle = await db.acquire()
         try:
-            with bind(conn):
-                yield conn
+            with bind(handle.driver):
+                yield handle.driver
         except Exception:
-            if await conn.in_transaction():
-                await conn.rollback()
+            if await handle.driver.in_transaction():
+                await handle.driver.rollback()
             raise
         else:
-            if await conn.in_transaction():
-                await conn.commit()
+            if await handle.driver.in_transaction():
+                await handle.driver.commit()
         finally:
-            await db.release(conn)
+            await db.release(handle)
     else:
         with bind(db):
             yield db

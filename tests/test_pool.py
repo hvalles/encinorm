@@ -1,3 +1,4 @@
+import time
 from contextlib import asynccontextmanager
 
 import pytest
@@ -5,7 +6,9 @@ from pydantic import Field
 
 import encino_orm.pool as pool_module
 from encino_orm import ConnectionError, PoolDb, PoolExhaustedError, Query, create_db
+from encino_orm.context import resolve_db
 from encino_orm.model import Model
+from encino_orm.pool import PooledConnection, _current_connection
 
 
 class FakeDb:
@@ -100,18 +103,59 @@ async def pool(fake_engine):
     await p.close()
 
 
+class TestPooledConnectionHandle:
+    """Estado por conexión concentrado en el handle (POOL-01)."""
+
+    def test_defaults(self):
+        driver = FakeDb()
+        handle = PooledConnection(driver=driver, generation=0)
+        assert handle.driver is driver
+        assert handle.last_id == 0
+        assert isinstance(handle.last_used, float)
+        assert handle.generation == 0
+        assert handle.checked_out is False
+        assert handle.owner_task is None
+
+    def test_touch_updates_last_used(self):
+        handle = PooledConnection(driver=FakeDb())
+        before = handle.last_used
+        handle.touch()
+        assert handle.last_used >= before
+
+    def test_is_idle_for_disabled_without_timeout(self):
+        handle = PooledConnection(driver=FakeDb())
+        assert handle.is_idle_for(None) is False
+
+    def test_is_idle_for_recent_and_stale(self):
+        handle = PooledConnection(driver=FakeDb())
+        assert handle.is_idle_for(60) is False
+        handle.last_used = time.monotonic() - 100
+        assert handle.is_idle_for(60) is True
+
+
 class TestPool:
     @pytest.mark.asyncio
     async def test_connect_creates_min_size(self, pool):
         assert pool.is_connected is True
         assert pool._size == 2
         assert len(pool._connections) == 2
+        assert pool._idle.qsize() == 2
+        assert all(isinstance(h, PooledConnection) for h in pool._connections)
+
+    @pytest.mark.asyncio
+    async def test_pool_has_no_shared_id_state(self, pool):
+        # POOL-01/POOL-03: el id y el último uso viven en el handle, no en el pool.
+        with pytest.raises(AttributeError):
+            _ = pool._last_id
+        with pytest.raises(AttributeError):
+            _ = pool._last_used
 
     @pytest.mark.asyncio
     async def test_acquire_release(self, pool):
-        db = await pool.acquire()
-        assert db.is_connected is True
-        await pool.release(db)
+        handle = await pool.acquire()
+        assert isinstance(handle, PooledConnection)
+        assert handle.driver.is_connected is True
+        await pool.release(handle)
 
     @pytest.mark.asyncio
     async def test_max_size_creates_and_reuses(self, pool):
@@ -155,14 +199,14 @@ class TestPool:
 
     @pytest.mark.asyncio
     async def test_close(self, pool):
-        db = await pool.acquire()
-        await pool.release(db)
+        handle = await pool.acquire()
+        await pool.release(handle)
 
         await pool.close()
         assert pool.is_connected is False
         assert pool._size == 0
         assert len(pool._connections) == 0
-        assert db.closed is True
+        assert handle.driver.closed is True
 
 
 class TestPoolTransactionScope:
@@ -176,6 +220,22 @@ class TestPoolTransactionScope:
         assert ("fetch_all", "SELECT 1") in db.calls
         assert ("last_id",) in db.calls
         assert rid == 42
+
+    @pytest.mark.asyncio
+    async def test_last_id_outside_transaction_is_zero(self, pool):
+        # POOL-03: no hay cache de id a nivel de pool; fuera de una transacción
+        # no hay conexión/tarea a la que asociar el id.
+        assert await pool.last_id() == 0
+
+    @pytest.mark.asyncio
+    async def test_resolve_db_unwraps_handle(self, pool):
+        # Pitfall 8: `_current_connection` guarda el handle, pero `resolve_db()`
+        # debe devolver el `Db` subyacente (Model/engine_of leen `.dialect`).
+        async with pool.transaction() as db:
+            handle = _current_connection.get()
+            assert isinstance(handle, PooledConnection)
+            assert handle.driver is db
+            assert resolve_db() is db
 
     @pytest.mark.asyncio
     async def test_commit_raises(self, pool):
@@ -226,9 +286,9 @@ class TestPoolStandaloneCommit:
 
         await p.execute(Query("INSERT 1", []))
 
-        conn = next(iter(p._connections))
-        assert any(c == "execute" for c, _ in conn.calls)
-        assert ("commit",) in conn.calls
+        handle = next(iter(p._connections))
+        assert any(c == "execute" for c, _ in handle.driver.calls)
+        assert ("commit",) in handle.driver.calls
         await p.close()
 
     @pytest.mark.asyncio
@@ -237,12 +297,12 @@ class TestPoolStandaloneCommit:
         await p.connect()
 
         dead = next(iter(p._connections))
-        dead.connected = False  # simula conexión caída
+        dead.driver.connected = False  # simula conexión caída
 
-        db = await p.acquire()
-        assert db is not dead
-        assert db.connected is True
-        await p.release(db)
+        handle = await p.acquire()
+        assert handle is not dead
+        assert handle.driver.connected is True
+        await p.release(handle)
         await p.close()
 
     @pytest.mark.asyncio
@@ -252,26 +312,24 @@ class TestPoolStandaloneCommit:
         await p.connect()
 
         dead = next(iter(p._connections))
-        dead.connected = False  # caída pero "reciente"
-        db = await p.acquire()
-        assert db is dead  # no se reemplaza por ser reciente
-        await p.release(db)
+        dead.driver.connected = False  # caída pero "reciente"
+        handle = await p.acquire()
+        assert handle is dead  # no se reemplaza por ser reciente
+        await p.release(handle)
         await p.close()
 
     @pytest.mark.asyncio
     async def test_idle_connection_is_replaced(self, fake_engine):
-        import time
-
         p = PoolDb("fake", min_size=1, max_size=1, idle_timeout=60)
         await p.connect()
 
         dead = next(iter(p._connections))
-        dead.connected = False
-        p._last_used[dead] = time.monotonic() - 100  # 100s inactiva
+        dead.driver.connected = False
+        dead.last_used = time.monotonic() - 100  # 100s inactiva
 
-        db = await p.acquire()
-        assert db is not dead
-        await p.release(db)
+        handle = await p.acquire()
+        assert handle is not dead
+        await p.release(handle)
         await p.close()
 
 

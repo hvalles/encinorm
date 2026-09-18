@@ -241,45 +241,51 @@ class TestPoolLastIdScoping:
         assert ("execute", qry) in db.calls
         assert ("last_id",) in db.calls
 
-    async def test_outside_transaction_reads_pool_level_cache(self, single_pool):
+    async def test_outside_transaction_has_no_pool_cache(self, single_pool):
+        # POOL-03: se eliminó el cache de id a nivel de pool; fuera de una
+        # transacción no hay conexión/tarea a la que asociar el id (devuelve 0).
+        # La captura por conexión/tarea llega en 04-02 con `execute_insert`.
         conn = next(iter(single_pool._connections))
         await single_pool.execute(Query("INSERT 1", []))
 
-        assert single_pool._last_id == 42
+        assert await single_pool.last_id() == 0
 
-        calls_before = list(conn.calls)
+        calls_before = list(conn.driver.calls)
         rid = await single_pool.last_id()
 
-        assert rid == 42
-        # `last_id()` fuera de transacción NO consulta la conexión: lee el cache
-        # del pool. Ese cache es compartido entre tareas (hazard que POOL-03 quita).
-        assert conn.calls == calls_before
+        assert rid == 0
+        # `last_id()` fuera de transacción NO consulta la conexión.
+        assert conn.driver.calls == calls_before
 
-    async def test_cross_task_staleness(self, single_pool):
+    async def test_no_cross_task_staleness(self, single_pool):
+        # POOL-03: sin cache compartido, otra tarea no observa el id ajeno.
         await single_pool.execute(Query("INSERT 1", []))
-        assert single_pool._last_id == 42
 
-        # Otra tarea que no insertó nada observa el id de la inserción anterior:
-        # el cache es a nivel de POOL, no de tarea. Baseline de POOL-03.
         async def other_task():
             return await single_pool.last_id()
 
         stale = await asyncio.create_task(other_task())
-        assert stale == 42
+        assert stale == 0
 
-    async def test_insert_sets_pool_level_cache(self, single_pool):
-        await single_pool.execute(Query("INSERT 1", []))
-        assert single_pool._last_id == 42
+    async def test_insert_inside_transaction_captures_handle_id(self, single_pool):
+        # POOL-03: el id se captura por conexión/tarea DENTRO de una
+        # transacción; la captura dentro de la sentencia llega en 04-02.
+        async with single_pool.transaction() as db:
+            await single_pool.execute(Query("INSERT 1", []))
+            assert await single_pool.last_id() == 42
+        assert ("last_id",) in db.calls
 
-    async def test_lowercase_insert_sets_pool_level_cache(self, single_pool):
-        single_pool._last_id = 0
-        await single_pool.execute(Query("insert into t values (1)", []))
-        assert single_pool._last_id == 42
+    async def test_lowercase_insert_inside_transaction_captures_handle_id(self, single_pool):
+        async with single_pool.transaction() as db:
+            await single_pool.execute(Query("insert into t values (1)", []))
+            assert await single_pool.last_id() == 42
+        assert ("last_id",) in db.calls
 
-    async def test_non_insert_leaves_cache_unchanged(self, single_pool):
-        single_pool._last_id = 7
+    async def test_non_insert_outside_transaction_has_no_id(self, single_pool):
+        # POOL-03: sin cache de pool, ninguna sentencia deja un id observable
+        # fuera de una transacción.
         await single_pool.execute(Query("SELECT 1", []))
-        assert single_pool._last_id == 7
+        assert await single_pool.last_id() == 0
 
 
 class TestPoolReleaseSemantics:
@@ -288,9 +294,9 @@ class TestPoolReleaseSemantics:
         await p.connect()
         conn = await p.acquire()
 
-        p._last_used.pop(conn, None)  # aísla el efecto de `release()`
+        conn.last_used = 0.0  # aísla el efecto de `release()`
         await p.release(conn)
-        assert conn in p._last_used
+        assert conn.last_used > 0.0
 
         reused = await p.acquire()
         assert reused is conn
@@ -300,27 +306,27 @@ class TestPoolReleaseSemantics:
         p = PoolDb("fake", min_size=0, max_size=2)
         await p.connect()
         conn = await p.acquire()
-        conn._in_tx = True
+        conn.driver._in_tx = True
 
         await p.release(conn)
 
         # POOL-04: Fase 4 hace que release() revierta por defecto; hoy no toca
         # la transacción en absoluto.
-        assert ("commit",) not in conn.calls
-        assert ("rollback", None) not in conn.calls
+        assert ("commit",) not in conn.driver.calls
+        assert ("rollback", None) not in conn.driver.calls
         await p.close()
 
     async def test_release_does_not_check_liveness(self, fake_engine):
         p = PoolDb("fake", min_size=0, max_size=2)
         await p.connect()
         conn = await p.acquire()
-        conn.connected = False
+        conn.driver.connected = False
 
-        calls_before = list(conn.calls)
+        calls_before = list(conn.driver.calls)
         await p.release(conn)
 
-        assert conn.calls == calls_before
-        assert all(call[0] != "is_alive" for call in conn.calls)
+        assert conn.driver.calls == calls_before
+        assert all(call[0] != "is_alive" for call in conn.driver.calls)
         await p.close()
 
     async def test_double_release_aliases_same_connection(self, fake_engine):
@@ -350,8 +356,8 @@ class TestPoolClose:
         assert pool.is_connected is False
         assert pool._size == 0
         assert len(pool._connections) == 0
-        assert pool._last_used == {}
-        assert conn.closed is True
+        assert pool._idle.empty()
+        assert conn.driver.closed is True
 
     async def test_close_is_idempotent(self, pool):
         conn = await pool.acquire()
@@ -372,8 +378,8 @@ class TestPoolClose:
 
         # POOL-06: defecto caracterizado. `close()` cierra una conexión que un
         # llamador aún mantiene. Fase 4 exige que nunca cierre una conexión en
-        # uso, así que esta aserción se espera INVERTIR (`held.closed is False`).
-        assert held.closed is True
+        # uso, así que esta aserción se espera INVERTIR (`held.driver.closed is False`).
+        assert held.driver.closed is True
 
     async def test_close_never_connected_pool_does_not_raise(self, fake_engine):
         p = PoolDb("fake", min_size=0, max_size=1)
