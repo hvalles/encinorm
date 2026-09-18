@@ -173,7 +173,7 @@ Plans:
 
 **Wave 3** *(blocked on `02-08`: same six per-engine test files and the same `deferred-items.md`)*
 
-- [ ] 02-09-PLAN.md — Fix `Db.list_tables(name=)` on the four engines where it is dead (filter on a real column of a derived table, value bound, `LOWER()` on both sides), with a per-engine test and a DB-free dialect snapshot — closes GAP 4 and leaves no unowned deferral — DIAL-03, DIAL-09
+- [x] 02-09-PLAN.md — Fix `Db.list_tables(name=)` on the four engines where it is dead (filter on a real column of a derived table, value bound, `LOWER()` on both sides), with a per-engine test and a DB-free dialect snapshot — closes GAP 4 and leaves no unowned deferral — DIAL-03, DIAL-09
 
 **Gap-closure waves:** 1 → `02-06`, `02-07`; 2 → `02-08`; 3 → `02-09`. GAP 5 (per-adapter coverage floors) stays deferred pending a green `engine-heavy` run and is NOT planned here; the gap-closure plans do not contradict it.
 
@@ -404,7 +404,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 8/9 | In Progress|  |
+| 2. Dialect Seam & Engine Parity | 9/9 | Complete   | 2026-09-18 |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
