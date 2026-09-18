@@ -487,8 +487,22 @@ class Model(BaseModel):
                 continue
             data[col] = _serialize(getattr(self, field))
 
+        # El objetivo de conflicto se deriva de la PK del modelo SOLO en el render
+        # que lo acepta (`suffix`, PostgreSQL). En `merge` (MSSQL/Oracle) se deja
+        # `None`: el `src` derivado del MERGE se construye solo con las columnas de
+        # `data` y la PK autoincremental `id` está excluida, así que `ON (dst.id =
+        # src.id)` referenciaría una columna inexistente (MSSQL 4104 / ORA-00904).
+        # En un modelo autoincremental `id` no viaja en `data`, pero para PostgreSQL
+        # sigue siendo el objetivo correcto de `ON CONFLICT` — ese era el bug WR-05.
+        strategy = strategy_for(engine_of(self._get_db()).value)
+        conflict = (
+            [self._col(k) for k in type(self)._pk_fields()]
+            if (replace and strategy.kind == "suffix")
+            else None
+        )
+
         async def do_insert():
-            qry = self._get_db().insert(self._table, data, ignore_duplicated, replace)
+            qry = self._get_db().insert(self._table, data, ignore_duplicated, replace, conflict)
             await self._get_db().execute(qry)
             return await self._get_db().last_id()
 

@@ -11,6 +11,12 @@ from .observability import current_trace_id
 from .query import Query
 
 _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
+# Oracle exige `FROM dual` en el subquery del `USING` de un `MERGE`; el render
+# compartido (`builders._merge_sql`) lo omite para conservar el SQL del adaptador
+# byte-idéntico (golden strings y snapshots). Se reescribe SOLO el SQL que va al
+# driver, no la salida de `_prepare`. Sin esto, `Model.insert(replace=True)` y
+# `Model.upsert()` fallan en Oracle con ORA-00923.
+_MERGE_USING_RE = re.compile(r"USING \(SELECT (.+?)\) src")
 _MIGRATIONS_TABLE = "_encino_orm_migrations"
 
 
@@ -230,6 +236,9 @@ class OracleDb(Db):
     async def execute(self, qry: Query) -> int:
         self._ensure_connected()
         sql, values = self._prepare(qry)
+        # `FROM dual` solo al SQL que va al driver (ver `_MERGE_USING_RE`).
+        if sql.lstrip().upper().startswith("MERGE"):
+            sql = _MERGE_USING_RE.sub(r"USING (SELECT \1 FROM dual) src", sql, count=1)
         t0 = time.monotonic()
         returning = ":ret_id" in sql
         cursor = self._connection.cursor()

@@ -19,6 +19,31 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   `insert_many` rechazan identificadores no válidos. Nota de ownership: esta
   entrada es ADITIVA y no prejuzga la enumeración de cambios incompatibles del
   milestone, que posee la Fase 8 (`08-04`).
+- `QueryBuilder.all()`, `first()` y `exists()` dejan de emitir un `LIMIT` en
+  línea: la paginación la aplica el adaptador (`fetch_many`/`fetch_one`), de modo
+  que la consulta es válida en los seis motores (SQL Server y Oracle usan
+  `OFFSET … FETCH NEXT`). Antes, esas tres rutas fallaban con error de sintaxis en
+  T-SQL y Oracle. Mismo patrón que `Model.search`.
+- `Model.upsert()` en MariaDB emite `ON DUPLICATE KEY UPDATE` en vez de
+  `ON CONFLICT`, que MariaDB no implementa (el camino estaba roto: el motor
+  rechazaba la sentencia con error 1064).
+- `Model.insert(replace=True)` usa la clave primaria del modelo como objetivo de
+  conflicto en PostgreSQL; antes usaba la primera columna del INSERT, que no es la
+  PK con `id` autoincremental, y PostgreSQL rechazaba la sentencia. Nota de
+  alcance: (a) en MSSQL/Oracle (`merge`) el objetivo sigue siendo el fallback a la
+  primera columna, porque su `src` derivado no contiene la PK autoincremental
+  (documentado, sin cambio en esta ronda); (b) en un modelo de PK autoincremental
+  `id` no forma parte del INSERT, así que `ON CONFLICT (id)` nunca se dispara y
+  `replace=True` se comporta como un INSERT normal (no reemplaza) — antes
+  PostgreSQL fallaba en voz alta, ahora la sentencia es válida pero no reemplaza.
+  Comportamiento explícito, no silencioso.
+- Correcciones de EJECUCIÓN del `MERGE` en MSSQL/Oracle (defectos preexistentes
+  descubiertos al añadir cobertura de `Model.insert(replace=True)`): SQL Server
+  exige que `MERGE` termine en `;` y Oracle exige `FROM dual` en el subquery del
+  `USING`. Se aplican SOLO al SQL que va al driver, sin alterar el SQL que producen
+  los builders/adaptadores (golden strings y snapshots intactos). Nota de
+  ownership: aditiva, igual que la anterior; la Fase 8 (`08-04`) posee la
+  enumeración del milestone.
 
 ## [0.2.6] - 2026-09-11
 

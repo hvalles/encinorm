@@ -231,6 +231,13 @@ class MssqlDb(Db):
     async def execute(self, qry: Query) -> int:
         self._ensure_connected()
         sql, values = self._prepare(qry)
+        # SQL Server exige que `MERGE` termine en `;`. Se añade SOLO al SQL que va
+        # al driver (no a `_prepare`), de modo que los golden strings y los
+        # snapshots conservan el SQL byte-idéntico. Sin esto, `Model.insert(
+        # replace=True)` y `Model.upsert()` fallan en MSSQL con el error 10713
+        # ("A MERGE statement must be terminated by a semi-colon").
+        if sql.lstrip().upper().startswith("MERGE"):
+            sql = sql.rstrip().rstrip(";") + ";"
         t0 = time.monotonic()
         cursor = await self._connection.cursor()
         try:

@@ -87,7 +87,11 @@ def build_insert(
         )
         if replace:
             # PostgreSQL exige un objetivo de conflicto para DO UPDATE; se usa el
-            # `conflict` explícito, o la primera columna (PK) por defecto.
+            # `conflict` explícito o, en su defecto, la PRIMERA COLUMNA DEL INSERT,
+            # que NO es necesariamente la PK: el llamador (p. ej. `Model.insert`)
+            # debe pasar `conflict`. Ese default solo lo alcanzan los llamadores
+            # DIRECTOS del adaptador; `Model.insert` ya pasa `conflict` para
+            # `suffix` + `replace`.
             target = ", ".join(conflict) if conflict else (columns[0] if columns else "id")
             updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in columns)
             sql += f" ON CONFLICT ({target}) DO UPDATE SET {updates}"
@@ -95,6 +99,14 @@ def build_insert(
             sql += " ON CONFLICT DO NOTHING"
     else:  # merge
         if replace:
+            # El objetivo de conflicto debe ser una columna PRESENTE en el `src`
+            # derivado (que solo contiene las columnas de `data`). `Model.insert`
+            # deja `conflict=None` en `merge` (MSSQL/Oracle) deliberadamente: la PK
+            # autoincremental `id` no está en `src`, así que pasar `["id"]` produciría
+            # `ON (dst.id = src.id)` sobre una columna inexistente (MSSQL 4104 /
+            # ORA-00904). El fallback a `columns[0]` es ejecutable en MSSQL pero
+            # semánticamente incorrecto (actualiza la columna del `ON`); en Oracle ni
+            # siquiera es ejecutable (ORA-38104), defecto preexistente documentado.
             conflict_cols = list(conflict) if conflict else ([columns[0]] if columns else ["id"])
             set_sql = ", ".join(f"dst.{c} = src.{c}" for c in columns)
             sql = _merge_sql(qualified, strategy, columns, conflict_cols, set_sql)
