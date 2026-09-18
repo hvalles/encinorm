@@ -35,14 +35,14 @@ expected: El goal de la Fase 1 en ROADMAP.md se reescribe en forma `Como …, qu
 
 Motivo: la Fase 1 está marcada `Mode: mvp`, pero `gsd-sdk query user-story.validate` devuelve `false` para su goal. La verificación se hizo contra los Success Criteria del ROADMAP (el contrato técnico), no contra una tabla de User Flow Coverage.
 
-result: [pending]
+result: resolved — confirmado por el desarrollador: el goal técnico es lo intencionado. El flag `**Mode:** mvp` se retiró de la sección de Fase 1 en ROADMAP.md (ahora `**Mode:** standard`, con nota explicativa); `gsd-sdk query phase.mvp-mode 1` devuelve `active: false`. Las fases 2-8 conservan su modo sin cambios.
 
 ## Summary
 
 total: 3
-passed: 0
+passed: 1
 issues: 0
-pending: 3
+pending: 2
 skipped: 0
 blocked: 0
 

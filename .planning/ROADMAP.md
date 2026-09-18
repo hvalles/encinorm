@@ -73,7 +73,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Goal**: CI can actually fail. Lint, format, types, per-engine coverage, a required-engine switch and
 pool characterization tests all exist and block merge, so that every later "fix verified" claim is
 backed by a signal that would have caught the `COUNT(*)` bug.
-**Mode:** mvp
+**Mode:** standard
+<!-- El flag `mvp` se retiró en la verificación de Fase 1: es una fase de infraestructura de CI, sin user flow (ver 01-HUMAN-UAT.md, ítem 3). -->
 **Depends on**: Nothing (first phase)
 **Requirements**: CI-01, CI-02, CI-03, CI-04, CI-05, CI-06, CI-07, CI-08, CI-09
 **Success Criteria** (what must be TRUE):
