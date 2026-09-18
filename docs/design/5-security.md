@@ -200,8 +200,15 @@ class PermissionSet:
 ### 5.4. Caché (opcional)
 
 El `PermissionSet` puede cachearse por `user_id` reutilizando `CacheBackend`
-(sección de caché de `1-model.md`) e invalidarse con un hook `after_commit`
-en `RolUsuario`/`Roldet`. En apps pequeñas se omite.
+(sección de caché de `1-model.md`). La invalidación la realiza `CachedModel`:
+sobreescribe `update`, `delete` y `upsert` e invalida la clave afectada
+**después** de que `super()` retorna (ya es post-commit), mientras que `save`
+queda cubierto por delegación en `update`. No se usa el hook de post-commit de
+`_transactional` porque no se dispara para `upsert` ni para `insert_many`
+(tienen su propia transacción) y no recibe ni la acción ni la clave. Un fallo
+de invalidación es fail-open: se registra un warning y no se propaga, ya que la
+escritura está commiteada y la lectura obsoleta queda acotada por el TTL. En
+apps pequeñas se omite.
 
 ---
 
