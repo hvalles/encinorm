@@ -63,7 +63,7 @@ These are not preferences. Violating any of them invalidates later verification.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Safety Net — CI Gates & Test Infrastructure** - Make CI able to fail: lint, types, per-engine coverage, required-engine switch, and pool characterization tests before any refactor (completed 2026-09-17)
-- [ ] **Phase 2: Dialect Seam & Engine Parity** - One identifier-validation choke point, shared DML builders, `Query` correctness, and proof that count/paginate/list_tables work on all six engines
+- [x] **Phase 2: Dialect Seam & Engine Parity** - One identifier-validation choke point, shared DML builders, `Query` correctness, and proof that count/paginate/list_tables work on all six engines (completed 2026-09-18)
 - [ ] **Phase 3: Data Correctness** - Migration ledger, atomic-or-reconciled `migrate()`, and `CachedModel` write-invalidation (parallel to Phase 2)
 - [ ] **Phase 4: Pool Correctness & Concurrency** - `PooledConnection` handle, race-free `acquire()`, in-insert `last_id`, explicit release policy, lazy reaper, deterministic stress tests
 - [ ] **Phase 5: Resilience** - Classified disconnects, single reconnect outside transactions, `pre_ping`/lifetime for direct connections, public error taxonomy
@@ -154,7 +154,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 02-05-PLAN.md — Per-dialect SQL snapshots via syrupy on the always-on SQLite job, the full multi-engine CI matrix (MariaDB + Redis as services; MSSQL/Oracle in a separate single-Python-version job), and the per-module coverage-floor gate owed by Phase 1 D-04/D-06 — DIAL-07, DIAL-08
+- [x] 02-05-PLAN.md — Per-dialect SQL snapshots via syrupy on the always-on SQLite job, the full multi-engine CI matrix (MariaDB + Redis as services; MSSQL/Oracle in a separate single-Python-version job), and the per-module coverage-floor gate owed by Phase 1 D-04/D-06 — DIAL-07, DIAL-08
 
 **Waves:** 1 → 02-01; 2 → 02-02; 3 → 02-03; 4 → 02-04; 5 → 02-05. The chain is fully serial: `02-01` must be a pure-refactor commit before any validation lands (Hard Ordering Constraint #2); `02-02`'s builders need the `Query` construction contract that `02-03` finalizes, and its acceptance is byte-identical SQL; `02-04` fixes the aggregate result keys on top of the settled `Query`; `02-05` freezes the SQL in snapshots and proves parity in CI. `02-05` is the only non-autonomous plan (a blocking `syrupy` package-legitimacy checkpoint).
 
@@ -387,7 +387,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 4/5 | In Progress|  |
+| 2. Dialect Seam & Engine Parity | 5/5 | Complete   | 2026-09-18 |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
