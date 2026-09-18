@@ -1,7 +1,7 @@
 import pytest
 from pydantic import Field
 
-from encino_orm.model import Filter, Model, QueryBuilder, col
+from encino_orm.model import DuplicateAliasError, Filter, Model, QueryBuilder, col
 from encino_orm.query import Query
 
 
@@ -15,6 +15,14 @@ class _RecordingDb:
     async def fetch_one(self, qry):
         self.queries.append(qry)
         return self.row
+
+    async def fetch_all(self, qry, *args, **kwargs):
+        self.queries.append(qry)
+        return [self.row]
+
+    async def fetch_many(self, qry, limit, page=1):
+        self.queries.append(qry)
+        return [self.row]
 
 
 class Region(Model):
@@ -166,3 +174,59 @@ class TestSortBy:
     async def test_invalid_direction(self, db):
         with pytest.raises(ValueError):
             QueryBuilder(Agente, db).sort_by("agente sideways")
+
+
+class TestAliasInjection:
+    """Regresión de CR-01: ningún alias llega a `FROM`/`JOIN` sin validar.
+
+    Reproduce el payload literal del informe de verificación (una primitiva de
+    inyección SQL por el parámetro público `alias=`) y prueba que ahora lanza
+    `ValueError` antes de construir SQL y sin alcanzar el driver.
+    """
+
+    def test_alias_con_inyeccion_en_constructor_lanza(self):
+        with pytest.raises(ValueError) as exc:
+            QueryBuilder(
+                Agente, None, alias="mm WHERE 1=0 UNION SELECT nombre FROM usuarios --"
+            )
+        assert "alias inválido" in str(exc.value)
+
+    def test_alias_no_identificador_en_constructor_lanza(self):
+        for alias in ["a b", "a.b", "1x", "", "a-b", None]:
+            with pytest.raises(ValueError):
+                QueryBuilder(Agente, None, alias=alias)
+
+    def test_join_con_alias_inyectado_lanza(self):
+        # `join` es puro: no necesita conexión para validar el alias.
+        qb = QueryBuilder(Agente, None)
+        with pytest.raises(ValueError):
+            qb.join(Region, "a b", Filter.eq("mm.region_id", col("r.id")))
+
+    def test_join_subquery_con_alias_inyectado_lanza(self):
+        sub = QueryBuilder(Agente, None)
+        qb = QueryBuilder(Agente, None)
+        with pytest.raises(ValueError):
+            qb.join_subquery(sub, "x; DROP TABLE t --", Filter.eq("mm.id", col("sq1_mm.id")))
+
+    def test_alias_por_defecto_y_autogenerado_siguen_validos(self):
+        assert QueryBuilder(Agente, None)._build_base()[0] == "FROM agentes mm"
+        sub = QueryBuilder(Agente, None)
+        qb = QueryBuilder(Agente, None)
+        qb.join_subquery(sub, None, Filter.eq("mm.id", col("sq1_mm.id")))
+        sql, _ = qb._build_base()
+        assert "JOIN (SELECT * FROM agentes mm) sq1_mm ON" in sql
+
+    @pytest.mark.asyncio
+    async def test_el_driver_nunca_se_alcanza_con_alias_hostil(self):
+        fake = _RecordingDb({"id": 1})
+        with pytest.raises(ValueError):
+            await QueryBuilder(
+                Agente, fake, alias="mm WHERE 1=0 UNION SELECT nombre FROM usuarios --"
+            ).all()
+        assert fake.queries == []
+
+    def test_alias_duplicado_sigue_lanzando_duplicate_alias_error(self):
+        qb = QueryBuilder(Agente, None)
+        qb.join(Region, "r", Filter.eq("mm.region_id", col("r.id")))
+        with pytest.raises(DuplicateAliasError):
+            qb.join(Region, "r", Filter.eq("mm.region_id", col("r.id")))
