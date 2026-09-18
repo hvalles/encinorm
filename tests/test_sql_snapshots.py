@@ -143,6 +143,57 @@ async def test_list_tables_snapshot(snapshot):
     assert actual == snapshot
 
 
+async def test_list_tables_filtered_snapshot(snapshot):
+    actual = {}
+    for name, cls in ADAPTERS.items():
+        db, captured = _spy(cls)
+        await db.list_tables(name="snap", limit=50, page=1)
+        # El camino FILTRADO anida dos tablas derivadas: la interior es el SQL
+        # base y la exterior (alias `encino_orm_tables`) expone `name` como
+        # columna REAL, porque en 5 de 6 dialectos `name` es un alias de SELECT
+        # y no puede referenciarse en `WHERE`.
+        actual[name] = {
+            "count_wrapper": _aggregate_template(captured[0]),
+            "tables": captured[1].sql_template,
+            "params": captured[1].fields,
+        }
+    assert actual == snapshot
+
+
+async def test_list_tables_filtrado_liga_el_valor_y_envuelve_en_tabla_derivada():
+    for name, cls in ADAPTERS.items():
+        db, captured = _spy(cls)
+        await db.list_tables(name="snap", limit=50, page=1)
+        page = captured[1]
+        assert "encino_orm_tables" in page.sql_template, name
+        assert "LOWER(name) LIKE LOWER({0})" in page.sql_template, name
+        # El valor viaja LIGADO: el literal no aparece en el SQL.
+        assert "snap" not in page.sql_template, name
+        assert page.fields == ["%snap%"], name
+        # El alias de la tabla derivada no puede empezar por `_` (Oracle
+        # rechaza esos identificadores con ORA-00911).
+        assert "_encino_orm_tables" not in page.sql_template, name
+
+
+async def test_list_tables_sin_filtro_no_envuelve():
+    for name, cls in ADAPTERS.items():
+        db, captured = _spy(cls)
+        await db.list_tables(limit=50, page=1)
+        # Byte-identidad: sin `name` no hay tabla derivada ni parámetros.
+        assert "encino_orm_tables" not in captured[1].sql_template, name
+        assert captured[1].fields == [], name
+
+
+async def test_list_tables_con_nombre_vacio_no_envuelve():
+    for name, cls in ADAPTERS.items():
+        db, captured = _spy(cls)
+        await db.list_tables(name="", limit=50, page=1)
+        # El parámetro por defecto es `""`, no `None`: debe comportarse como
+        # "sin filtro".
+        assert "encino_orm_tables" not in captured[1].sql_template, name
+        assert captured[1].fields == [], name
+
+
 async def test_paginate_snapshot(snapshot):
     actual = {}
     for name, cls in ADAPTERS.items():
