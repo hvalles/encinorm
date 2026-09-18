@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-07-PLAN.md
+stopped_at: Created gap-closure round 3 plans (03-08, 03-09, 03-10)
 last_updated: "2026-09-18T19:04:56.735Z"
 last_activity: 2026-09-18
 progress:
@@ -158,6 +158,8 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-06: el dominio de caché de CachedModel pasa a ser canónico (SOLO la PK de la fila); load() escribe siempre bajo la PK y update/delete/upsert resuelven la PK real de la fila afectada antes de invalidar (de la instancia si las claves de escritura son la PK; de la BD con un SELECT ligado y con scope si no). — Cierra CR-01: una escritura sin la PK en la instancia (id=None) ya no deja viva la entrada [id=1]; el residual inverso desaparece por construcción. Supersede la premisa de D-11 (la lectura no-PK deja de acierto en caché); D-12 y D-16 intactos.
 - [Phase 03]: IN-01: se documenta el reintento del rollback en el docstring de resolve_migration y en el error de reconcile_migrations, en vez de automatizarlo (el helper no recibe la Migration ni el SQL del down; el ledger solo guarda el up). — Automatizarlo cambiaria la firma publica y el contrato D-05/D-17.
 - [Phase 03]: WR-01: doble defensa con flag inserted (propiedad de la fila) + compare-and-delete {name, status: pending} (estado esperado). — El flag evita borrar la fila de otro proceso; el status evita borrar una fila applied por una promocion concurrente.
+- [Phase 03]: Ronda 3: la revisión de 03-06/03-07 halló CR-01 multi-fila (una escritura por clave no-PK afecta N filas pero solo se invalidaba 1) y CR-02 (la clave de caché no se namespacea por scope(), permitiendo lectura/escritura cruzada de tenant). Se decide corregir AMBOS más los residuales WR-01/WR-02/WR-03 (opción "fix all") en 03-08/03-09/03-10. — DATA-03 promete "sin lecturas obsoletas" y el core value prioriza la seguridad de los datos; dejar un cruce de tenant conocido es inaceptable.
+- [Phase 03]: Ronda 3: `_cache_key_for` incluye `current_scope().digest()`; sin scope la clave es idéntica a la anterior (compatible). La invalidación resuelve TODAS las PKs afectadas vía `search(columns=pk_cols, include_deleted=True)` y re-resuelve tras la escritura para acotar el TOCTOU (WR-02). — El namespace por scope es un cambio de formato de clave: se registra en CHANGELOG; entradas viejas quedan huérfanas hasta el TTL.
 
 ### Pending Todos
 
