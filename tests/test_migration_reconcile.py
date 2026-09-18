@@ -38,11 +38,16 @@ class LedgerDb(Db):
         transactional_ddl: bool,
         fail_ddl: bool = False,
         fail_promote: bool = False,
+        fail_duplicate_insert: bool = False,
     ):
         self.transactional_ddl = transactional_ddl
         self.fail_ddl = fail_ddl
         self.fail_promote = fail_promote
+        self.fail_duplicate_insert = fail_duplicate_insert
         self.ledger: dict[str, dict] = {}
+        # Registro de cada DELETE emitido, para verificar el compare-and-delete
+        # de la compensación (WR-01).
+        self.delete_calls: list[dict] = []
         self._entry: dict | None = None
         self._published: dict | None = None
 
@@ -96,9 +101,19 @@ class LedgerDb(Db):
         if isinstance(qry, tuple):
             kind = qry[0]
             if kind == "INSERT":
+                if self.fail_duplicate_insert and qry[1]["name"] in self.ledger:
+                    raise RuntimeError("nombre duplicado en el ledger")
                 self.ledger[qry[1]["name"]] = dict(qry[1])
             elif kind == "DELETE":
-                self.ledger.pop(qry[1]["name"], None)
+                # Fiel al SQL real (`DELETE ... WHERE col = {n} AND ...`): todas
+                # las claves del dict deben coincidir con la fila. Un `{name}`
+                # sobre una fila `applied` la borra; un `{name, status: pending}`
+                # sobre una fila `applied` NO.
+                keys = dict(qry[1])
+                self.delete_calls.append(keys)
+                row = self.ledger.get(keys["name"])
+                if row is not None and all(row.get(k) == v for k, v in keys.items()):
+                    self.ledger.pop(keys["name"], None)
             elif kind == "UPDATE":
                 if self.fail_promote and qry[2].get("status") == STATUS_APPLIED:
                     raise RuntimeError("promote a applied falló")
@@ -183,6 +198,33 @@ class TestApplyTwoPhase:
         assert db.ledger["v1"]["status"] == STATUS_APPLIED
         await reconcile_migrations(db)  # no lanza
 
+    @pytest.mark.asyncio
+    async def test_insert_duplicado_no_borra_la_fila_ajena(self):
+        """WR-01: un INSERT duplicado pertenece a OTRO proceso; no se borra."""
+        db = LedgerDb(transactional_ddl=False, fail_duplicate_insert=True)
+        db.ledger["v1"] = {
+            "name": "v1",
+            "status": STATUS_APPLIED,
+            "sql_text": "CREATE TABLE t",
+        }
+
+        with pytest.raises(RuntimeError):
+            await _apply(db, "v1", DDL)
+
+        assert db.ledger["v1"]["status"] == STATUS_APPLIED
+        assert db.delete_calls == []
+
+    @pytest.mark.asyncio
+    async def test_compensacion_borra_solo_la_fila_pending_propia(self):
+        """La compensación usa compare-and-delete sobre `status='pending'`."""
+        db = LedgerDb(transactional_ddl=False, fail_ddl=True)
+
+        with pytest.raises(RuntimeError):
+            await _apply(db, "v1", DDL)
+
+        assert db.ledger == {}
+        assert db.delete_calls == [{"name": "v1", "status": STATUS_PENDING}]
+
 
 def _seed(name: str, status: str) -> LedgerDb:
     db = LedgerDb(transactional_ddl=True)
@@ -226,6 +268,18 @@ class TestResolveMigration:
         db = _seed("v1", STATUS_APPLIED)
         with pytest.raises(MigrationError):
             await resolve_migration(db, "v1", applied=False)
+
+    @pytest.mark.asyncio
+    async def test_reconcile_error_text_instruye_reintentar_rollback(self):
+        """IN-01: el error de reconciliación nombra la re-emisión del rollback."""
+        db = _seed("v1", STATUS_ROLLING_BACK)
+        with pytest.raises(MigrationError) as exc:
+            await reconcile_migrations(db)
+        assert "rollback_migration" in str(exc.value)
+
+    def test_resolve_migration_docstring_documenta_reintento(self):
+        """IN-01: el docstring documenta el reintento del `down`."""
+        assert "rollback_migration" in (resolve_migration.__doc__ or "")
 
 
 @pytest.mark.asyncio
