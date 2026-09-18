@@ -71,12 +71,16 @@ async def _apply(db, name: str, qry: Query) -> None:
     a través de un `PoolDb` (`PoolDb.commit()` lanza `ConnectionError`).
 
     En motores con commit implícito del DDL (MySQL/MariaDB/Oracle) la fila
-    `pending` puede sobrevivir al fallo; ahí se compensa solo si el DDL NO
-    llegó a correr (borrar la fila). Si el DDL sí corrió y falló el promote, la
-    fila queda `pending` A PROPÓSITO para que la reconciliación la detecte
-    (Pitfall 8: nada de teatro de atomicidad).
+    `pending` puede sobrevivir al fallo; ahí se compensa solo si ESTA llamada
+    insertó la fila y el DDL NO llegó a correr (compare-and-delete sobre
+    `pending`). Si el DDL sí corrió y falló el promote, la fila queda `pending`
+    A PROPÓSITO para que la reconciliación la detecte (Pitfall 8: nada de
+    teatro de atomicidad).
     """
     ddl_done = False
+    # Propiedad de la fila: la compensación solo puede borrar lo que ESTA
+    # llamada insertó. Un INSERT duplicado pertenece a OTRO proceso.
+    inserted = False
     try:
         async with db.transaction():
             await db.execute(
@@ -85,18 +89,24 @@ async def _apply(db, name: str, qry: Query) -> None:
                     {"name": name, "status": STATUS_PENDING, "sql_text": qry.sql},
                 )
             )
+            inserted = True
             await db.execute(qry)
             ddl_done = True
             await db.execute(
                 db.update(MIGRATIONS_TABLE, {"name": name}, {"status": STATUS_APPLIED})
             )
     except Exception:
-        if not db.transactional_ddl and not ddl_done:
+        if not db.transactional_ddl and inserted and not ddl_done:
             # El commit implícito del DDL publicó el `pending` pero el DDL no
             # corrió: limpiar la fila en una transacción nueva. En motores con
             # DDL transaccional el rollback de `db.transaction()` ya la eliminó.
+            # El compare-and-delete exige `status='pending'`: si un INSERT
+            # duplicado falló, la fila es de OTRO proceso (este intento no la
+            # insertó) y borrarla dejaría el DDL ajeno sin registro (WR-01).
             async with db.transaction():
-                await db.execute(db.delete(MIGRATIONS_TABLE, {"name": name}))
+                await db.execute(
+                    db.delete(MIGRATIONS_TABLE, {"name": name, "status": STATUS_PENDING})
+                )
         elif not db.transactional_ddl and ddl_done:
             # El DDL SÍ corrió y el promote falló: la fila queda `pending` para
             # que `reconcile_migrations` la detecte y el humano la resuelva.
@@ -188,7 +198,10 @@ async def reconcile_migrations(db) -> None:
         "Migraciones en estado ambiguo (no se re-ejecuta DDL automáticamente).\n"
         f"{detail}\n"
         "Resuelve cada una con resolve_migration(db, name, applied=<bool>) "
-        "tras verificar el catálogo real."
+        "tras verificar el catálogo real.\n"
+        "Para una fila `rolling_back` cuyo `down` no corrió, restaura con "
+        "resolve_migration(db, name, applied=True) y RE-EMITE "
+        "rollback_migration(db, migration) para reintentar la reversión."
     )
 
 
@@ -202,8 +215,13 @@ async def resolve_migration(db, name: str, *, applied: bool) -> None:
     |----------------|-----------|-------------------------|
     | `pending`      | `True`    | marcar `applied`        |
     | `pending`      | `False`   | borrar la fila          |
-    | `rolling_back` | `True`    | restaurar `applied`     |
+    | `rolling_back` | `True`    | restaurar `applied` y re-emitir `rollback_migration` |
     | `rolling_back` | `False`   | borrar la fila          |
+
+    Para `rolling_back` + `applied=True` el helper solo restaura `applied`: el
+    SQL del `down` NO está en el ledger (solo guarda el `up`), así que el
+    operador DEBE re-emitir `rollback_migration(db, migration)` para reintentar
+    la reversión (IN-01).
     """
     await _ensure_ledger(db)
     status = await _row_status(db, name)
