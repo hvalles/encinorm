@@ -584,6 +584,13 @@ class Model(BaseModel):
         clave primaria). `values` son los campos a actualizar en caso de conflicto
         (`None` -> todos los no conflictivos con el valor recién insertado).
         Devuelve filas afectadas.
+
+        En los dialectos `merge` (MSSQL/Oracle) el objetivo del MERGE debe ser una
+        columna PRESENTE en los datos: el `src` derivado se arma solo con las
+        columnas del INSERT y la PK autoincremental `id` está excluida. Por eso un
+        modelo de PK autoincremental exige pasar `conflict=` con una columna de
+        datos; con el default (la PK) se lanza `ValueError` en vez de emitir SQL
+        inválido contra el motor.
         """
         if conflict is None:
             conflict = list(type(self)._pk_fields())

@@ -37,6 +37,18 @@ def _merge_sql(
     set_sql: str,
 ) -> str:
     """Render del `MERGE INTO` compartido por `build_insert` y `build_upsert`."""
+    # El `src` derivado se construye SOLO con las columnas de `data`; en un modelo
+    # de PK autoincremental la PK `id` está excluida, así que `ON (dst.id =
+    # src.id)` referenciaría una columna inexistente (MSSQL 207 / ORA-00904). Se
+    # falla CERRADO en este punto único (compartido por `build_insert` y
+    # `build_upsert`) en vez de derivar un default silencioso: el llamador debe
+    # pasar `conflict=` con una columna de datos.
+    missing = [c for c in conflict_cols if c not in columns]
+    if missing:
+        raise ValueError(
+            f"conflicto {missing} no está en el INSERT; en MERGE el objetivo "
+            "debe ser una columna presente en los datos (pasa conflict=...)"
+        )
     alias = f"{strategy.merge_alias_keyword} " if strategy.merge_alias_keyword else ""
     src = ", ".join(f"{{{i}}} AS {c}" for i, c in enumerate(columns))
     on = " AND ".join(f"dst.{c} = src.{c}" for c in conflict_cols)
