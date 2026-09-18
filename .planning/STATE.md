@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-05-PLAN.md
-last_updated: "2026-09-18T13:37:59.522Z"
+stopped_at: Completed 02-08-PLAN.md
+last_updated: "2026-09-18T13:52:57.855Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 13
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 02 (Dialect Seam & Engine Parity) — EXECUTING
-Plan: 7 of 9 (gap closure: 02-06 complete, 02-07…02-09 pending)
+Plan: 8 of 9 (gap closure: 02-06, 02-07, 02-08 complete; 02-09 pending)
 Status: Ready to execute
 Last activity: 2026-09-18
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [█████████░] 86%
 | Phase 02 P05 | 10 min | 3 tasks | 11 files |
 | Phase 02 P06 | 2 min | 2 tasks | 7 files |
 | Phase 02 P07 | 3 min | 2 tasks | 3 files |
+| Phase 02 P08 | 14 min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,7 @@ Recent decisions affecting current work:
 - [Phase 02]: coverage.json se anade a .gitignore: es un artefacto generado por el job coverage que alimenta tools/ci/check_coverage_floors.py.
 - [Phase ?]: 02-06: alias y nombre de columna validados por la allowlist estricta; indexes_ddl fail-closed — Cierra CR-01/WR-06 haciendo de la allowlist un cuello de botella real sin relajarla
 - [Phase 02]: 02-07: contrato de cardinalidad de Query sin carve-out + compilacion desde indice normalizado; doc de diseno sincronizado con guard de fuente — Un contrato documentado que no se aplica normaliza el uso roto; el carve-out era redundante y erroneo, y {00} producia KeyError en el adaptador.
+- [Phase ?]: 02-08: paginacion de QueryBuilder delegada en el adaptador; MariaDB upsert emite ON DUPLICATE KEY UPDATE; Model.insert(replace=True) deriva el objetivo de conflicto de la PK solo en suffix (PostgreSQL) y conserva conflict=None en merge (MSSQL/Oracle); el MERGE de MSSQL/Oracle se corrige en la frontera del driver (';' y FROM dual) preservando la byte-identidad de snapshots y golden strings — Cierra el GAP 3 (WR-03/WR-04/WR-05) con cobertura en los seis motores; los dos fixes de MERGE son defectos preexistentes que bloqueaban la cobertura de motor
 
 ### Pending Todos
 
@@ -142,6 +144,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T13:37:15.120Z
-Stopped at: Completed 02-05-PLAN.md
+Last session: 2026-09-18T13:52:57.842Z
+Stopped at: Completed 02-08-PLAN.md
 Resume file: None

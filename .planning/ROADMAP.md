@@ -169,7 +169,7 @@ Plans:
 
 **Wave 2** *(blocked on `02-06`: shared `query_builder.py` / `model/model.py` / `test_query_builder.py`)*
 
-- [ ] 02-08-PLAN.md — Engine parity: route `QueryBuilder.all()/first()/exists()` through `fetch_many`/`fetch_one` and cover them on all six engines (today: zero coverage); make MariaDB `upsert` emit `ON DUPLICATE KEY UPDATE`; derive `Model.insert(replace=True)`'s conflict target from the primary key — closes GAP 3 (WR-03/WR-04/WR-05) — DIAL-02, DIAL-03, DIAL-09
+- [x] 02-08-PLAN.md — Engine parity: route `QueryBuilder.all()/first()/exists()` through `fetch_many`/`fetch_one` and cover them on all six engines (today: zero coverage); make MariaDB `upsert` emit `ON DUPLICATE KEY UPDATE`; derive `Model.insert(replace=True)`'s conflict target from the primary key — closes GAP 3 (WR-03/WR-04/WR-05) — DIAL-02, DIAL-03, DIAL-09
 
 **Wave 3** *(blocked on `02-08`: same six per-engine test files and the same `deferred-items.md`)*
 
@@ -404,7 +404,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 7/9 | In Progress|  |
+| 2. Dialect Seam & Engine Parity | 8/9 | In Progress|  |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
