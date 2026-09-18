@@ -1,5 +1,6 @@
 """Seam de dialectos: validación de identificadores y construcción DML compartida."""
 
+from .builders import build_delete, build_insert, build_update
 from .identifiers import IDENTIFIER_RE, check_identifier
 from .strategies import (
     MARIADB_INSERT,
@@ -20,5 +21,8 @@ __all__ = [
     "POSTGRES_INSERT",
     "SQLITE_INSERT",
     "InsertStrategy",
+    "build_delete",
+    "build_insert",
+    "build_update",
     "check_identifier",
 ]

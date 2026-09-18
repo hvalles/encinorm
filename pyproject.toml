@@ -131,6 +131,10 @@ select = [
 "tests/**" = ["S101", "PT011", "B017", "ARG001", "ARG002"]
 # S608: los constructores de dialecto interpolan SQL intencionadamente.
 # La validación centralizada llega en Fase 2 (DIAL-02); el resto de `S` sigue activo.
+# S608: el builder DML centralizado interpola identificadores a proposito; la
+# frontera de confianza esta documentada en el modulo y la defensa es
+# check_identifier aplicado antes de construir cualquier SQL (DIAL-02).
+"encino_orm/dialects/builders.py" = ["S608"]
 "encino_orm/sqlite.py" = ["S608"]
 "encino_orm/mysql.py" = ["S608"]
 "encino_orm/mariadb.py" = ["S608"]
