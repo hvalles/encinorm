@@ -26,6 +26,9 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - ✓ Capas opcionales de importación diferida: REST (`create_crud`), GraphQL (`build_schema`), seguridad RBAC+JWT y codegen/CLI — existing
 - ✓ Defensa sistémica de inyección SQL: todo pasa por `Query` y los identificadores se validan con `_IDENTIFIER_RE` en la capa `Model` — existing
 - ✓ Suite de ~507 funciones de prueba; CI con servicios MySQL y PostgreSQL — existing
+- ✓ Red de seguridad de CI verificable: `ruff` (lint+format) bloqueante, `mypy` no estricto con ratchet por módulo + `py.typed` en el wheel, `pytest-cov` con combine por pata y ratchet no-baja (82), y escaneo de dependencias (`uv lock --check` + `uv audit` + `pip-audit`) — Validated in Phase 1
+- ✓ Interruptor de motores requeridos (`ENCINO_ORM_REQUIRE_ENGINES`) que falla en vez de omitir, gate JUnit `skipped > 0` fail-closed, y release gateado por CI (`needs: [ci]` vía reusable workflow) — Validated in Phase 1
+- ✓ Suite de 19 tests de caracterización del pool que congelan el comportamiento actual antes del refactor de Fase 4 — Validated in Phase 1
 
 ### Active
 
@@ -53,11 +56,7 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - [ ] Tests de concurrencia y estrés del pool que cubran estos caminos
 
 **Calidad y CI**
-- [ ] `ruff` (lint + format) y `mypy` configurados como dependencias de desarrollo
-- [ ] `pytest-cov` con reporte y umbral de cobertura
-- [ ] CI ejecuta gates obligatorios de lint, tipos y cobertura
 - [ ] Matriz multi-motor en CI (MariaDB, SQL Server, Oracle, Redis) mediante servicios o contenedores, o mocks equivalentes justificados
-- [ ] Escaneo de dependencias/seguridad (`pip-audit`, Dependabot o `uv lock --check`)
 
 **Rendimiento**
 - [ ] `copy_table` inserta por lotes en lugar de una fila por round-trip
@@ -92,6 +91,8 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - Carreras de concurrencia en `PoolDb` (`acquire()`, `_last_id` compartido, commit implícito) sin tests.
 - Ausencia total de lint, type-check y cobertura en CI.
 - Builders de bajo nivel (`Db.insert/update/delete`) no validan identificadores, a diferencia de la capa `Model`.
+
+**Estado tras Fase 1 (2026-09-18):** la red de seguridad de CI ya está en pie — ruff, mypy+`py.typed`, coverage con ratchet, escaneo de dependencias, interruptor de motores requeridos, gate JUnit y release gateado. La suite pasó de ~507 a 553 tests. Pendiente de verificación humana/CI: que un gate rojo bloquee de verdad la publicación y que quitar un servicio de motor haga fallar el job (ver `01-HUMAN-UAT.md`). Riesgo residual registrado: 5 GHSA de PyJWT 2.12.1 en allowlist temporal hasta Fase 6.
 
 **Entorno técnico:** Python 3.10+, `pydantic>=2.13.4`, `asyncio` de un solo hilo con estado por tarea en `contextvars`. Desarrollo en Windows con `uv`.
 
@@ -132,4 +133,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-17 after initialization*
+*Last updated: 2026-09-18 after Phase 1 completion*
