@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-09-PLAN.md
-last_updated: "2026-09-18T14:23:50.476Z"
-last_activity: 2026-09-18 -- Phase 02 planning complete
+stopped_at: Completed 02-10-PLAN.md
+last_updated: "2026-09-18T14:30:04.913Z"
+last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 17
-  completed_plans: 14
+  completed_plans: 15
   percent: 13
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 02 (Dialect Seam & Engine Parity) — EXECUTING
-Plan: 9 of 9 (gap closure: 02-06, 02-07, 02-08, 02-09 complete)
+Plan: 10 of 12 (gap closure ronda 2: 02-06…02-10 completos; 02-11 y 02-12 pendientes)
 Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 02 planning complete
+Last activity: 2026-09-18
 
-Progress: [██████████] 100%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 02 P07 | 3 min | 2 tasks | 3 files |
 | Phase 02 P08 | 14 min | 3 tasks | 17 files |
 | Phase 02 P09 | 3 min | 2 tasks | 10 files |
+| Phase 02 P10 | 4 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -122,6 +123,8 @@ Recent decisions affecting current work:
 - [Phase 02]: 02-07: contrato de cardinalidad de Query sin carve-out + compilacion desde indice normalizado; doc de diseno sincronizado con guard de fuente — Un contrato documentado que no se aplica normaliza el uso roto; el carve-out era redundante y erroneo, y {00} producia KeyError en el adaptador.
 - [Phase ?]: 02-08: paginacion de QueryBuilder delegada en el adaptador; MariaDB upsert emite ON DUPLICATE KEY UPDATE; Model.insert(replace=True) deriva el objetivo de conflicto de la PK solo en suffix (PostgreSQL) y conserva conflict=None en merge (MSSQL/Oracle); el MERGE de MSSQL/Oracle se corrige en la frontera del driver (';' y FROM dual) preservando la byte-identidad de snapshots y golden strings — Cierra el GAP 3 (WR-03/WR-04/WR-05) con cobertura en los seis motores; los dos fixes de MERGE son defectos preexistentes que bloqueaban la cobertura de motor
 - [Phase ?]: 02-09: list_tables(name=) filtra sobre una columna REAL de una tabla derivada (encino_orm_tables) con LOWER() en ambos lados y valor ligado; cierra el GAP 4 y el ultimo diferido huerfano de la fase sin tocar el camino sin filtro — PostgreSQL/MySQL/SQL Server/Oracle no permiten alias de columna en WHERE; envolver expone name como columna real y deja el camino sin filtro byte-identico
+- [Phase ?]: 02-10: _table validado con la allowlist ESTRICTA en QueryBuilder.__init__ (incondicional, fail-closed) y en join() antes del chequeo de duplicados; cierra el CR-01 de la ronda 2 sin relajar la allowlist
+- [Phase ?]: 02-10: el barrido confirma que _table era el ultimo punto de interpolacion que necesitaba la allowlist estricta; las posiciones de expresion (select/group_by/order_by/sort_by/agregados) conservan _COLUMN_RE tolerante a puntos por decision (Pitfall 10) y se fijan con tests de caracterizacion + guard de fuente
 
 ### Pending Todos
 
@@ -146,6 +149,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T13:57:58.858Z
-Stopped at: Completed 02-09-PLAN.md
+Last session: 2026-09-18T14:29:52.832Z
+Stopped at: Completed 02-10-PLAN.md
 Resume file: None
