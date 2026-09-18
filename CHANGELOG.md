@@ -44,6 +44,36 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   los builders/adaptadores (golden strings y snapshots intactos). Nota de
   ownership: aditiva, igual que la anterior; la Fase 8 (`08-04`) posee la
   enumeración del milestone.
+- `Query` aplica el contrato de cardinalidad sin carve-outs: pasar valores a una
+  plantilla sin `{n}` ahora lanza `ValueError` (antes los valores se descartaban en
+  silencio) y `{00}` se normaliza a `parameter_0000` en vez de dejar una clave que
+  el adaptador no resuelve. El camino compatible `Query(sql, [])` se conserva. Nota
+  de ownership: esta entrada es ADITIVA y no prejuzga la enumeración de cambios
+  incompatibles del milestone, que posee la Fase 8 (`08-04`).
+- `QueryBuilder` valida el nombre de tabla del modelo (constructor) y el de cada
+  destino de `join()` con la allowlist estricta, de modo que un `_table` no
+  identificador (p. ej. de un modelo dinámico o generado por codegen) lanza
+  `ValueError` ANTES de generar SQL, en vez de interpolarse en el `FROM`/`JOIN`
+  (fail-closed). Las posiciones de expresión (`select`/`group_by`/`order_by`)
+  conservan su allowlist tolerante a puntos, por decisión.
+- En los dialectos `merge` (MSSQL/Oracle), el objetivo de conflicto de un `MERGE`
+  DEBE ser una columna presente en los datos insertados; si no lo es, el builder
+  lanza `ValueError` con un mensaje accionable en vez de emitir
+  `ON (dst.<col> = src.<col>)` sobre una columna inexistente (antes: MSSQL 207
+  `Invalid column name` / Oracle `ORA-00904`). En consecuencia, `Model.upsert()` con
+  el conflicto por defecto (PK) sobre un modelo de PK autoincremental ahora falla en
+  voz alta, y el llamador debe pasar `conflict=` con una columna de datos (la PK `id`
+  no está en el INSERT). No es una mejora de la semántica del upsert: es un fallo
+  cerrado.
+- `Model.insert(replace=True)` en MSSQL/Oracle se renderiza como `MERGE`, que no
+  expone el id de la fila en la frontera del driver; antes devolvía y asignaba el
+  `last_id()` cacheado, que podía ser el id de OTRA fila (un `update()` posterior
+  apuntaba a la fila equivocada). Ahora devuelve `0` ("id no disponible") y deja
+  `self.id` intacto. Aclaraciones: (a) el camino no-merge (`INSERT` plano y `replace`
+  en PostgreSQL) sigue devolviendo el id real sin cambios; (b) la captura del id
+  DENTRO del insert (`OUTPUT INSERTED.id` / `SCOPE_IDENTITY`) pertenece a la Fase 4
+  (`04-02`, POOL-03), y el fallback `columns[0]` del `MERGE` (semántica preexistente,
+  incorrecta) sigue sin corregir y con dueño.
 
 ## [0.2.6] - 2026-09-11
 
