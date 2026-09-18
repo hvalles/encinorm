@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from .dialects.strategies import LIMITS
+from .dialects.strategies import LIMITS, TRANSACTIONAL_DDL
 from .mysql import MysqlDb
 
 
@@ -16,6 +16,9 @@ class MariadbDb(MysqlDb):
     # dialecto correcto aunque hoy coincidan.
     MAX_PARAMS = LIMITS["mariadb"].max_params
     MAX_ROWS = LIMITS["mariadb"].max_rows
+    # Hereda `False` de `MysqlDb`, pero el dato se fija explícitamente para que
+    # sea visible en el adaptador (D-04).
+    transactional_ddl = TRANSACTIONAL_DDL["mariadb"]
 
     async def columns_of(self, table):
         cols = await super().columns_of(table)

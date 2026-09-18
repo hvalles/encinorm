@@ -2,6 +2,13 @@
 
 from encino_orm.base import Db
 from encino_orm.dialects import TRANSACTIONAL_DDL
+from encino_orm.mariadb import MariadbDb
+from encino_orm.mssql import MssqlDb
+from encino_orm.mysql import MysqlDb
+from encino_orm.oracle import OracleDb
+from encino_orm.pool import PoolDb
+from encino_orm.postgresql import PostgresDb
+from encino_orm.sqlite import SqliteDb
 
 
 class TestTransactionalDdlMap:
@@ -29,3 +36,22 @@ class TestTransactionalDdlMap:
 
     def test_db_default_es_conservador(self):
         assert Db.transactional_ddl is True
+
+
+class TestAdapterTransactionalDdl:
+    def test_adaptadores_con_ddl_transaccional(self):
+        assert SqliteDb.transactional_ddl is True
+        assert PostgresDb.transactional_ddl is True
+        assert MssqlDb.transactional_ddl is True
+
+    def test_adaptadores_con_commit_implicito_del_ddl(self):
+        assert MysqlDb.transactional_ddl is False
+        assert MariadbDb.transactional_ddl is False
+        assert OracleDb.transactional_ddl is False
+
+    def test_pool_delega_al_template(self):
+        # Sin conectar: la property lee el template, no una conexión.
+        assert PoolDb("sqlite").transactional_ddl is True
+        assert PoolDb("postgresql").transactional_ddl is True
+        assert PoolDb("mysql").transactional_ddl is False
+        assert PoolDb("oracle").transactional_ddl is False

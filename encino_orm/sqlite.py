@@ -6,10 +6,10 @@ import aiosqlite
 from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
 from .dialects.identifiers import check_identifier
-from .dialects.strategies import LIMITS, SQLITE_INSERT, InsertStrategy
+from .dialects.strategies import LIMITS, SQLITE_INSERT, TRANSACTIONAL_DDL, InsertStrategy
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
-from .migration import MIGRATIONS_TABLE
+from .migration import MIGRATIONS_TABLE, _apply, reconcile_migrations
 from .observability import current_trace_id
 from .query import Query
 
@@ -41,6 +41,7 @@ class SqliteDb(Db):
     dialect = "sqlite"
     MAX_PARAMS = LIMITS["sqlite"].max_params
     MAX_ROWS = LIMITS["sqlite"].max_rows
+    transactional_ddl = TRANSACTIONAL_DDL["sqlite"]
 
     def __init__(self):
         self._connection = None
@@ -223,6 +224,7 @@ class SqliteDb(Db):
     async def migrate(self, name: str, qry: Query):
         self._ensure_connected()
         await self._ensure_migrations_table()
+        await reconcile_migrations(self)
 
         existing = await self.fetch_one(
             Query(f"SELECT id FROM {MIGRATIONS_TABLE} WHERE name = {{0}}", [name])
@@ -230,9 +232,7 @@ class SqliteDb(Db):
         if existing is not None:
             return
 
-        await self.execute(qry)
-        await self.execute(self.insert(MIGRATIONS_TABLE, {"name": name, "sql_text": qry.sql}))
-        await self.commit()
+        await _apply(self, name, qry)
 
     async def migrate_status(self) -> list[dict]:
         self._ensure_connected()
