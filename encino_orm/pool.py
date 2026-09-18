@@ -89,6 +89,15 @@ class PoolDb(Db):
         return self._template.MAX_ROWS
 
     @property
+    def transactional_ddl(self) -> bool:
+        """Indica si el DDL del motor subyacente es rollbackable (no del pool).
+
+        Delega en el template, que lo fija desde `TRANSACTIONAL_DDL`; el runner
+        de migraciones lo lee para decidir la rama de compensación.
+        """
+        return self._template.transactional_ddl
+
+    @property
     def stats(self) -> dict:
         """Métricas básicas del pool (adquisiciones, esperas, timeouts, tamaño)."""
         return {
@@ -213,6 +222,10 @@ class PoolDb(Db):
 
     async def columns_of(self, table: str):
         return await self._run("columns_of", table)
+
+    async def _ensure_migrations_table(self):
+        """Delega en el template: permite reconciliar antes del primer `migrate()`."""
+        return await self._run("_ensure_migrations_table")
 
     # --- Delegación ---
     async def _run(self, method: str, *args):

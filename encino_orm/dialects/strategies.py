@@ -65,6 +65,22 @@ UPSERT_KIND: dict[str, str] = {
 # Literales válidos de `upsert_kind`; validación del builder.
 UPSERT_KINDS = ("on_conflict", "on_duplicate", "merge")
 
+# DDL transaccional (ROLLBACK posible) vs commit implícito del DDL. Es un DATO
+# de dialecto, no una rama: el runner de migraciones lo lee en runtime para
+# decidir si el rollback de `db.transaction()` ya eliminó la fila `pending` o si
+# esta sobrevive y hay que reconciliarla.
+# OJO: MySQL 8.0 ("Atomic DDL") y MariaDB >=10.6 ("Atomic ALTER TABLE") son
+# atómicos a nivel de SENTENCIA (crash-safe), NO rollbackables: el commit
+# implícito ocurre ANTES del DDL, así que no se puede deshacer (Pitfall 2).
+TRANSACTIONAL_DDL: dict[str, bool] = {
+    "sqlite": True,
+    "mysql": False,
+    "mariadb": False,
+    "postgresql": True,
+    "mssql": True,
+    "oracle": False,
+}
+
 
 @dataclass(frozen=True)
 class DialectLimits:
@@ -163,6 +179,7 @@ __all__ = [
     "ORACLE_INSERT",
     "POSTGRES_INSERT",
     "SQLITE_INSERT",
+    "TRANSACTIONAL_DDL",
     "UPSERT_KIND",
     "UPSERT_KINDS",
     "DialectLimits",

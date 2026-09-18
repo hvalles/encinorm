@@ -18,6 +18,11 @@ class Db(ABC):
 
     dialect: str = ""
 
+    # Default conservador: se asume DDL rollbackable. Cada adaptador lo fija
+    # desde `dialects.strategies.TRANSACTIONAL_DDL`; el runner de migraciones lo
+    # lee en runtime para saber si el rollback ya eliminó la fila `pending`.
+    transactional_ddl: bool = True
+
     @property
     def fn(self):
         """Namespace de funciones SQL portables (`db.fn.now()`, `db.fn.date_add(...)`)."""
