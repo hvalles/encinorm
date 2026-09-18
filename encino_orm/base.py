@@ -153,7 +153,9 @@ class Db(ABC):
         if name:
             sql += " AND name LIKE {0}"
             params.append(f"%{name}%")
-        total = (await self.fetch_one(Query(f"SELECT COUNT(*) FROM ({sql})", params)))["COUNT(*)"]
+        count_qry = Query(f"SELECT COUNT(*) AS n FROM ({sql}) _encino_orm_count", params)
+        row = await self.fetch_one(count_qry)
+        total = row["n"] if row else 0
         rows = await self.fetch_many(Query(sql, params), limit, page)
         return Records(rows=rows, total=total, limit=limit, page=page)
 

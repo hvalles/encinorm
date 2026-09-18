@@ -132,7 +132,9 @@ class TestAggregateResultAlias:
         offenders = []
         for path in sorted((_REPO_ROOT / "encino_orm").rglob("*.py")):
             text = path.read_text(encoding="utf-8")
-            for clave in _CLAVES_PROHIBIDAS:
-                if clave in text:
-                    offenders.append(f"{path.relative_to(_REPO_ROOT).as_posix()}: {clave}")
+            offenders.extend(
+                f"{path.relative_to(_REPO_ROOT).as_posix()}: {clave}"
+                for clave in _CLAVES_PROHIBIDAS
+                if clave in text
+            )
         assert offenders == [], f"lectores de agregados por texto de expresión: {offenders}"

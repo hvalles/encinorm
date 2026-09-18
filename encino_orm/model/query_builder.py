@@ -245,42 +245,41 @@ class QueryBuilder:
     async def count(self) -> int:
         self._ensure_db()
         sql, params = self._build_base()
-        sql = f"SELECT COUNT(*) {sql}"
+        sql = f"SELECT COUNT(*) AS n {sql}"
         row = await self._db.fetch_one(Query(sql, params))
-        return row["COUNT(*)"] if row else 0
+        return row["n"] if row else 0
 
     async def sum(self, column: str):
         self._ensure_db()
         column = _safe_column(column)
         sql, params = self._build_base()
-        sql = f"SELECT SUM({column}) {sql}"
+        sql = f"SELECT SUM({column}) AS n {sql}"
         row = await self._db.fetch_one(Query(sql, params))
-        key = f"SUM({column})"
-        return row[key] if row and row[key] is not None else 0
+        return row["n"] if row and row["n"] is not None else 0
 
     async def avg(self, column: str):
         self._ensure_db()
         column = _safe_column(column)
         sql, params = self._build_base()
-        sql = f"SELECT AVG({column}) {sql}"
+        sql = f"SELECT AVG({column}) AS n {sql}"
         row = await self._db.fetch_one(Query(sql, params))
-        return row[f"AVG({column})"] if row else None
+        return row["n"] if row else None
 
     async def min(self, column: str):
         self._ensure_db()
         column = _safe_column(column)
         sql, params = self._build_base()
-        sql = f"SELECT MIN({column}) {sql}"
+        sql = f"SELECT MIN({column}) AS n {sql}"
         row = await self._db.fetch_one(Query(sql, params))
-        return row[f"MIN({column})"] if row else None
+        return row["n"] if row else None
 
     async def max(self, column: str):
         self._ensure_db()
         column = _safe_column(column)
         sql, params = self._build_base()
-        sql = f"SELECT MAX({column}) {sql}"
+        sql = f"SELECT MAX({column}) AS n {sql}"
         row = await self._db.fetch_one(Query(sql, params))
-        return row[f"MAX({column})"] if row else None
+        return row["n"] if row else None
 
     async def exists(self) -> bool:
         self._ensure_db()

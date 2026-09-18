@@ -770,9 +770,9 @@ class Model(BaseModel):
             mapped = filter.map_fields(self._column_map())
             frag, params = mapped.to_sql()
             where = f" WHERE {frag}"
-        sql = f"SELECT COUNT(*) FROM {self._table}{where}"
+        sql = f"SELECT COUNT(*) AS n FROM {self._table}{where}"
         row = await self._get_db().fetch_one(Query(sql, params))
-        return row["COUNT(*)"] if row else 0
+        return row["n"] if row else 0
 
     async def paginate(
         self,
