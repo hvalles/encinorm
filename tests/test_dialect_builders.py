@@ -393,6 +393,43 @@ class TestBuildUpsert:
             "MERGE INTO t dst USING (SELECT {0} AS a, {1} AS b) src ON (dst.a = src.a) "
         )
 
+    def test_merge_update_col_ausente_falla(self):
+        # WR-01: el SET `dst.b = src.b` exige que `b` esté en los datos del INSERT.
+        with pytest.raises(ValueError, match="no está\\(n\\) en el INSERT"):
+            build_upsert(
+                "t",
+                {"a": 1},
+                strategy=MSSQL_INSERT,
+                upsert_kind="merge",
+                conflict=["a"],
+                update_cols=["b"],
+            )
+
+    def test_merge_conflict_vacio_falla(self):
+        # WR-01: `conflict=[]` produciría `ON ()` y llegaría al driver.
+        with pytest.raises(ValueError, match="NO vacío"):
+            build_upsert(
+                "t",
+                {"a": 1, "b": "x"},
+                strategy=MSSQL_INSERT,
+                upsert_kind="merge",
+                conflict=[],
+                update_cols=["b"],
+            )
+
+    def test_merge_update_values_no_exige_update_cols_en_src(self):
+        # Con `update_values` el SET usa valores ligados, así que no toca `src`.
+        qry = build_upsert(
+            "t",
+            {"a": 1},
+            strategy=MSSQL_INSERT,
+            upsert_kind="merge",
+            conflict=["a"],
+            update_cols=["b"],
+            update_values=[2],
+        )
+        assert "src.b" not in qry.sql_template
+
     def test_update_values_on_conflict(self):
         qry = build_upsert(
             "t",
@@ -439,9 +476,11 @@ class TestBuildUpsert:
             ("merge", ORACLE_INSERT),
         )
         for kind, strategy in casos:
+            # `b` va en los datos: el guard de MERGE (WR-01) exige que toda
+            # columna del SET `dst.b = src.b` esté presente en el INSERT.
             qry = build_upsert(
                 "t",
-                {"a": 1},
+                {"a": 1, "b": 2},
                 strategy=strategy,
                 upsert_kind=kind,
                 conflict=["a"],

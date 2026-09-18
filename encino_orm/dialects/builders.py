@@ -35,6 +35,7 @@ def _merge_sql(
     columns: list,
     conflict_cols: list,
     set_sql: str,
+    update_cols: list | None = None,
 ) -> str:
     """Render del `MERGE INTO` compartido por `build_insert` y `build_upsert`."""
     # El `src` derivado se construye SOLO con las columnas de `data`; en un modelo
@@ -43,12 +44,26 @@ def _merge_sql(
     # falla CERRADO en este punto único (compartido por `build_insert` y
     # `build_upsert`) en vez de derivar un default silencioso: el llamador debe
     # pasar `conflict=` con una columna de datos.
+    if not conflict_cols:
+        raise ValueError(
+            "el MERGE requiere un objetivo de conflicto NO vacío; pasa "
+            "conflict=[...] con al menos una columna presente en los datos"
+        )
     missing = [c for c in conflict_cols if c not in columns]
     if missing:
         raise ValueError(
             f"conflicto {missing} no está en el INSERT; en MERGE el objetivo "
             "debe ser una columna presente en los datos (pasa conflict=...)"
         )
+    # `update_cols` solo se comprueba cuando el SET referencia `src.<col>`
+    # (`update_values is None`); si el SET usa valores ligados no toca `src`.
+    if update_cols is not None:
+        missing_upd = [c for c in update_cols if c not in columns]
+        if missing_upd:
+            raise ValueError(
+                f"columna(s) de actualización {missing_upd} no está(n) en el INSERT; "
+                "en MERGE el SET `dst.<col> = src.<col>` requiere la columna en los datos"
+            )
     alias = f"{strategy.merge_alias_keyword} " if strategy.merge_alias_keyword else ""
     src = ", ".join(f"{{{i}}} AS {c}" for i, c in enumerate(columns))
     on = " AND ".join(f"dst.{c} = src.{c}" for c in conflict_cols)
@@ -229,7 +244,14 @@ def build_upsert(
             set_sql = ", ".join(f"dst.{c} = src.{c}" for c in update_cols)
         else:
             set_sql = ", ".join(f"dst.{c} = {{{offset + i}}}" for i, c in enumerate(update_cols))
-        sql = _merge_sql(qualified, strategy, cols, list(conflict), set_sql)
+        sql = _merge_sql(
+            qualified,
+            strategy,
+            cols,
+            list(conflict),
+            set_sql,
+            update_cols=update_cols if update_values is None else None,
+        )
 
     return Query(sql, insert_vals + list(update_values or []))
 
