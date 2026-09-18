@@ -328,6 +328,32 @@ class TestPostgresParity:
         assert await qb.max("monto") == 30.0
 
     @pytest.mark.asyncio
+    async def test_query_builder_limit_first_exists(self, pg_connected_db):
+        # WR-03: `limit().all()`, `first()` y `exists()` deben ser válidos en el
+        # motor real (la paginación la aplica el adaptador, sin `LIMIT` en línea).
+        db = pg_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+        await _seed_parity(db)
+
+        # `order_by` EXPLÍCITO: `fetch_many` de MSSQL inyecta `ORDER BY (SELECT NULL)`
+        # cuando falta, y sin orden la paginación no es determinista.
+        p1 = await _ParityModel(db).query().order_by("nombre").limit(2).all()
+        assert [r["nombre"] for r in p1] == ["Ana", "Eva"]
+
+        p2 = await _ParityModel(db).query().order_by("nombre").limit(2, page=2).all()
+        assert [r["nombre"] for r in p2] == ["Luis"]
+
+        first = await _ParityModel(db).query().order_by("nombre").first()
+        assert first["nombre"] == "Ana"
+
+        assert (
+            await _ParityModel(db).query().where(Filter.eq("nombre", "Ana")).exists()
+        ) is True
+        assert (
+            await _ParityModel(db).query().where(Filter.eq("nombre", "Zzz")).exists()
+        ) is False
+
+    @pytest.mark.asyncio
     async def test_sync_schema_adds_missing_column(self, pg_connected_db):
         db = pg_connected_db
         await _reset(db, "test_parity", _PARITY_DDL_SIN_MONTO)

@@ -25,6 +25,32 @@ class _RecordingDb:
         return [self.row]
 
 
+class _RecordingDbPaginado:
+    """Doble que registra la delegación de paginación en el adaptador (WR-03).
+
+    Separa `fetch_all`/`fetch_one`/`fetch_many` para poder afirmar CUÁL se usó y
+    con qué `(limit, page)`, sin `unittest.mock`.
+    """
+
+    def __init__(self, rows=None):
+        self.rows = rows if rows is not None else [{"nombre": "Ana"}]
+        self.fetch_all_calls = []
+        self.fetch_one_calls = []
+        self.fetch_many_calls = []
+
+    async def fetch_all(self, qry, *args, **kwargs):
+        self.fetch_all_calls.append(qry)
+        return self.rows
+
+    async def fetch_one(self, qry):
+        self.fetch_one_calls.append(qry)
+        return self.rows[0] if self.rows else None
+
+    async def fetch_many(self, qry, limit, page=1):
+        self.fetch_many_calls.append((qry, limit, page))
+        return self.rows
+
+
 class Region(Model):
     _table = "regiones"
     region: str | None = Field(default=None)
@@ -174,6 +200,51 @@ class TestSortBy:
     async def test_invalid_direction(self, db):
         with pytest.raises(ValueError):
             QueryBuilder(Agente, db).sort_by("agente sideways")
+
+
+class TestPaginacionDelegadaAlAdaptador:
+    """WR-03: `all`/`first`/`exists` delegan la paginación en el adaptador.
+
+    `LIMIT`/`OFFSET` no es sintaxis válida en SQL Server ni en Oracle (usan
+    `OFFSET … FETCH NEXT`); el SQL del core no debe contener un `LIMIT` en línea.
+    """
+
+    @pytest.mark.asyncio
+    async def test_all_con_limit_no_emite_limit_inline(self):
+        fake = _RecordingDbPaginado()
+        rows = await QueryBuilder(Agente, fake).limit(2, page=3).all()
+        assert rows == [{"nombre": "Ana"}]
+        assert len(fake.fetch_many_calls) == 1
+        qry, limit, page = fake.fetch_many_calls[0]
+        assert (limit, page) == (2, 3)
+        assert "LIMIT" not in qry.sql_template
+        assert "OFFSET" not in qry.sql_template
+        assert fake.fetch_all_calls == []
+
+    @pytest.mark.asyncio
+    async def test_first_no_emite_limit_inline(self):
+        fake = _RecordingDbPaginado()
+        row = await QueryBuilder(Agente, fake).first()
+        assert row == {"nombre": "Ana"}
+        assert len(fake.fetch_one_calls) == 1
+        assert "LIMIT" not in fake.fetch_one_calls[0].sql_template
+
+    @pytest.mark.asyncio
+    async def test_exists_no_emite_limit_inline(self):
+        fake = _RecordingDbPaginado()
+        assert await QueryBuilder(Agente, fake).exists() is True
+        assert len(fake.fetch_one_calls) == 1
+        assert "LIMIT" not in fake.fetch_one_calls[0].sql_template
+
+        fake_vacio = _RecordingDbPaginado(rows=[])
+        assert await QueryBuilder(Agente, fake_vacio).exists() is False
+
+    @pytest.mark.asyncio
+    async def test_all_sin_limit_sigue_usando_fetch_all(self):
+        fake = _RecordingDbPaginado()
+        await QueryBuilder(Agente, fake).all()
+        assert len(fake.fetch_all_calls) == 1
+        assert fake.fetch_many_calls == []
 
 
 class TestAliasInjection:
