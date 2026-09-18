@@ -10,12 +10,17 @@ class Query:
 
     Contrato de entrada: ``Query("… {0} … {1}", [v0, v1])``. Los índices pueden
     aparecer dispersos o repetidos en el texto, pero el conjunto de índices
-    detectados debe ser exactamente ``range(len(values))``: ningún índice fuera
-    de rango y ningún parámetro declarado sin usar. La violación lanza
+    detectados debe ser EXACTAMENTE ``range(len(values))``, sin excepciones ni
+    carve-outs: ningún índice fuera de rango y ningún parámetro declarado sin
+    usar. Pasar valores a una plantilla SIN ``{n}`` es un error de contrato
+    (``ValueError``), no un descarte silencioso; ``Query("SELECT 1", [])`` y
+    ``Query("SELECT 1")`` siguen siendo válidos. La violación lanza
     ``ValueError`` en la construcción. Los valores SIEMPRE viajan como
     parámetros ligados; la plantilla nunca se interpola con valores.
 
-    Los `{n}` se compilan a ``%(parameter_0000)s`` y los nombres se preservan
+    Los ``{n}`` se compilan a ``%(parameter_0000)s`` desde el índice
+    NORMALIZADO con ``int()``, así que ``{0}`` y ``{00}`` son el mismo
+    placeholder y la misma clave que el dict de params. Los nombres se preservan
     EXACTAMENTE, de modo que el ``sql_text`` ya almacenado en
     ``_encino_orm_migrations`` no necesita migración.
 
@@ -53,13 +58,19 @@ class Query:
     def __init__(self, sql: str, fields: list | None = None, *, ignore_duplicated: bool = False):
         values = list(fields or [])
         indices = {int(m) for m in _PLACEHOLDER_RE.findall(sql)}
-        if indices and indices != set(range(len(values))):
+        # Sin carve-out: `set() != set(range(0))` ya es falso, así que el caso
+        # "sin placeholders y sin valores" pasa sin condición especial, y
+        # "sin placeholders CON valores" lanza (contrato de cardinalidad, D-04).
+        if indices != set(range(len(values))):
             raise ValueError(
                 f"placeholders {sorted(indices)} no cuadran con {len(values)} parámetros"
             )
 
         params = {f"parameter_000{i}": v for i, v in enumerate(values)}
-        compiled = _PLACEHOLDER_RE.sub(lambda m: f"%(parameter_000{m.group(1)})s", sql)
+        # Compilación desde el índice NORMALIZADO: validación y compilación no
+        # pueden discrepar, así que `{0}` y `{00}` producen la misma clave que el
+        # dict de params y ningún `KeyError` puede escapar del adaptador.
+        compiled = _PLACEHOLDER_RE.sub(lambda m: f"%(parameter_000{int(m.group(1))})s", sql)
 
         # `object.__setattr__` escribe los slots privados saltándose las
         # properties de solo lectura; no hay `__dict__`, así que una errata de
