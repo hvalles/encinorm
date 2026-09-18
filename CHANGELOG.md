@@ -74,6 +74,36 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   DENTRO del insert (`OUTPUT INSERTED.id` / `SCOPE_IDENTITY`) pertenece a la Fase 4
   (`04-02`, POOL-03), y el fallback `columns[0]` del `MERGE` (semántica preexistente,
   incorrecta) sigue sin corregir y con dueño.
+- `rollback_migration` ejecuta el `down` y **borra** la fila `{name}` del ledger en
+  vez de insertar una fila `{name}:down`: la fila pasa a `rolling_back` durante el
+  `down` y se elimina al terminar, de modo que re-aplicar la misma migración vuelve
+  a ejecutar su `up` (antes la fila `{name}` sobrevivía y el re-apply era un no-op
+  silencioso). CAMBIO INCOMPATIBLE: quien consultara filas con sufijo `:down` en
+  `migrate_status()` ya no las verá; el ledger solo lista migraciones realmente
+  aplicadas. Nota de ownership: esta entrada es ADITIVA y no prejuzga la enumeración
+  de cambios incompatibles del milestone, que posee la Fase 8 (`08-04`).
+- `migrate()` pasa a un flujo de dos fases: la fila se inserta como `pending` **antes**
+  de ejecutar el DDL y se promueve a `applied` **después**. En los motores con commit
+  implícito de DDL (MySQL/MariaDB/Oracle) un fallo entre ambos pasos deja un `pending`,
+  que `reconcile_migrations()` **detecta** (lanza `MigrationError` con el SQL de cada
+  fila; nunca re-ejecuta DDL ni asume `applied`) y que se resuelve con
+  `resolve_migration(db, name, applied=...)`, donde `applied` significa "¿debe quedar
+  registrada como aplicada?". La tabla de migraciones gana una columna `status`
+  (`pending`/`applied`/`rolling_back`), con `ALTER TABLE` idempotente para
+  instalaciones existentes. Antes el registro se insertaba tras el DDL y un fallo
+  parcial dejaba el esquema cambiado sin registro (el ledger mentía).
+- `CachedModel` invalida la clave afectada tras `update`, `delete` y `upsert` (y con
+  `insert_many(cache=...)`), **después** del commit y de forma **fail-open**: un fallo
+  de invalidación registra un warning y no revierte la escritura. Antes la caché nunca
+  se invalidaba, así que una lectura posterior podía servir una fila obsoleta hasta que
+  expirara el TTL. La invalidación es local al proceso: no hay pub/sub distribuido, de
+  modo que en despliegues multi-proceso las entradas obsoletas quedan acotadas por el
+  TTL. Nota de ownership: ADITIVA, no prejuzga la enumeración del milestone (`08-04`).
+- `MemoryCacheBackend` pasa a estar acotado con LRU (`max_size=1024` por defecto,
+  configurable) y se documenta como backend **dev/test-only**; para producción se usa
+  `RedisCacheBackend`. Antes era un `dict` sin cota y las claves nunca releídas se
+  acumulaban indefinidamente. Nota de ownership: ADITIVA, no prejuzga la enumeración
+  del milestone (`08-04`).
 
 ## [0.2.6] - 2026-09-11
 
