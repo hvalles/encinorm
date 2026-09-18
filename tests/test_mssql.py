@@ -283,12 +283,8 @@ class TestMssqlParity:
         first = await _ParityModel(db).query().order_by("nombre").first()
         assert first["nombre"] == "Ana"
 
-        assert (
-            await _ParityModel(db).query().where(Filter.eq("nombre", "Ana")).exists()
-        ) is True
-        assert (
-            await _ParityModel(db).query().where(Filter.eq("nombre", "Zzz")).exists()
-        ) is False
+        assert (await _ParityModel(db).query().where(Filter.eq("nombre", "Ana")).exists()) is True
+        assert (await _ParityModel(db).query().where(Filter.eq("nombre", "Zzz")).exists()) is False
 
     @pytest.mark.asyncio
     async def test_sync_schema_adds_missing_column(self, mssql_connected_db):
