@@ -514,7 +514,7 @@ invalidación ocurre **después** del commit (nunca antes) y es **fail-open**: s
 borrado de la caché falla, se registra un warning y la escritura no se revierte; el
 peor caso es una lectura obsoleta acotada por el TTL. El mecanismo (sobrescrituras
 de `update`/`delete`/`upsert` en `CachedModel`) está descrito en
-[`docs/design/5-security.md` §5.4](design/5-security.md#54-caché-opcional).
+[`docs/design/5-security.md` §5.4](design/5-security.md#54-cache-opcional).
 
 **Limitación conocida:** la invalidación es **local al proceso**. No hay pub/sub
 distribuido, así que con varios procesos o servidores una invalidación en uno no
