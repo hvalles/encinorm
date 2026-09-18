@@ -396,3 +396,13 @@ jobs:
         # `fail_under = 82` vive en [tool.coverage.report]; este step es el que
         # convierte el ratchet no-baja en un gate bloqueante.
         run: uv run coverage report
+
+      - name: Gate de pisos de cobertura POR MODULO (D-04/D-06 de Fase 1)
+        # El piso global (`fail_under = 82`) sigue vigente por separado arriba.
+        # Este gate anade pisos por modulo sobre `coverage json`, que es la unica
+        # forma de expresar "95% aqui, 100% alla" en una sola corrida: coverage.py
+        # NO soporta `fail_under` por fichero. El script falla cerrado si un
+        # modulo del mapa desaparece del reporte.
+        run: |
+          uv run coverage json -o coverage.json
+          uv run python tools/ci/check_coverage_floors.py coverage.json
