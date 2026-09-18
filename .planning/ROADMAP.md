@@ -165,7 +165,7 @@ Plans:
 **Wave 1** *(independent of each other; both build on the executed `02-01`…`02-05`)*
 
 - [x] 02-06-PLAN.md — Make the identifier allowlist a real choke point: validate `QueryBuilder`'s `alias=`/`join()`/`join_subquery()` aliases and the default pydantic field name in `_build_column_map`, and close the raw `indexes_ddl` fallback — closes GAP 1 (CR-01 reproduced SQL-injection primitive + WR-06) — DIAL-01, DIAL-02
-- [ ] 02-07-PLAN.md — Enforce `Query`'s documented cardinality contract (no `indices and` carve-out) and compile from the normalised index so `{00}` cannot leak a `KeyError`; sync the published `docs/design/0-design.md` §2.1 sketch and example with the code and guard it with a source test — closes GAP 2 (WR-01/WR-02/WR-07) — DIAL-05
+- [x] 02-07-PLAN.md — Enforce `Query`'s documented cardinality contract (no `indices and` carve-out) and compile from the normalised index so `{00}` cannot leak a `KeyError`; sync the published `docs/design/0-design.md` §2.1 sketch and example with the code and guard it with a source test — closes GAP 2 (WR-01/WR-02/WR-07) — DIAL-05
 
 **Wave 2** *(blocked on `02-06`: shared `query_builder.py` / `model/model.py` / `test_query_builder.py`)*
 
@@ -404,7 +404,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
-| 2. Dialect Seam & Engine Parity | 6/9 | In Progress|  |
+| 2. Dialect Seam & Engine Parity | 7/9 | In Progress|  |
 | 3. Data Correctness | 0/4 | Not started | - |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
