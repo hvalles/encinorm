@@ -1,10 +1,15 @@
-"""Caracterización del comportamiento actual de `PoolDb` (CI-09).
+"""Caracterización del comportamiento de `PoolDb` (CI-09).
 
-Estos tests documentan lo que `PoolDb` HACE HOY — incluidos sus defectos
-conocidos — contra la implementación sin modificar. Deben pasar tal cual sobre
-`encino_orm/pool.py` y son la red de seguridad de la Fase 4: el refactor del
-pool (POOL-01…POOL-07) debe ACTUALIZAR (no borrar) cada aserción que invierta.
-Cada aserción que se espera invertir nombra el requisito POOL que la cambia.
+Estos tests documentan lo que `PoolDb` hace — incluidos los defectos aún
+pendientes — y son la red de seguridad de la Fase 4: el refactor del pool
+(POOL-01…POOL-07) ACTUALIZA (nunca borra) cada aserción que invierte. Cada
+aserción que se espera invertir nombra el requisito POOL que la cambia.
+
+Estado en 04-01: POOL-01 (handle `PooledConnection`) y POOL-02 (admisión sin
+carrera y `release()` con ownership) ya están implementados e invertidos; el
+cache de id a nivel de pool (POOL-03) se eliminó y la captura por conexión/tarea
+llega en 04-02 (`execute_insert`). POOL-04 (reset al liberar) y POOL-05/06
+(reaper y `close()`) siguen pendientes y conservan su baseline.
 
 Restricciones (D-09 + Research Correction 4): no se "arregla" ningún resultado
 sorprendente, no se suaviza ninguna aserción de estado privado y no se

@@ -5,7 +5,7 @@ import pytest
 from pydantic import Field
 
 import encino_orm.pool as pool_module
-from encino_orm import ConnectionError, PoolDb, PoolExhaustedError, Query, create_db
+from encino_orm import ConnectionError, PoolDb, PoolExhaustedError, Query, create_db, session
 from encino_orm.context import resolve_db
 from encino_orm.model import Model
 from encino_orm.pool import PooledConnection, _current_connection
@@ -236,6 +236,17 @@ class TestPoolTransactionScope:
             assert isinstance(handle, PooledConnection)
             assert handle.driver is db
             assert resolve_db() is db
+
+    @pytest.mark.asyncio
+    async def test_session_binds_driver_not_handle(self, pool):
+        # Open Question 2 (04-RESEARCH): `session()` NO fija
+        # `_current_connection`; ata el driver como ambiente (`bind`), así que
+        # `resolve_db()` devuelve un `Db` utilizable y no un handle.
+        async with session(pool) as conn:
+            assert not isinstance(conn, PooledConnection)
+            assert hasattr(conn, "execute")
+            assert _current_connection.get() is None
+            assert resolve_db() is conn
 
     @pytest.mark.asyncio
     async def test_commit_raises(self, pool):

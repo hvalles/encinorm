@@ -71,14 +71,16 @@ class TestD3LastIdStandalone:
         await p.close()
 
     @pytest.mark.asyncio
-    async def test_last_id_after_standalone_insert(self, pool):
+    async def test_standalone_insert_has_no_pool_level_id(self, pool):
+        # POOL-03: se eliminó el cache de id a nivel de pool; fuera de una
+        # transacción `last_id()` devuelve 0. El reemplazo soportado
+        # (`execute_insert`) llega en 04-02, que añade la aserción del id real.
         await pool.execute(
             Query("CREATE TABLE u (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", [])
         )
         await pool.execute(pool.insert("u", {"nombre": "x"}))
-        assert await pool.last_id() == 1
         await pool.execute(pool.insert("u", {"nombre": "y"}))
-        assert await pool.last_id() == 2
+        assert await pool.last_id() == 0
 
 
 class TestD5SearchPagination:
