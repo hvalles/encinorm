@@ -108,11 +108,14 @@ class CachedModel(Model):
 
     @staticmethod
     def _union(*lists) -> list[dict]:
-        """Une listas de valores de PK deduplicando por la tupla ordenada de valores.
+        """Une listas de valores de PK deduplicando por una huella hashable.
 
         Tolerante a `None` (una sonda fallida no aporta candidatos). Acota el TOCTOU
         (WR-02): la unión de la sonda previa y la posterior incluye la fila a la que
-        otra transacción pudo mover la clave entre ambas.
+        otra transacción pudo mover la clave entre ambas. La huella usa `repr` del
+        valor (WR-R3-02): un valor de PK no hashable (`list`/`dict`, que pydantic y
+        `_from_db` admiten) rompía el `seen.add` con `TypeError`; `repr` no cambia el
+        dedupe de PKs escalares (int/str) porque cada valor tiene un `repr` estable.
         """
         seen = set()
         result = []
@@ -120,12 +123,27 @@ class CachedModel(Model):
             if not items:
                 continue
             for item in items:
-                fingerprint = tuple(sorted(item.items()))
+                fingerprint = tuple(sorted((k, repr(v)) for k, v in item.items()))
                 if fingerprint in seen:
                     continue
                 seen.add(fingerprint)
                 result.append(item)
         return result
+
+    async def _invalidate_after_write(self, *probe_lists) -> None:
+        """Invalida la unión de las sondas sin poder fallar una escritura commiteada.
+
+        `_union` puede lanzar (p. ej. un valor no hashable); la escritura ya está
+        commiteada, así que propagar daría un fallo falso al llamador (D-12). Si la
+        unión falla, se degrada a la concatenación de las sondas: peor dedupe, pero
+        nunca una escritura reportada como fallida.
+        """
+        try:
+            pks = self._union(*probe_lists)
+        except Exception as exc:
+            logger.warning("no se pudo unir las PKs a invalidar de %s: %r", self._table, exc)
+            pks = [d for lst in probe_lists if lst for d in lst]
+        await self._invalidate_pks(pks)
 
     async def _invalidate_pks(self, pk_values) -> None:
         """Borra la entrada de CADA fila afectada; fail-open (D-12).
@@ -195,7 +213,7 @@ class CachedModel(Model):
         pks = await self._resolve_pk_values(keys)
         count = await super().update(keys=keys, data=data)
         pks_after = await self._resolve_pk_values(keys)
-        await self._invalidate_pks(self._union(pks, pks_after))
+        await self._invalidate_after_write(pks, pks_after)
         return count
 
     async def delete(self, keys=None, physical: bool = False) -> bool:
@@ -208,7 +226,7 @@ class CachedModel(Model):
         pks = await self._resolve_pk_values(keys)
         result = await super().delete(keys=keys, physical=physical)
         pks_after = await self._resolve_pk_values(keys)
-        await self._invalidate_pks(self._union(pks, pks_after))
+        await self._invalidate_after_write(pks, pks_after)
         return result
 
     async def upsert(self, conflict: list[str] | None = None, values: dict | None = None) -> int:
@@ -222,7 +240,7 @@ class CachedModel(Model):
         pks = await self._resolve_pk_values(conflict)
         count = await super().upsert(conflict=conflict, values=values)
         pks_after = await self._resolve_pk_values(conflict)
-        await self._invalidate_pks(self._union(pks, pks_after))
+        await self._invalidate_after_write(pks, pks_after)
         return count
 
     @classmethod
