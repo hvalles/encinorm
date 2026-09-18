@@ -14,7 +14,7 @@ PostgreSQL y el `AS`/sin-`AS` del `MERGE` están pinados por los tests.
 
 from ..query import Query
 from .identifiers import check_identifier
-from .strategies import InsertStrategy
+from .strategies import UPSERT_KINDS, InsertStrategy
 
 
 def _qualified(table: str, schema: str | None) -> str:
@@ -147,4 +147,67 @@ def build_delete(table: str, keys: dict, *, schema: str | None = None) -> Query:
     return Query(sql, values)
 
 
-__all__ = ["build_delete", "build_insert", "build_update"]
+def build_upsert(
+    table: str,
+    data: dict,
+    *,
+    strategy: InsertStrategy,
+    upsert_kind: str,
+    conflict: list[str],
+    update_cols: list[str],
+    update_values: list | None = None,
+    schema: str | None = None,
+) -> Query:
+    """Construye la cláusula de conflicto de un UPSERT (la que tenía `Model.upsert`).
+
+    `upsert_kind` ∈ `UPSERT_KINDS`. El separador del objetivo de conflicto en
+    `on_conflict` es `','.join(conflict)` **sin espacio** (idéntico al
+    `Model.upsert` previo, `model.py:624`), deliberadamente distinto del `", "`
+    que usa el `ON CONFLICT` de `build_insert` (postgresql.py:170). `excluded` va
+    en minúsculas, también por byte-identidad. Nunca emite `RETURNING`.
+    """
+    if upsert_kind not in UPSERT_KINDS:
+        raise ValueError(f"upsert_kind inválido: {upsert_kind!r}")
+
+    qualified = _qualified(table, schema)
+    cols = list(data.keys())
+    insert_vals = list(data.values())
+    for col in cols:
+        check_identifier(col, "columna")
+    for col in conflict:
+        check_identifier(col, "columna de conflicto")
+    for col in update_cols:
+        check_identifier(col, "columna de actualización")
+
+    placeholders = _placeholders(len(cols))
+    offset = len(insert_vals)
+
+    if upsert_kind == "on_conflict":
+        if update_values is None:
+            set_sql = ", ".join(f"{c} = excluded.{c}" for c in update_cols)
+        else:
+            set_sql = ", ".join(f"{c} = {{{offset + i}}}" for i, c in enumerate(update_cols))
+        sql = (
+            f"INSERT INTO {qualified} ({','.join(cols)}) VALUES ({placeholders}) "
+            f"ON CONFLICT ({','.join(conflict)}) DO UPDATE SET {set_sql}"
+        )
+    elif upsert_kind == "on_duplicate":
+        if update_values is None:
+            set_sql = ", ".join(f"{c} = VALUES({c})" for c in update_cols)
+        else:
+            set_sql = ", ".join(f"{c} = {{{offset + i}}}" for i, c in enumerate(update_cols))
+        sql = (
+            f"INSERT INTO {qualified} ({','.join(cols)}) VALUES ({placeholders}) "
+            f"ON DUPLICATE KEY UPDATE {set_sql}"
+        )
+    else:  # merge
+        if update_values is None:
+            set_sql = ", ".join(f"dst.{c} = src.{c}" for c in update_cols)
+        else:
+            set_sql = ", ".join(f"dst.{c} = {{{offset + i}}}" for i, c in enumerate(update_cols))
+        sql = _merge_sql(qualified, strategy, cols, list(conflict), set_sql)
+
+    return Query(sql, insert_vals + list(update_values or []))
+
+
+__all__ = ["build_delete", "build_insert", "build_update", "build_upsert"]

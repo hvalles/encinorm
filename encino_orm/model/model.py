@@ -11,7 +11,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from encino_orm.base import Db
 from encino_orm.context import resolve_db
-from encino_orm.dialects.identifiers import check_identifier
+from encino_orm.dialects import UPSERT_KIND, build_upsert, check_identifier, strategy_for
 from encino_orm.engine import Engine, engine_of
 from encino_orm.query import Query
 
@@ -570,61 +570,31 @@ class Model(BaseModel):
             if auto_pk and field == "id":
                 continue
             data[col] = _serialize(getattr(self, field))
-        cols = list(data.keys())
-        insert_vals = list(data.values())
         conflict_cols = [self._col(c) for c in conflict]
-
-        dialect = engine_of(self._get_db())
+        dialect = engine_of(self._get_db()).value
 
         if values is None:
             created_col = col_map.get("created_at")
-            update_cols = [c for c in cols if c not in conflict_cols and c != created_col]
-            params = insert_vals
-            if dialect is Engine.MYSQL:
-                set_sql = ", ".join(f"{c} = VALUES({c})" for c in update_cols)
-            else:
-                set_sql = ", ".join(f"{c} = excluded.{c}" for c in update_cols)
+            update_cols = [c for c in data if c not in conflict_cols and c != created_col]
+            update_values = None
         else:
             mapped = {self._col(f): _serialize(v) for f, v in values.items()}
             update_cols = list(mapped.keys())
-            params = insert_vals + list(mapped.values())
-            offset = len(insert_vals)
-            set_sql = ", ".join(f"{c} = {{{offset + i}}}" for i, c in enumerate(update_cols))
+            update_values = list(mapped.values())
 
-        placeholders = ",".join(f"{{{i}}}" for i in range(len(cols)))
-        if dialect is Engine.MYSQL:
-            sql = (
-                f"INSERT INTO {self._table} ({','.join(cols)}) VALUES ({placeholders}) "
-                f"ON DUPLICATE KEY UPDATE {set_sql}"
-            )
-        elif dialect in (Engine.MSSQL, Engine.ORACLE):
-            tbl_as = "AS dst" if dialect is Engine.MSSQL else "dst"
-            src_as = "AS src" if dialect is Engine.MSSQL else "src"
-            src = ", ".join(f"{{{i}}} AS {c}" for i, c in enumerate(cols))
-            on = " AND ".join(f"dst.{c} = src.{c}" for c in conflict_cols)
-            if values is None:
-                merge_set = ", ".join(f"dst.{c} = src.{c}" for c in update_cols)
-            else:
-                merge_set = ", ".join(
-                    f"dst.{c} = {{{offset + i}}}" for i, c in enumerate(update_cols)
-                )
-            ins_vals = ", ".join(f"src.{c}" for c in cols)
-            sql = (
-                f"MERGE INTO {self._table} {tbl_as} "
-                f"USING (SELECT {src}) {src_as} "
-                f"ON ({on}) "
-                f"WHEN MATCHED THEN UPDATE SET {merge_set} "
-                f"WHEN NOT MATCHED THEN INSERT ({','.join(cols)}) VALUES ({ins_vals})"
-            )
-        else:
-            sql = (
-                f"INSERT INTO {self._table} ({','.join(cols)}) VALUES ({placeholders}) "
-                f"ON CONFLICT ({','.join(conflict_cols)}) DO UPDATE SET {set_sql}"
-            )
+        qry = build_upsert(
+            self._table,
+            data,
+            strategy=strategy_for(dialect),
+            upsert_kind=UPSERT_KIND[dialect],
+            conflict=conflict_cols,
+            update_cols=update_cols,
+            update_values=update_values,
+        )
 
         async def do_upsert():
             async with self._get_db().transaction():
-                return await self._get_db().execute(Query(sql, params))
+                return await self._get_db().execute(qry)
 
         count = await self._get_db().retry(do_upsert)
         _set_private(self, "__exists", True)

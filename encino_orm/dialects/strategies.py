@@ -10,6 +10,8 @@ constantes de módulo son DATOS, no ramas: cada adaptador elige una desde su hoo
 from dataclasses import dataclass
 from typing import Literal
 
+from ..engine import Engine
+
 
 @dataclass(frozen=True)
 class InsertStrategy:
@@ -43,6 +45,43 @@ ORACLE_INSERT = InsertStrategy(
     returning_id=True,
 )
 
+# Tipo de UPSERT por dialecto. Reproduce LITERALMENTE el comportamiento actual de
+# `Model.upsert`, que ramifica con `dialect is Engine.MYSQL` (identidad exacta):
+# por eso `"mariadb"` NO entra en la rama MySQL y cae en `on_conflict`. Preservar
+# ese comportamiento es el criterio de aceptación de este refactor; que MariaDB
+# soporte o no `ON CONFLICT` queda como HALLAZGO a verificar en una fase
+# posterior, nunca como arreglo silencioso aquí.
+UPSERT_KIND: dict[str, str] = {
+    "sqlite": "on_conflict",
+    "mysql": "on_duplicate",
+    "mariadb": "on_conflict",
+    "postgresql": "on_conflict",
+    "mssql": "merge",
+    "oracle": "merge",
+}
+
+# Literales válidos de `upsert_kind`; validación del builder.
+UPSERT_KINDS = ("on_conflict", "on_duplicate", "merge")
+
+_STRATEGIES: dict[str, InsertStrategy] = {
+    "sqlite": SQLITE_INSERT,
+    "mysql": MYSQL_INSERT,
+    "mariadb": MARIADB_INSERT,
+    "postgresql": POSTGRES_INSERT,
+    "mssql": MSSQL_INSERT,
+    "oracle": ORACLE_INSERT,
+}
+
+
+def strategy_for(dialect: Engine | str) -> InsertStrategy:
+    """Estrategia de INSERT del dialecto (normaliza `Engine` o su valor `str`)."""
+    key = dialect.value if isinstance(dialect, Engine) else dialect
+    try:
+        return _STRATEGIES[key]
+    except KeyError:
+        raise ValueError(f"dialecto desconocido: {dialect!r}") from None
+
+
 __all__ = [
     "MARIADB_INSERT",
     "MSSQL_INSERT",
@@ -50,5 +89,8 @@ __all__ = [
     "ORACLE_INSERT",
     "POSTGRES_INSERT",
     "SQLITE_INSERT",
+    "UPSERT_KIND",
+    "UPSERT_KINDS",
     "InsertStrategy",
+    "strategy_for",
 ]

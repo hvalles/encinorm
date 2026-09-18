@@ -519,9 +519,7 @@ class TestUpsertKindYStrategyFor:
 
 # Ruta normalizada (`\` -> `/`) para que los guards se comporten igual en
 # Windows y Linux.
-MODEL_PATH = (
-    Path(__file__).resolve().parents[1] / "encino_orm" / "model" / "model.py"
-).as_posix()
+MODEL_PATH = (Path(__file__).resolve().parents[1] / "encino_orm" / "model" / "model.py").as_posix()
 
 _LITERALES_DML = ("ON DUPLICATE KEY", "MERGE INTO", "ON CONFLICT")
 
