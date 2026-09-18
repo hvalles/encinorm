@@ -196,7 +196,7 @@ Plans:
   3. `CachedModel.update()` and `CachedModel.delete()` never leave a stale cached row readable (store-then-invalidate)
   4. `MemoryCacheBackend` is bounded, or explicitly documented as dev/test-only
 
-**Plans**: 10 plans (5 originales + 2 de cierre ronda 2: `03-06`, `03-07` + 3 de cierre ronda 3: `03-08`, `03-09`, `03-10`)
+**Plans**: 13 plans (5 originales + 2 de cierre ronda 2: `03-06`, `03-07` + 3 de cierre ronda 3: `03-08`, `03-09`, `03-10` + 3 de cierre ronda 4: `03-11`, `03-12`, `03-13`)
 **Research**: not needed — `transactional_ddl` branching and cache-aside invalidation follow Alembic and Microsoft's documented patterns
 
 Plans:
@@ -234,6 +234,17 @@ Plans:
 **Wave 2 (gap-closure ronda 3)** *(docs-only: describen lo entregado por 03-08 y 03-09)*
 
 - [x] 03-10-PLAN.md — Alinea `docs/guide.md`, `docs/design/5-security.md` y `CHANGELOG.md` con la invalidación multi-fila, el namespace de scope y el residual TOCTOU (cierra WR-03) — DATA-03, DATA-02
+
+**Gap-closure ronda 4 (`03-11`, `03-12`, `03-13`).** La revisión de la ronda 3 (`03-REVIEW-GAPS-R3.md`) devolvió 1 Critical y 4 Warning. **CR-R3-01 (Critical, seguridad/SEC-01):** `Model.update`/`delete` solo PRE-comprueban el `scope()` con `load()`; el DML emitido no lleva predicado de alcance, así que una clave de escritura no-PK y no única modifica/borra filas de otro tenant (reproducido sobre SQLite). Es el residual raíz de CR-02 que la ronda 3 no cerró y su documentación sobreafirmó. **WR-R3-01:** la invalidación multi-fila de la ronda 3 sub-cubre bajo scope (dependiente de CR-R3-01; se resuelve por construcción al acotar el DML). **WR-R3-02:** `_union` no es fail-open con valores de PK no hashables (TypeError tras el commit). **WR-R3-03/WR-R3-04:** overclaim "escritura cruzada cerrada" + bullet contradictorio "única entrada" + falta documentar que las escrituras deben correr bajo el mismo scope que las lecturas. **IN-R3-01/03:** afirmación incorrecta sobre `last_id()` de Oracle; promesa de huella estable de scope demasiado fuerte. Decision: `03-11` (DML acotado por scope en la capa `Model`, sin tocar builders ni adaptadores — cierra CR-R3-01/WR-R3-01), `03-12` (`_union` hashable + invalidación post-escritura fail-open — cierra WR-R3-02), `03-13` (docs/CHANGELOG veraces — cierra WR-R3-03/04 e IN-R3-01/03). **Waves (ronda 4):** 1 → `03-11`, `03-12` (ficheros disjuntos: `model.py` vs `cached.py`); 2 → `03-13` (docs-only).
+
+**Wave 1 (gap-closure ronda 4)** *(ficheros disjuntos: DML del modelo vs invalidación de caché)*
+
+- [ ] 03-11-PLAN.md — `Model.update`/`delete` aplican el `scope()` activo al WHERE del DML (helper `_scoped_dml` sobre el `Query` del builder, params ligados); sin scope el DML es idéntico — SEC-01
+- [ ] 03-12-PLAN.md — `_union` deduplica por huella hashable y la invalidación post-escritura es fail-open incluso con PKs no hashables — DATA-03
+
+**Wave 2 (gap-closure ronda 4)** *(docs-only: describen lo entregado por 03-11 y 03-12)*
+
+- [ ] 03-13-PLAN.md — CHANGELOG/guía/diseño de seguridad veraces: SEC-01, escrituras bajo el mismo scope, residuales de `upsert` y de huella determinista — SEC-01, DATA-03, DATA-02
 
 ### Phase 4: Pool Correctness & Concurrency
 

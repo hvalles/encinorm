@@ -38,6 +38,10 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 - [x] **DATA-03**: `CachedModel` invalida la caché en `update` **y** `delete` (store-then-invalidate), sin lecturas obsoletas
 - [x] **DATA-04**: `MemoryCacheBackend` está acotado o documentado explícitamente como solo dev/test
 
+### Row-level Security (multi-tenancy)
+
+- [ ] **SEC-01**: `Model.update`/`delete` aplican el `scope()` activo al DML (`WHERE` ligado), de modo que una escritura por claves no-PK no modifica ni borra filas de otro tenant
+
 ### Pool Correctness & Concurrency
 
 - [ ] **POOL-01**: Existe un handle `PooledConnection` que concentra el estado por conexión (driver, `last_id`, timestamps, generación, en-uso)
@@ -152,6 +156,7 @@ Qué fase cubre cada requisito.
 | DATA-02 | Phase 3 | Complete |
 | DATA-03 | Phase 3 | Complete |
 | DATA-04 | Phase 3 | Complete |
+| SEC-01 | Phase 3 | Pending |
 | POOL-01 | Phase 4 | Pending |
 | POOL-02 | Phase 4 | Pending |
 | POOL-03 | Phase 4 | Pending |
