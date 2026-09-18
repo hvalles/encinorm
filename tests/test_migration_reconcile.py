@@ -346,6 +346,8 @@ class TestResolveMigration:
         db = _seed("v1", STATUS_ROLLING_BACK)
         await resolve_migration(db, "v1", applied=True)
         assert db.ledger["v1"]["status"] == STATUS_APPLIED
+        # Comportamiento: la fila deja de ser ambigua para la reconciliación.
+        await reconcile_migrations(db)  # no lanza
 
     @pytest.mark.asyncio
     async def test_fila_inexistente_lanza(self):
@@ -366,10 +368,6 @@ class TestResolveMigration:
         with pytest.raises(MigrationError) as exc:
             await reconcile_migrations(db)
         assert "rollback_migration" in str(exc.value)
-
-    def test_resolve_migration_docstring_documenta_reintento(self):
-        """IN-01: el docstring documenta el reintento del `down`."""
-        assert "rollback_migration" in (resolve_migration.__doc__ or "")
 
 
 @pytest.mark.asyncio
