@@ -239,7 +239,7 @@ Plans:
 
 **Wave 1 (gap-closure ronda 4)** *(ficheros disjuntos: DML del modelo vs invalidación de caché)*
 
-- [ ] 03-11-PLAN.md — `Model.update`/`delete` aplican el `scope()` activo al WHERE del DML (helper `_scoped_dml` sobre el `Query` del builder, params ligados); sin scope el DML es idéntico — SEC-01
+- [x] 03-11-PLAN.md — `Model.update`/`delete` aplican el `scope()` activo al WHERE del DML (helper `_scoped_dml` sobre el `Query` del builder, params ligados); sin scope el DML es idéntico — SEC-01
 - [ ] 03-12-PLAN.md — `_union` deduplica por huella hashable y la invalidación post-escritura es fail-open incluso con PKs no hashables — DATA-03
 
 **Wave 2 (gap-closure ronda 4)** *(docs-only: describen lo entregado por 03-11 y 03-12)*

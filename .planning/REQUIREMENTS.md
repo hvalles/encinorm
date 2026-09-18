@@ -40,7 +40,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 ### Row-level Security (multi-tenancy)
 
-- [ ] **SEC-01**: `Model.update`/`delete` aplican el `scope()` activo al DML (`WHERE` ligado), de modo que una escritura por claves no-PK no modifica ni borra filas de otro tenant
+- [x] **SEC-01**: `Model.update`/`delete` aplican el `scope()` activo al DML (`WHERE` ligado), de modo que una escritura por claves no-PK no modifica ni borra filas de otro tenant
 
 ### Pool Correctness & Concurrency
 
@@ -156,7 +156,7 @@ Qué fase cubre cada requisito.
 | DATA-02 | Phase 3 | Complete |
 | DATA-03 | Phase 3 | Complete |
 | DATA-04 | Phase 3 | Complete |
-| SEC-01 | Phase 3 | Pending |
+| SEC-01 | Phase 3 | Complete |
 | POOL-01 | Phase 4 | Pending |
 | POOL-02 | Phase 4 | Pending |
 | POOL-03 | Phase 4 | Pending |

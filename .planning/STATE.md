@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Created gap-closure round 4 plans (03-11, 03-12, 03-13)
-last_updated: "2026-09-18T20:53:20.593Z"
+stopped_at: Completed 03-11-PLAN.md
+last_updated: "2026-09-18T21:14:00.000Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 3
-Plan: 10 of 13
-Status: Ready to execute 03-11
+Plan: 11 of 13
+Status: Ready to execute 03-12
 Last activity: 2026-09-18
 
 Progress: [██████████] 100%
@@ -80,6 +80,7 @@ Progress: [██████████] 100%
 | Phase 03 P07 | 2min | 2 tasks | 2 files |
 | Phase 03 P09 | 8min | 3 tasks | 2 files |
 | Phase 03 P10 | 6 min | 2 tasks | 3 files |
+| Phase 03 P11 | 4 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -165,6 +166,7 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-09: la compensación pre-DDL borra por IDENTIDAD de fila ({id: ledger_id}, capturada best-effort con last_id() tras el INSERT) cuando el motor la expone; fallback {name, status: pending} para Oracle (last_id()==0), residual asignado a Fase 4 / POOL-03. — {name, status} no prueba propiedad: borraría la fila pending que otro runner re-publicó tras el rollback (WR-01 residual).
 - [Phase 03]: 03-09: la compensación va en su propio try/except con logger.warning y el raise exterior re-lanza SIEMPRE la excepción raíz del DDL (IN-01); el test de IN-02 verifica comportamiento (la fila deja de ser ambigua) en vez de un substring de __doc__. — Un fallo de la compensación no debe reemplazar el error original; una aserción sobre texto de docstring es frágil y no prueba el efecto.
 - [Phase ?]: 03-10: docs alineados con la invalidación multi-fila, el namespace de scope y el residual TOCTOU; CHANGELOG registra el cambio de formato de clave y los fixes CR-01/WR-01 residual. Cierra WR-03.
+- [Phase 03]: 03-11: el scope() se aplica al WHERE del DML de `Model.update`/`delete` (helper `_scoped_dml` sobre el `Query` del builder, con `_shift_placeholders` y params ligados) SOLO cuando `current_scope() is not None`, leído dentro del closure transaccional; sin scope el `Query` es byte-idéntico. La composición es de la capa `Model`: no se tocan los builders ni los seis adaptadores (snapshots intactos). — Cierra CR-R3-01/SEC-01 (una clave no-PK ya no cruza tenants) y WR-R3-01 por construcción (la sonda de `CachedModel` y la escritura ven el mismo conjunto de filas).
 
 ### Pending Todos
 
@@ -189,6 +191,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T20:53:20.578Z
-Stopped at: Completed 03-10-PLAN.md
+Last session: 2026-09-18T21:14:00.000Z
+Stopped at: Completed 03-11-PLAN.md
 Resume file: None
