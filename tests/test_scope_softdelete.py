@@ -13,6 +13,7 @@ class Item(Model):
 class Doc(Model):
     _table = "docs"
     tenant_id: int | None = None
+    grupo: str | None = None
     titulo: str | None = None
 
 
@@ -156,3 +157,42 @@ class TestScope:
         rows = await Doc(db).search(Filter.eq("tenant_id", 1))
         assert len(rows) == 1
         assert rows[0].titulo == "nuevo"
+
+    @pytest.mark.asyncio
+    async def test_cr_r3_01_update_no_cruza_tenant(self, db):
+        # CR-R3-01: una clave de escritura no-PK (no única) NO debe modificar
+        # filas de otro tenant cuando hay `scope()` activo.
+        await Doc(db, tenant_id=1, grupo="G", titulo="A1").insert()
+        await Doc(db, tenant_id=2, grupo="G", titulo="B1").insert()
+
+        with scope(Filter.eq("tenant_id", 1)):
+            await Doc(db, grupo="G", titulo="PWNED").update(keys=["grupo"])
+
+        assert (await Doc(db, id=1).load()).titulo == "PWNED"
+        assert (await Doc(db, id=2).load()).titulo == "B1"
+
+    @pytest.mark.asyncio
+    async def test_cr_r3_01_delete_no_cruza_tenant(self, db):
+        # CR-R3-01: el borrado lógico con clave no-PK no debe deshabilitar filas
+        # de otro tenant bajo `scope()`.
+        await Doc(db, tenant_id=1, grupo="G", titulo="A1").insert()
+        await Doc(db, tenant_id=2, grupo="G", titulo="B1").insert()
+
+        with scope(Filter.eq("tenant_id", 1)):
+            await Doc(db, grupo="G").delete(keys=["grupo"])
+
+        assert (await Doc(db, id=1).load()).enabled is False
+        assert (await Doc(db, id=2).load()).enabled is True
+
+    @pytest.mark.asyncio
+    async def test_cr_r3_01_sin_scope_sigue_sin_acotar(self, db):
+        # Control de compatibilidad: sin `scope()` el DML sigue afectando a todas
+        # las filas que casan con la clave (el acotado solo aplica con scope).
+        await Doc(db, tenant_id=1, grupo="G", titulo="A1").insert()
+        await Doc(db, tenant_id=2, grupo="G", titulo="B1").insert()
+
+        count = await Doc(db, grupo="G", titulo="PWNED").update(keys=["grupo"])
+
+        assert count == 2
+        assert (await Doc(db, id=1).load()).titulo == "PWNED"
+        assert (await Doc(db, id=2).load()).titulo == "PWNED"
