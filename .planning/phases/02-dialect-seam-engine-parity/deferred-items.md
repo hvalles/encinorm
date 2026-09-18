@@ -7,8 +7,10 @@ them. They are logged here, not fixed, per the executor scope boundary.
 
 Items that `02-VERIFICATION.md` / `02-REVIEW.md` flagged and that the gap-closure
 plans (`02-06`…`02-09`) take ownership of. The three entries below are closed:
-`list_tables(name=)` by `02-09`; WR-03 and WR-04 by `02-08`. **Ya NO queda ningún
-item de la Fase 02 sin dueño** — este era el último diferido huérfano.
+`list_tables(name=)` by `02-09`; WR-03 and WR-04 by `02-08`. Los items de esta
+sección están cerrados. Los items que quedan abiertos de la fase están en las
+secciones siguientes y TODOS tienen dueño explícito (Fase 4 / plan `04-02` /
+POOL-03); no se afirma que no quede ninguno sin dueño.
 
 ### `Db.list_tables(name=...)` — filtro roto en 4 de 6 motores (GAP 4) — CERRADO
 
@@ -111,7 +113,7 @@ la sentencia era ejecutable en ambos motores; no lo era.
 - **Cobertura:** `tests/test_oracle.py::TestOracleParity::test_model_insert_replace_no_rompe_el_merge`
   (caracteriza el fallo restante; ver abajo).
 
-### Oracle — el fallback `merge` actualiza la columna del `ON` (ORA-38104) — PENDIENTE
+### Oracle — el fallback `merge` actualiza la columna del `ON` (ORA-38104) — PENDIENTE — DUEÑO: Fase 4, plan `04-02` (POOL-03)
 
 - **Síntoma (tras el fix de `FROM dual`):** `ORA-38104: Columns referenced in the
   ON Clause cannot be updated: "DST"."ENABLED"`.
@@ -133,3 +135,48 @@ la sentencia era ejecutable en ambos motores; no lo era.
 - **Cobertura actual:** `tests/test_oracle.py::TestOracleParity::test_model_insert_replace_no_rompe_el_merge`
   caracteriza ORA-38104 (falla si el builder se corrige, para forzar la
   actualización del test).
+- **Dueño: Fase 4, plan `04-02` (POOL-03).** La Fase 4 captura el id DENTRO del
+  insert (`RETURNING`/`SCOPE_IDENTITY`/`lastrowid` inmediato, `ROADMAP.md`), que es
+  la precondición para que `Model.insert(replace=True)` sea ejecutable Y devuelva un
+  id fiable en Oracle. Para ello el `WHEN MATCHED THEN UPDATE SET` no puede
+  actualizar la columna del `ON`; el fix es el ya sugerido (excluir de `set_sql` las
+  columnas de `conflict_cols`, como ya hace `build_upsert` con `update_cols`) y exige
+  regenerar los snapshots de forma visible. **NO se corrige en esta ronda** porque
+  cambiaría el SQL del adaptador pinado byte a byte (golden strings y snapshots) y
+  porque el plan `02-11` solo añade un guard fail-closed que no altera el SQL válido.
+
+## Encontrados y cerrados en la ronda de gap closure 3 (02-10…02-12)
+
+Hallazgos de la re-verificación de la ronda 2 (`02-VERIFICATION-GAPS.md` /
+`02-REVIEW-GAPS.md`) y su cierre. Los tres BLOCKER (CR-01/CR-02/CR-03) y los dos
+WARNING (WR-01/WR-02) quedan resueltos; los residuales con dueño se indican.
+
+1. **CR-01 — `QueryBuilder` interpolaba `_table` sin validar (CERRADO por 02-10).**
+   Causa: `_build_base` interpolaba `self._model_class._table` y cada
+   `join['model_class']._table`; `Model._table` solo se validaba en
+   `_build_column_map()`, que `QueryBuilder` no dispara. Fix:
+   `check_identifier(model_class._table, "nombre de tabla")` en `__init__` y
+   `other._table` en `join()`, con la allowlist estricta; barrido de las posiciones
+   de expresión (allowlist tolerante a puntos, deliberada) y guard de fuente. Sin
+   cambio de SQL válido.
+2. **CR-02 — `Model.upsert()` con el conflicto por defecto emitía `ON (dst.id = src.id)` con `src` sin `id` (CERRADO por 02-11).**
+   Reproducción live: MSSQL 207 / Oracle ORA-00904. Fix: fail-closed en `_merge_sql`
+   (punto único de `build_insert`/`build_upsert`) cuando una columna de conflicto no
+   está en las columnas del INSERT; `Model.upsert()` con PK autoincremental en
+   `merge` exige `conflict=` explícito con una columna de datos. Residual: un upsert
+   por PK autoincremental es INEXPRESABLE en MSSQL/Oracle por construcción (la PK no
+   viaja en el INSERT) — documentado, no un diferido con dueño pendiente.
+3. **CR-03 — MSSQL `insert(replace=True)` devolvía un `last_id()` obsoleto (CERRADO por 02-11).**
+   Regresión introducida por 02-08. Fix: `Model.insert` NO consume `last_id()` ni
+   asigna `self.id` cuando la sentencia ejecutada es un `MERGE`; devuelve `0` ("id no
+   disponible"). **Residual con dueño: Fase 4, plan `04-02` (POOL-03)** para capturar
+   el id DENTRO del insert (`OUTPUT INSERTED.id` / `SCOPE_IDENTITY`). Oracle tiene el
+   mismo defecto de clase (su `execute` solo refresca `_last_id` con `RETURNING`) y
+   el mismo guard lo cubre.
+4. **Byte-identidad de la ronda 3:** ninguna de las tres correcciones cambia el SQL
+   generado para entradas válidas; `tests/__snapshots__/test_sql_snapshots.ambr` y
+   los golden strings por motor no se tocaron. (Verificable con
+   `git diff --stat tests/__snapshots__/`.)
+5. **WR-02 — contrato de cardinalidad de `Query` (CERRADO por 02-12):** registrado en
+   `CHANGELOG.md` `[Unreleased] ### Corregido`; la enumeración completa de cambios
+   incompatibles del milestone sigue siendo de la Fase 8 (`08-04`).

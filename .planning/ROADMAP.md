@@ -180,6 +180,8 @@ Plans:
 
 **Gap-closure waves (round 1):** 1 → `02-06`, `02-07`; 2 → `02-08`; 3 → `02-09`. **Round 2:** 1 → `02-10`, `02-11`; 2 → `02-12`. GAP 5 (per-adapter coverage floors) stays deferred pending a green `engine-heavy` run and is NOT planned here; the gap-closure plans do not contradict it.
 
+**Gap closure ronda 3 (02-10…02-12).** The re-verification returned `gaps_found` with three BLOCKER (CR-01: `QueryBuilder._build_base()` interpolated an unvalidated `_table` into `FROM`/`JOIN`; CR-02: `Model.upsert()` with its documented default conflict emitted `ON (dst.id = src.id)` on MSSQL/Oracle where `src.id` is absent; CR-03: MSSQL `insert(replace=True)` returned another row's stale `last_id()`, a regression introduced by round 2) and two WARNING (WR-01: the deferral log falsely claimed no Phase-2 item remained unowned while ORA-38104 was PENDIENTE and CR-02 was unlogged; WR-02: the 02-07 `Query` cardinality change was absent from `CHANGELOG.md`). `02-10` and `02-11` run in parallel (wave 1, disjoint files: `query_builder.py`/`test_query_builder.py` vs `dialects/builders.py`/`model/model.py`/the MSSQL+Oracle tests) and `02-12` closes the documentation and ownership in wave 2 (CHANGELOG, `deferred-items.md`, this roadmap, REQUIREMENTS). GAP F (per-adapter coverage floors) stays deferred pending a green `engine-heavy` run and is NOT planned here.
+
 ### Phase 3: Data Correctness
 
 **Goal**: Migrations and the read cache stop lying. A rolled-back migration can be re-applied, a failed
@@ -226,7 +228,7 @@ semantics are explicit instead of accidental.
 Plans:
 
 - [ ] 04-01: `PooledConnection` handle consolidating per-connection state (driver, `last_id`, timestamps, generation, in-use) and reserve-before-await `acquire()` that never locks across the await; task-ownership binding on the `_current_connection` contextvar — POOL-01, POOL-02
-- [ ] 04-02: Capture `last_id` **inside** the insert (`RETURNING` / `SCOPE_IDENTITY` / immediate `lastrowid`) per connection/task; deprecate post-hoc `last_id()` with a warning — POOL-03
+- [ ] 04-02: Capture `last_id` **inside** the insert (`RETURNING` / `SCOPE_IDENTITY` / immediate `lastrowid`) per connection/task; deprecate post-hoc `last_id()` with a warning — POOL-03. Owns too the Oracle `MERGE` `SET` fix (**ORA-38104**): exclude `conflict_cols` from `WHEN MATCHED THEN UPDATE SET` (as `build_upsert` already does with `update_cols`) so `Model.insert(replace=True)` is executable on Oracle — registered by plan `02-12` (see `.planning/phases/02-dialect-seam-engine-parity/deferred-items.md`).
 - [ ] 04-03: `reset_on_release` policy (rollback by default, configurable commit), with explicit commit-or-rollback in `execute`/`_run` first so standalone writes are not silently dropped; `DeprecationWarning` + CHANGELOG entry — POOL-04
 - [ ] 04-04: Generation counter + lazy idle reaper closing connections above `min_size` (no background daemon), and an idempotent `close()` that never closes an in-use connection — POOL-05, POOL-06
 - [ ] 04-05: Deterministic concurrency/stress tests using a hand-rolled `asyncio.Event` barrier (never `asyncio.Barrier`/`TaskGroup` on 3.10), `pytest-timeout` with the signal method, and a `pytest-repeat` stress variant behind a marker — POOL-07
