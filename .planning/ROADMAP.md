@@ -244,7 +244,7 @@ Plans:
 
 **Wave 2 (gap-closure ronda 4)** *(docs-only: describen lo entregado por 03-11 y 03-12)*
 
-- [ ] 03-13-PLAN.md — CHANGELOG/guía/diseño de seguridad veraces: SEC-01, escrituras bajo el mismo scope, residuales de `upsert` y de huella determinista — SEC-01, DATA-03, DATA-02
+- [x] 03-13-PLAN.md — CHANGELOG/guía/diseño de seguridad veraces: SEC-01, escrituras bajo el mismo scope, residuales de `upsert` y de huella determinista — SEC-01, DATA-03, DATA-02
 
 ### Phase 4: Pool Correctness & Concurrency
 
@@ -450,7 +450,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 12/13 | In progress | - |
+| 3. Data Correctness | 13/13 | Complete   | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
