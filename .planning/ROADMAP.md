@@ -209,7 +209,7 @@ Plans:
 
 **Wave 2** *(blocked on `03-01`: mismos ficheros `migration.py` y los seis adaptadores)*
 
-- [ ] 03-02-PLAN.md — `TRANSACTIONAL_DDL` por dialecto + `Db`/`PoolDb.transactional_ddl`, `migrate()` de dos fases (`pending` → DDL → `applied`) con `reconcile_migrations()` y `resolve_migration()` (D-08/D-17), y los seis `migrate()` rewired — DATA-02
+- [x] 03-02-PLAN.md — `TRANSACTIONAL_DDL` por dialecto + `Db`/`PoolDb.transactional_ddl`, `migrate()` de dos fases (`pending` → DDL → `applied`) con `reconcile_migrations()` y `resolve_migration()` (D-08/D-17), y los seis `migrate()` rewired — DATA-02
 
 **Wave 3** *(blocked on `03-01`, `03-02`, `03-03` y `03-05`: el CHANGELOG y la guía documentan sus cambios)*
 
@@ -421,7 +421,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 |-------|----------------|--------|-----------|
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
-| 3. Data Correctness | 3/5 | In Progress|  |
+| 3. Data Correctness | 4/5 | In Progress|  |
 | 4. Pool Correctness & Concurrency | 0/5 | Not started | - |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
