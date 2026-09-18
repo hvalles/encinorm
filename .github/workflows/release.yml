@@ -43,9 +43,8 @@ jobs:
       #      con el workflow "release.yml".
       #   2. Sustituye este paso por: run: uv publish --trusted-publishing always
       #      y elimina el env con el token.
-       - name: Publish to PyPI
-         run: echo "dry-run: publish neutralizado para verificar CI-08"
-#      - name: Publish to PyPI
+      - name: Publish to PyPI
+        run: echo "dry-run publish neutralizado para verificar CI-08"
 #        env:
 #          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
 #        run: uv publish
