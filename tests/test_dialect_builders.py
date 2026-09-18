@@ -645,6 +645,73 @@ class TestModelInsertConflictTarget:
         assert "ON (dst.nombre = src.nombre)" in qry.sql_template
 
 
+class TestMergeConflictGuard:
+    """CR-02: el render `merge` falla CERRADO cuando una columna de conflicto no
+    está en las columnas del INSERT.
+
+    El `src` derivado del MERGE se construye SOLO con las columnas de `data`; en
+    un modelo de PK autoincremental la PK `id` está excluida, así que
+    `ON (dst.id = src.id)` referencia una columna inexistente (MSSQL 207 /
+    ORA-00904). El guard vive en el punto único `_merge_sql`, compartido por
+    `build_insert` y `build_upsert`.
+    """
+
+    def test_build_upsert_merge_conflicto_ausente_lanza(self):
+        for strategy in (MSSQL_INSERT, ORACLE_INSERT):
+            with pytest.raises(ValueError) as exc:
+                build_upsert(
+                    "t",
+                    {"nombre": "Zoe"},
+                    strategy=strategy,
+                    upsert_kind="merge",
+                    conflict=["id"],
+                    update_cols=["nombre"],
+                )
+            assert "no está en el INSERT" in str(exc.value)
+            assert "'id'" in str(exc.value)
+
+    def test_build_insert_merge_conflicto_ausente_lanza(self):
+        # Defensa en profundidad: el mismo `_merge_sql` sirve a `build_insert`.
+        with pytest.raises(ValueError):
+            build_insert(
+                "t", {"nombre": "Zoe"}, strategy=MSSQL_INSERT, replace=True, conflict=["id"]
+            )
+
+    def test_merge_con_conflicto_presente_sigue_byte_identico(self):
+        # El guard solo AÑADE rechazo: un conflicto presente produce el MISMO SQL.
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=MSSQL_INSERT,
+            upsert_kind="merge",
+            conflict=["a"],
+            update_cols=["b"],
+        )
+        assert qry.sql_template == (
+            "MERGE INTO t AS dst USING (SELECT {0} AS a, {1} AS b) AS src "
+            "ON (dst.a = src.a) "
+            "WHEN MATCHED THEN UPDATE SET dst.b = src.b "
+            "WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)"
+        )
+
+    def test_fallback_columns0_sigue_siendo_valido(self):
+        # El fallback `columns[0]` de `build_insert` está en `columns` por
+        # construcción, así que el guard no lo alcanza.
+        qry = build_insert("t", {"a": 1, "b": "x"}, strategy=MSSQL_INSERT, replace=True)
+        assert "ON (dst.a = src.a)" in qry.sql_template
+
+    @pytest.mark.asyncio
+    async def test_model_upsert_default_pk_autoincremental_falla_cerrado(self):
+        # El default documentado de `Model.upsert` es la PK; en un modelo
+        # autoincremental la PK no viaja en `data`, así que el render `merge`
+        # debe lanzar ANTES de alcanzar al driver (no un 207 / ORA-00904).
+        for dialecto in ("mssql", "oracle"):
+            db = _ModelDbRegistrador(dialecto)
+            with pytest.raises(ValueError) as exc:
+                await _ModelPkAuto(db, nombre="Ana", monto=1.0).upsert()
+            assert "no está en el INSERT" in str(exc.value)
+
+
 # Ruta normalizada (`\` -> `/`) para que los guards se comporten igual en
 # Windows y Linux.
 MODEL_PATH = (Path(__file__).resolve().parents[1] / "encino_orm" / "model" / "model.py").as_posix()

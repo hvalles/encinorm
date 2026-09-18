@@ -1,4 +1,5 @@
 import os
+from typing import ClassVar
 
 import pytest
 
@@ -143,6 +144,20 @@ class _ParityModel(Model):
     """Modelo de paridad DIAL-03/DIAL-09 contra el motor real."""
 
     _table = "test_parity"
+    nombre: str | None = None
+    monto: float | None = None
+
+
+class _MergeModel(Model):
+    """Modelo para el MERGE/upsert sin campos `datetime`.
+
+    `Model._serialize` convierte `datetime`->`str`; se excluyen
+    `created_at`/`updated_at` para que el MERGE del upsert no arrastre el binding
+    de `str` a `DATETIME2` y sea realmente ejecutable.
+    """
+
+    _table = "test_parity"
+    _fields_disabled: ClassVar[list] = ["created_at", "updated_at"]
     nombre: str | None = None
     monto: float | None = None
 
@@ -340,3 +355,34 @@ class TestMssqlParity:
 
         await _ParityModel(db, nombre="Ana", monto=10.0).insert()
         await _ParityModel(db, nombre="Zoe", monto=5.0).insert(replace=True)
+
+    @pytest.mark.asyncio
+    async def test_model_upsert_merge_con_conflicto_explicito(self, mssql_connected_db):
+        # CR-02: `Model.upsert` con una columna de DATOS como objetivo de conflicto
+        # es ejecutable e idempotente en el motor real (antes no había NINGUNA
+        # cobertura de `upsert` en este fichero). NO se asserta el valor de retorno:
+        # el `rowcount` de un MERGE en pyodbc no es fiable.
+        db = mssql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+
+        await _MergeModel(db, nombre="Ana", monto=10.0).upsert(conflict=["nombre"])
+        filas = await db.fetch_all(Query("SELECT nombre, monto FROM test_parity", []))
+        assert len(filas) == 1
+        assert filas[0]["monto"] == 10.0
+
+        await _MergeModel(db, nombre="Ana", monto=99.0).upsert(conflict=["nombre"])
+        filas = await db.fetch_all(Query("SELECT nombre, monto FROM test_parity", []))
+        assert len(filas) == 1
+        assert filas[0]["monto"] == 99.0
+
+    @pytest.mark.asyncio
+    async def test_model_upsert_conflicto_por_defecto_falla_cerrado(self, mssql_connected_db):
+        # CR-02: el default documentado (PK) NO puede funcionar en `merge` porque la
+        # PK autoincremental `id` no viaja en el INSERT. Debe fallar CERRADO con un
+        # `ValueError` accionable antes del driver, no con el error 207 de SQL Server.
+        db = mssql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+
+        with pytest.raises(ValueError) as exc:
+            await _MergeModel(db, nombre="Ana", monto=10.0).upsert()
+        assert "no está en el INSERT" in str(exc.value)

@@ -320,3 +320,34 @@ class TestOracleParity:
         with pytest.raises(Exception) as exc:
             await _MergeModel(db, nombre="Zoe", monto=5.0).insert(replace=True)
         assert "ORA-38104" in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_model_upsert_merge_con_conflicto_explicito(self, oracle_connected_db):
+        # CR-02: `Model.upsert` con una columna de DATOS como objetivo de conflicto
+        # es ejecutable e idempotente en Oracle (antes no había NINGUNA cobertura de
+        # `upsert` en este fichero). El `FROM dual` que Oracle exige en el `USING` lo
+        # inyecta `OracleDb.execute`; no se toca el adaptador. NO se asserta el valor
+        # de retorno (el `rowcount` de un MERGE no es fiable).
+        db = oracle_connected_db
+        await _reset_parity(db, _PARITY_DDL)
+
+        await _MergeModel(db, nombre="Ana", monto=10.0).upsert(conflict=["nombre"])
+        filas = await db.fetch_all(Query("SELECT nombre, monto FROM test_parity", []))
+        assert len(filas) == 1
+        assert filas[0]["monto"] == 10.0
+
+        await _MergeModel(db, nombre="Ana", monto=99.0).upsert(conflict=["nombre"])
+        filas = await db.fetch_all(Query("SELECT nombre, monto FROM test_parity", []))
+        assert len(filas) == 1
+        assert filas[0]["monto"] == 99.0
+
+    @pytest.mark.asyncio
+    async def test_model_upsert_conflicto_por_defecto_falla_cerrado(self, oracle_connected_db):
+        # CR-02: el default documentado (PK) no puede funcionar en `merge`; falla
+        # CERRADO con `ValueError` accionable antes del driver, no con ORA-00904.
+        db = oracle_connected_db
+        await _reset_parity(db, _PARITY_DDL)
+
+        with pytest.raises(ValueError) as exc:
+            await _MergeModel(db, nombre="Ana", monto=10.0).upsert()
+        assert "no está en el INSERT" in str(exc.value)
