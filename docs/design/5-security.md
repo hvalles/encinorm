@@ -201,18 +201,33 @@ class PermissionSet:
 
 El `PermissionSet` puede cachearse por `user_id` reutilizando `CacheBackend`
 (sección de caché de `1-model.md`). La clave de caché es la **PK de la fila**
-(dominio canónico): `load()` escribe siempre bajo la PK, y una lectura por otra
-clave consulta la BD, aprende la PK y recachea bajo ella (no acierta en caché). La
-invalidación la realiza `CachedModel`: sobreescribe `update`, `delete` y `upsert`
-y, tras `super()` (ya post-commit), resuelve la PK de la fila afectada —de la
-instancia si las claves de escritura son la PK; de la BD con un `SELECT` ligado y
-con `scope` si no— y borra esa única entrada, mientras que `save` queda cubierto
-por delegación en `update`. No se usa el hook de post-commit de `_transactional`
-porque no se dispara para `upsert` ni para `insert_many` (tienen su propia
-transacción) y no recibe ni la acción ni la clave. Un fallo de invalidación es
-fail-open: se registra un warning y no se propaga, ya que la escritura está
-commiteada y la lectura obsoleta queda acotada por el TTL. En apps pequeñas se
-omite.
+(dominio canónico) y está **namespaced por el `scope()` activo**: el mecanismo real
+es `sha1(tabla:[pk=...]|scope=<huella>)`, donde `<huella>` es el `digest()` del
+filtro de scope. Así una entrada cacheada bajo un tenant **no casa la clave de
+otro**: ni la lectura la sirve ni la escritura cruzada se habilita. Sin `scope()`
+la clave no cambia respecto al formato anterior. `load()` escribe siempre bajo la
+PK, y una lectura por otra clave consulta la BD, aprende la PK y recachea bajo ella
+(no acierta en caché).
+
+La invalidación la realiza `CachedModel`: sobreescribe `update`, `delete` y
+`upsert` y, tras `super()` (ya post-commit), resuelve la PK de **TODAS las filas
+afectadas** —de la instancia si las claves de escritura son la PK; de la BD con un
+`SELECT` ligado, scope-aware e `include_deleted=True` si no— y borra la entrada de
+**cada una**; `save` queda cubierto por delegación en `update`. Una clave de
+escritura no-PK puede afectar a varias filas y todas se invalidan (CR-01). Un fallo
+de la resolución o del borrado es fail-open: se registra un warning y no se
+propaga, ya que la escritura está commiteada y la lectura obsoleta queda acotada
+por el TTL.
+
+**TOCTOU sonda/escritura (residual).** La PK se resuelve antes y después de la
+escritura y se invalida la unión, lo que acota la ventana pero no la elimina: si
+dos transacciones mueven la misma clave no-PK a la vez, una entrada puede quedar
+obsoleta hasta el TTL. El aislamiento por tenant depende de que la aplicación use
+`scope(...)`; una lectura sin scope usa la clave compartida.
+
+No se usa el hook de post-commit de `_transactional` porque no se dispara para
+`upsert` ni para `insert_many` (tienen su propia transacción) y no recibe ni la
+acción ni la clave. En apps pequeñas se omite.
 
 ---
 

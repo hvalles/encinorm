@@ -496,25 +496,43 @@ implemente el `Protocol` `CacheBackend`.
 > nunca releídas no se acumulan sin límite. Para producción usa
 > `RedisCacheBackend`, que acota y expira del lado del servidor.
 
-### Invalidación y limitación multi-proceso
+### Invalidación, aislamiento por `scope()` y limitación multi-proceso
 
 La caché de `CachedModel` indexa **siempre por la PK de la fila** (dominio
 canónico). Una lectura por otra clave (`load(keys=["rfc"])`) consulta la BD,
 aprende la PK de la fila devuelta y recachea bajo ella, de modo que **una lectura
 no-PK no acierta en caché** (se comporta como una consulta directa). La razón: así
-toda escritura puede invalidar la única entrada posible, incluso cuando la
-instancia de escritura no lleva la PK (`upsert(conflict=["rfc"])` con el auto-`id`
-sin asignar).
+toda escritura puede invalidar la entrada de la PK de las filas afectadas, incluso
+cuando la instancia de escritura no lleva la PK (`upsert(conflict=["rfc"])` con el
+auto-`id` sin asignar).
 
-`CachedModel` invalida esa entrada tras `update`, `delete` y `upsert` (y, de forma
-opcional, en `insert_many(cache=...)`): `update`/`delete`/`upsert` resuelven la PK
-de la fila afectada —de la instancia si las claves de escritura son la PK, o de la
-BD con un `SELECT` ligado y con `scope` si no— y borran esa única clave. La
-invalidación ocurre **después** del commit (nunca antes) y es **fail-open**: si el
-borrado de la caché falla, se registra un warning y la escritura no se revierte; el
-peor caso es una lectura obsoleta acotada por el TTL. El mecanismo (sobrescrituras
-de `update`/`delete`/`upsert` en `CachedModel`) está descrito en
+`CachedModel` invalida esas entradas tras `update`, `delete` y `upsert` (y, de
+forma opcional, en `insert_many(cache=...)`): `update`/`delete`/`upsert` resuelven
+la PK de **TODAS las filas afectadas** —de la instancia si las claves de escritura
+son la PK, o de la BD con un `SELECT` ligado, scope-aware y con
+`include_deleted=True` si no— y borran **cada una** de esas entradas. Una clave de
+escritura no-PK puede afectar a **varias filas** (no es única) y todas ellas se
+invalidan: ninguna queda obsoleta. La invalidación ocurre **después** del commit
+(nunca antes) y es **fail-open**: si la resolución o el borrado de la caché fallan,
+se registra un warning y la escritura no se revierte; el peor caso es una lectura
+obsoleta acotada por el TTL. El mecanismo (sobrescrituras de
+`update`/`delete`/`upsert` en `CachedModel`) está descrito en
 [`docs/design/5-security.md` §5.4](design/5-security.md#54-cache-opcional).
+
+**Aislamiento por `scope()`.** La clave de caché incorpora una huella del
+`scope()` activo (`sha1(tabla:[pk=...]|scope=<huella>)`), así que una entrada
+cacheada bajo un tenant **no se sirve a otro**, ni en lectura ni como habilitador
+de una escritura cruzada. Sin `scope()` la clave no cambia respecto al formato
+anterior. El aislamiento depende de que la aplicación envuelva el acceso en
+`scope(...)`: una lectura sin scope comparte la entrada entre tenants.
+
+**TOCTOU sonda/escritura (residual).** La PK se resuelve antes y después de la
+escritura y se invalida la unión de ambas sondas, lo que acota la ventana entre la
+sonda y el `UPDATE`/`DELETE`/`upsert`, pero **no la elimina**: si dos transacciones
+mueven la misma clave no-PK a la vez (una cambia la clave de la fila A y otra la
+asigna a la fila B), una entrada podría quedar obsoleta hasta el TTL. Para
+coherencia estricta, envuelve sonda y escritura en la misma transacción o reduce
+el TTL.
 
 **Limitación conocida:** la invalidación es **local al proceso**. No hay pub/sub
 distribuido, así que con varios procesos o servidores una invalidación en uno no
@@ -535,9 +553,10 @@ u = User(db, cache=cache, id=1)
 await u.load(duration=300)              # GET/SET sobre Redis con TTL
 ```
 
-La clave se deriva de un `sha1` de `tabla:[clave=valor&...]` y el valor se
-serializa a JSON (`model_dump(mode="json")`). La URL se puede configurar con la
-variable de entorno `ENCINO_ORM_REDIS_URL` en las pruebas.
+La clave se deriva de un `sha1` de `tabla:[clave=valor&...]` —con el sufijo
+`|scope=<huella>` cuando hay un `scope()` activo— y el valor se serializa a JSON
+(`model_dump(mode="json")`). La URL se puede configurar con la variable de entorno
+`ENCINO_ORM_REDIS_URL` en las pruebas.
 
 ## 11. Esquema y migraciones
 
