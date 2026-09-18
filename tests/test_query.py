@@ -10,6 +10,7 @@ import pathlib
 import pytest
 
 from encino_orm import Query
+from encino_orm.sqlite import _to_positional
 
 _ENCINO_ROOT = pathlib.Path(__file__).resolve().parents[1] / "encino_orm"
 
@@ -119,6 +120,44 @@ class TestCompilation:
     def test_sql_template_preserved(self):
         q = Query("a={0}", [1])
         assert q.sql_template == "a={0}"
+
+
+class TestContractEnforcement:
+    """Regresión de los dos huecos del contrato de cardinalidad (WR-01/WR-02).
+
+    El carve-out `if indices and ...` aceptaba en silencio parámetros que ningún
+    `{n}` usa, y `{00}` se compilaba desde el texto crudo, produciendo una clave
+    que no existía en el dict de params. Ambos casos deben fallar/resolverse en
+    la construcción, no dentro del adaptador.
+    """
+
+    def test_valores_sin_placeholders_ahora_lanza(self):
+        with pytest.raises(ValueError) as exc:
+            Query("SELECT 1", [1])
+        msg = str(exc.value)
+        assert "placeholders []" in msg
+        assert "1 parámetros" in msg
+
+    def test_sin_placeholders_y_sin_valores_sigue_pasando(self):
+        for q in (Query("SELECT 1", []), Query("SELECT 1")):
+            assert (q.sql, q.params) == ("SELECT 1", {})
+
+    def test_indice_con_cero_inicial_compila_normalizado(self):
+        q = Query("a={00}", [7])
+        assert q.sql == "a=%(parameter_0000)s"
+        assert q.params == {"parameter_0000": 7}
+        # El traductor real del adaptador resuelve la clave: no puede escapar un
+        # KeyError desde `_to_positional`.
+        assert _to_positional(q.sql, q.params) == ("a=?", [7])
+
+    def test_indice_normal_y_cero_inicial_no_colisionan(self):
+        q = Query("a={0} AND b={00}", [7])
+        assert q.sql == "a=%(parameter_0000)s AND b=%(parameter_0000)s"
+        assert len(q.params) == 1
+
+    def test_with_params_sobre_plantilla_sin_placeholders_lanza(self):
+        with pytest.raises(ValueError):
+            Query("SELECT 1", []).with_params([1])
 
 
 class TestReadOnlyCompat:
