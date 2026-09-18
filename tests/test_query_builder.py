@@ -186,9 +186,7 @@ class TestAliasInjection:
 
     def test_alias_con_inyeccion_en_constructor_lanza(self):
         with pytest.raises(ValueError) as exc:
-            QueryBuilder(
-                Agente, None, alias="mm WHERE 1=0 UNION SELECT nombre FROM usuarios --"
-            )
+            QueryBuilder(Agente, None, alias="mm WHERE 1=0 UNION SELECT nombre FROM usuarios --")
         assert "alias inválido" in str(exc.value)
 
     def test_alias_no_identificador_en_constructor_lanza(self):

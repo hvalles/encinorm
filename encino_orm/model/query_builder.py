@@ -1,6 +1,7 @@
 import re
 from typing import TYPE_CHECKING
 
+from encino_orm.dialects.identifiers import check_identifier
 from encino_orm.query import Query
 
 from .exceptions import DuplicateAliasError, DuplicateColumnAliasError
@@ -46,6 +47,10 @@ class QueryBuilder:
     def __init__(self, model_class, db=None, alias: str = "mm"):
         self._model_class = model_class
         self._db = db
+        # Un alias es siempre un identificador desnudo en el FROM/JOIN generado;
+        # no existe caso legítimo de alias con punto o citado, así que va por la
+        # allowlist ESTRICTA (no por `_COLUMN_RE`, que acepta puntos a propósito).
+        alias = check_identifier(alias, "alias")
         self._alias = alias
         self._aliases = {alias}
         self._alias_to_model = {alias: model_class}
@@ -94,6 +99,9 @@ class QueryBuilder:
     def join(self, other, alias: str, on: Filter) -> "QueryBuilder":
         if other is self._model_class:
             raise DuplicateAliasError("self-join no permitido en join(); usa join_subquery()")
+        # Validar ANTES de comprobar duplicados: un alias hostil debe fallar como
+        # identificador inválido, no como alias duplicado.
+        alias = check_identifier(alias, "alias")
         if alias in self._aliases:
             raise DuplicateAliasError(f"alias '{alias}' duplicado")
         self._aliases.add(alias)
@@ -106,6 +114,9 @@ class QueryBuilder:
     ) -> "QueryBuilder":
         if alias is None:
             alias = self._next_subquery_alias()
+        # `_next_subquery_alias()` deriva de `self._alias` (ya validado), pero se
+        # revalida el alias FINAL por si el llamador lo pasó explícito.
+        alias = check_identifier(alias, "alias")
         if alias in self._aliases:
             raise DuplicateAliasError(f"alias '{alias}' duplicado")
         self._aliases.add(alias)
