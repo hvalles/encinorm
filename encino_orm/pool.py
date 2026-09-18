@@ -1,5 +1,6 @@
 import asyncio
 import contextvars
+import logging
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -23,6 +24,8 @@ _ENGINES = {
     "mssql": MssqlDb,
     "oracle": OracleDb,
 }
+
+logger = logging.getLogger("encino_orm")
 
 # Conexión activa de la transacción en curso (por tarea/contexto). Permite que
 # `PoolDb.execute/fetch/...` resuelvan a la MISMA conexión dentro de
@@ -160,6 +163,13 @@ class PoolDb(Db):
         self._stats["creates"] += 1
         return PooledConnection(driver=db, generation=self._generation)
 
+    def _checkout(self, handle: PooledConnection) -> None:
+        """Marca el handle como en uso por la tarea actual."""
+        handle.checked_out = True
+        handle.owner_task = asyncio.current_task()
+        self._checked_out.add(handle)
+        self._stats["acquires"] += 1
+
     async def acquire(self, timeout: float | None = None) -> PooledConnection:
         if not self._connected:
             raise ConnectionError("Pool no conectado")
@@ -168,19 +178,26 @@ class PoolDb(Db):
                 handle = self._idle.get_nowait()
             except asyncio.QueueEmpty:
                 if self._size < self._max_size:
-                    handle = await self._create_connection()
-                    self._connections.add(handle)
+                    # Reserva el cupo ANTES del `await`: así ninguna otra tarea
+                    # puede pasar la comprobación mientras se crea la conexión
+                    # (POOL-02). Si la creación falla, el cupo vuelve.
                     self._size += 1
-                    self._stats["acquires"] += 1
+                    try:
+                        handle = await self._create_connection()
+                    except BaseException:
+                        self._size -= 1
+                        raise
+                    self._connections.add(handle)
+                    self._checkout(handle)
                     return handle
                 self._stats["waits"] += 1
                 if timeout is None:
                     handle = await self._idle.get()
-                    self._stats["acquires"] += 1
+                    self._checkout(handle)
                     return handle
                 try:
                     handle = await asyncio.wait_for(self._idle.get(), timeout=timeout)
-                    self._stats["acquires"] += 1
+                    self._checkout(handle)
                     return handle
                 except asyncio.TimeoutError:
                     self._stats["timeouts"] += 1
@@ -193,7 +210,7 @@ class PoolDb(Db):
                 # `is_alive()` y se descarta si no responde.
                 needs_check = self._idle_timeout is None or handle.is_idle_for(self._idle_timeout)
                 if not needs_check or await handle.driver.is_alive():
-                    self._stats["acquires"] += 1
+                    self._checkout(handle)
                     return handle
                 self._connections.discard(handle)
                 self._size -= 1
@@ -201,6 +218,13 @@ class PoolDb(Db):
 
     async def release(self, conn):
         handle = self._as_handle(conn)
+        if handle not in self._checked_out:
+            # Liberación ajena o duplicada: no se reencola (POOL-02).
+            logger.warning("release() de una conexión que no está en uso: %r", handle)
+            return
+        self._checked_out.discard(handle)
+        handle.checked_out = False
+        handle.owner_task = None
         handle.touch()
         await self._idle.put(handle)
 

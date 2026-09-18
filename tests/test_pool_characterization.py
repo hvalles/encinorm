@@ -15,6 +15,7 @@ se usan las primitivas de concurrencia añadidas en 3.11 (`Barrier`, `timeout`,
 """
 
 import asyncio
+import logging
 import sys
 from contextlib import asynccontextmanager
 
@@ -22,6 +23,7 @@ import pytest
 
 import encino_orm.pool as pool_module
 from encino_orm import PoolDb, PoolExhaustedError, Query
+from encino_orm.pool import PooledConnection
 
 _THIS_MODULE = sys.modules[__name__]
 
@@ -143,6 +145,14 @@ class EventBarrier:
             self._event.set()
         await self._event.wait()
 
+    def release(self):
+        """Libera la barrera aunque no hayan llegado todas las `parties`.
+
+        Necesario para tests donde, tras un fix, menos tareas de las previstas
+        alcanzan el punto de espera (p. ej. la carrera de admisión de POOL-02).
+        """
+        self._event.set()
+
 
 @pytest.fixture
 def fake_engine(monkeypatch):
@@ -208,24 +218,31 @@ class TestPoolCheckoutCap:
 
 @pytest.mark.concurrency
 class TestPoolAcquireOvershootRace:
-    async def test_concurrent_acquire_overshoots_max_size(self, blocking_engine, monkeypatch):
+    async def test_concurrent_acquire_does_not_overshoot_max_size(
+        self, blocking_engine, monkeypatch
+    ):
         p = PoolDb("blocking", min_size=0, max_size=2)
         await p.connect()
 
-        # El número de tareas DEBE ser igual a `parties`; un desajuste dejaría
-        # la barrera sin liberar y el test se colgaría.
+        # POOL-02: con la reserva de cupo ANTES del `await`, solo `max_size`
+        # tareas alcanzan `connect()`, así que la barrera (parties=5, igual al
+        # número de tareas) se libera explícitamente: bajo el baseline
+        # pre-refactor las 5 llegaban y `_size` acababa en 5; con el fix solo
+        # llegan 2. Las 3 restantes esperan en la cola y agotan su `timeout`.
         barrier = EventBarrier(parties=5)
         monkeypatch.setattr(_THIS_MODULE, "_CONNECT_BARRIER", barrier)
 
-        tasks = [asyncio.create_task(p.acquire()) for _ in range(5)]
-        await asyncio.gather(*tasks)
+        tasks = [asyncio.create_task(p.acquire(timeout=0.5)) for _ in range(5)]
+        # Deja que las tareas alcancen su punto de await y libera la barrera.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        barrier.release()
 
-        # POOL-02: baseline pre-refactor. Cada tarea pasó `_size < _max_size`
-        # antes de que ninguna incrementase `_size`, porque `_create_connection()`
-        # es un punto de await. Esta aserción se espera INVERTIR en Fase 4
-        # (pasará a `_size <= _max_size`).
-        assert p._size > p._max_size
-        assert p._size == 5
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # POOL-02: aserción invertida (baseline pre-refactor: `_size == 5`).
+        assert p._size <= p._max_size
+        assert sum(isinstance(r, PoolExhaustedError) for r in results) == 3
 
         await p.close()
 
@@ -329,20 +346,63 @@ class TestPoolReleaseSemantics:
         assert all(call[0] != "is_alive" for call in conn.driver.calls)
         await p.close()
 
-    async def test_double_release_aliases_same_connection(self, fake_engine):
-        p = PoolDb("fake", min_size=1, max_size=2)
+    async def test_double_release_does_not_alias_same_connection(self, fake_engine):
+        p = PoolDb("fake", min_size=0, max_size=2)
         await p.connect()
         conn = await p.acquire()
 
         await p.release(conn)
-        await p.release(conn)  # segunda liberación: la cola guarda DOS referencias
+        await p.release(conn)  # segunda liberación: ignorada (ownership, POOL-02)
+
+        # La cola NO duplica la referencia.
+        assert p._idle.qsize() == 1
 
         conn_a = await p.acquire()
         conn_b = await p.acquire()
 
-        # POOL-06/POOL-02: la cola contiene dos referencias a la misma conexión
-        # mientras `_connections` guarda una sola entrada. Baseline pre-refactor.
-        assert conn_a is conn_b
+        # POOL-02: dos adquirentes distintos no comparten el mismo handle; el
+        # segundo crea una conexión nueva (invierte `assert conn_a is conn_b`).
+        assert conn_a is not conn_b
+        await p.release(conn_a)
+        await p.release(conn_b)
+        await p.close()
+
+    async def test_create_failure_returns_capacity(self, fake_engine, monkeypatch):
+        # POOL-02: si `_create_connection()` falla, el cupo reservado vuelve.
+        calls = {"n": 0}
+
+        class FailingOnceDb(FakeDb):
+            async def connect(self, **kwargs):
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    raise RuntimeError("boom")
+                await super().connect(**kwargs)
+
+        monkeypatch.setitem(pool_module._ENGINES, "failing", FailingOnceDb)
+        p = PoolDb("failing", min_size=0, max_size=1)
+        await p.connect()
+
+        with pytest.raises(RuntimeError):
+            await p.acquire()
+
+        assert p._size == 0  # el cupo no se filtró
+
+        handle = await p.acquire()
+        assert handle.driver.connected is True
+        assert p._size == 1
+        await p.release(handle)
+        await p.close()
+
+    async def test_release_foreign_handle_does_not_enqueue(self, fake_engine, caplog):
+        p = PoolDb("fake", min_size=0, max_size=2)
+        await p.connect()
+
+        foreign = PooledConnection(driver=FakeDb())
+        with caplog.at_level(logging.WARNING, logger="encino_orm"):
+            await p.release(foreign)
+
+        assert p._idle.empty()
+        assert any("release()" in record.getMessage() for record in caplog.records)
         await p.close()
 
 
