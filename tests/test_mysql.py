@@ -3,6 +3,7 @@ import os
 import pytest
 
 from encino_orm import MysqlDb, Query
+from encino_orm.model import Filter, Model
 from tests.conftest import engine_unavailable
 
 # Todas las clases de este modulo necesitan un MySQL vivo (D-08): el marker se
@@ -41,6 +42,31 @@ async def mysql_connected_db():
 async def _reset(db, name, ddl):
     await db.execute(Query(f"DROP TABLE IF EXISTS {name}", []))
     await db.execute(Query(ddl, []))
+
+
+class _ParityModel(Model):
+    """Modelo de paridad DIAL-03/DIAL-09 contra el motor real."""
+
+    _table = "test_parity"
+    nombre: str | None = None
+    monto: float | None = None
+
+
+_PARITY_DDL = (
+    "CREATE TABLE test_parity ("
+    "id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50), monto DOUBLE, "
+    "enabled TINYINT(1) DEFAULT 1, created_at DATETIME, updated_at DATETIME)"
+)
+_PARITY_DDL_SIN_MONTO = (
+    "CREATE TABLE test_parity ("
+    "id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50), "
+    "enabled TINYINT(1) DEFAULT 1, created_at DATETIME, updated_at DATETIME)"
+)
+
+
+async def _seed_parity(db):
+    for nombre, monto in [("Ana", 10.0), ("Luis", 20.0), ("Eva", 30.0)]:
+        await db.execute(db.insert("test_parity", {"nombre": nombre, "monto": monto}))
 
 
 class TestMysqlLifecycle:
@@ -268,3 +294,61 @@ class TestMysqlMigrations:
         status = await db.migrate_status()
         names = [s["name"] for s in status if s["name"] in ("v1", "v2")]
         assert names == ["v1", "v2"]
+
+
+class TestMysqlParity:
+    """DIAL-03/DIAL-09: `count`/`paginate`/`list_tables`/`sync_schema`/`last_id`."""
+
+    @pytest.mark.asyncio
+    async def test_count_paginate_and_list_tables(self, mysql_connected_db):
+        db = mysql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+        await _seed_parity(db)
+
+        assert await _ParityModel(db).count() == 3
+        assert await _ParityModel(db).count(Filter.eq("nombre", "Ana")) == 1
+
+        rec = await _ParityModel(db).paginate(limit=2, page=1)
+        assert rec.total == 3
+        assert len(rec.rows) == 2
+        assert rec.limit == 2
+        assert rec.page == 1
+
+        tablas = await db.list_tables(limit=1000)
+        assert tablas.total >= 1
+        assert "test_parity" in {r["name"].lower() for r in tablas.rows}
+
+    @pytest.mark.asyncio
+    async def test_query_builder_aggregates(self, mysql_connected_db):
+        db = mysql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+        await _seed_parity(db)
+
+        qb = _ParityModel(db).query()
+        assert await qb.count() == 3
+        assert await qb.sum("monto") == 60.0
+        assert await qb.avg("monto") == 20.0
+        assert await qb.min("monto") == 10.0
+        assert await qb.max("monto") == 30.0
+
+    @pytest.mark.asyncio
+    async def test_sync_schema_adds_missing_column(self, mysql_connected_db):
+        db = mysql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL_SIN_MONTO)
+
+        result = await _ParityModel(db).sync_schema()
+        assert "monto" in result["added"]
+
+        cols = {c.name for c in await db.columns_of("test_parity")}
+        assert "monto" in cols
+
+    @pytest.mark.asyncio
+    async def test_last_id_characterization(self, mysql_connected_db):
+        db = mysql_connected_db
+        await _reset(db, "test_parity", _PARITY_DDL)
+
+        await db.execute(db.insert("test_parity", {"nombre": "Ana"}))
+        assert await db.last_id() == 1
+
+        await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
+        assert await db.last_id() == 2

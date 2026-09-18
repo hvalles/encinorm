@@ -1,6 +1,37 @@
 import pytest
 
+from encino_orm.model import Filter, Model
 from encino_orm.query import Query
+
+
+class _ParityModel(Model):
+    """Modelo de paridad DIAL-03/DIAL-09; SQLite corre en cada corrida de CI."""
+
+    _table = "test_parity"
+    nombre: str | None = None
+    monto: float | None = None
+
+
+_PARITY_DDL = (
+    "CREATE TABLE test_parity ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, monto REAL, "
+    "enabled INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)"
+)
+_PARITY_DDL_SIN_MONTO = (
+    "CREATE TABLE test_parity ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, "
+    "enabled INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)"
+)
+
+
+async def _reset(db, ddl):
+    await db.execute(Query("DROP TABLE IF EXISTS test_parity", []))
+    await db.execute(Query(ddl, []))
+
+
+async def _seed_parity(db):
+    for nombre, monto in [("Ana", 10.0), ("Luis", 20.0), ("Eva", 30.0)]:
+        await db.execute(db.insert("test_parity", {"nombre": nombre, "monto": monto}))
 
 
 class TestSqliteLifecycle:
@@ -286,3 +317,69 @@ class TestSqliteBuildersAndQueries:
         assert rec.total_pages == 2
         assert rec.has_next is False
         assert rec.has_prev is True
+
+
+class TestSqliteParity:
+    """DIAL-03/DIAL-09 en el motor siempre activo: red de seguridad barata."""
+
+    @pytest.mark.asyncio
+    async def test_count_paginate_and_list_tables(self, connected_db):
+        db = connected_db
+        await _reset(db, _PARITY_DDL)
+        await _seed_parity(db)
+
+        assert await _ParityModel(db).count() == 3
+        assert await _ParityModel(db).count(Filter.eq("nombre", "Ana")) == 1
+
+        rec = await _ParityModel(db).paginate(limit=2, page=1)
+        assert rec.total == 3
+        assert len(rec.rows) == 2
+        assert rec.limit == 2
+        assert rec.page == 1
+
+        tablas = await db.list_tables(limit=1000)
+        assert tablas.total >= 1
+        assert "test_parity" in {r["name"].lower() for r in tablas.rows}
+
+    @pytest.mark.asyncio
+    async def test_query_builder_aggregates(self, connected_db):
+        db = connected_db
+        await _reset(db, _PARITY_DDL)
+        await _seed_parity(db)
+
+        qb = _ParityModel(db).query()
+        assert await qb.count() == 3
+        assert await qb.sum("monto") == 60.0
+        assert await qb.avg("monto") == 20.0
+        assert await qb.min("monto") == 10.0
+        assert await qb.max("monto") == 30.0
+
+    @pytest.mark.asyncio
+    async def test_sync_schema_adds_missing_column(self, connected_db):
+        db = connected_db
+        await _reset(db, _PARITY_DDL_SIN_MONTO)
+
+        result = await _ParityModel(db).sync_schema()
+        assert "monto" in result["added"]
+
+        cols = {c.name for c in await db.columns_of("test_parity")}
+        assert "monto" in cols
+
+    @pytest.mark.asyncio
+    async def test_sync_schema_alter_types_unsupported(self, connected_db):
+        db = connected_db
+        await _reset(db, _PARITY_DDL)
+
+        with pytest.raises(NotImplementedError):
+            await _ParityModel(db).sync_schema(alter_types=True)
+
+    @pytest.mark.asyncio
+    async def test_last_id_characterization(self, connected_db):
+        db = connected_db
+        await _reset(db, _PARITY_DDL)
+
+        await db.execute(db.insert("test_parity", {"nombre": "Ana"}))
+        assert await db.last_id() == 1
+
+        await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
+        assert await db.last_id() == 2
