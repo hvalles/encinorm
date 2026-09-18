@@ -5,7 +5,9 @@ import logging
 from encino_orm.base import Db
 
 from .cache_backend import CacheBackend
+from .filter import Filter
 from .model import Model, _set_private
+from .scope import current_scope
 
 logger = logging.getLogger("encino_orm")
 
@@ -19,9 +21,18 @@ class CachedModel(Model):
 
     @classmethod
     def _cache_key_for(cls, keys, values) -> str:
-        """Deriva la clave de caché sin instancia (mismo formato que `_cache_key`)."""
+        """Deriva la clave de caché sin instancia (mismo formato que `_cache_key`).
+
+        El `scope()` activo forma parte de la clave (huella `digest()` del filtro):
+        una entrada cacheada bajo un tenant NUNCA casa la clave de otro, así que un
+        acierto no puede servir datos de otro tenant ni habilitar una escritura
+        cruzada (CR-02). Sin scope la clave es la de siempre (compatibilidad).
+        """
         parts = [f"{k}={values[k]}" for k in keys]
         raw = f"{cls._table}:[{'&'.join(parts)}]"
+        s = current_scope()
+        if s is not None:
+            raw = f"{raw}|scope={s.digest()}"
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
     def _cache_key(self, keys) -> str:
@@ -40,18 +51,22 @@ class CachedModel(Model):
         except Exception as exc:
             logger.warning("no se pudo invalidar la caché de %s: %r", cls._table, exc)
 
-    async def _resolve_pk_values(self, keys) -> dict | None:
-        """Aprende los valores de la PK REAL de la fila afectada por la escritura.
+    async def _resolve_pk_values(self, keys) -> list[dict] | None:
+        """Aprende los valores de la PK REAL de TODAS las filas afectadas (CR-01).
 
         El dominio de caché es canónico (SOLO la PK), así que una escritura por
-        claves no-PK (`update(keys=["rfc"])`, `upsert(conflict=["rfc"])`) necesita
-        la PK real de la fila para poder invalidar su única entrada. Si la clave
-        de escritura ES la PK se lee de la propia instancia; si no, se resuelve
-        con un `SELECT` ligado y con `scope` (CR-01).
+        claves no-PK (`update(keys=["grupo"])`, `upsert(conflict=["rfc"])`) necesita
+        las PKs reales de las filas para invalidar sus entradas. Si la clave de
+        escritura ES la PK se lee de la propia instancia; si no, `Model.update`/
+        `delete` afectan a TODAS las filas que casan, así que se resuelven con un
+        `SELECT` multi-fila ligado, con `scope` y con `include_deleted=True` (para no
+        excluir filas recién soft-borradas). Se reutiliza `Model.search`; no se
+        escribe SQL nuevo ni se interpola.
 
         Devuelve `None` si no hay caché que invalidar, si la fila no se puede
-        identificar (alguna clave es `None`) o si el backend falla: la resolución
-        jamás bloquea una escritura ya commiteada (D-12 fail-open, WR-02).
+        identificar (alguna clave es `None`), si no hay ninguna fila afectada o si la
+        resolución falla: jamás bloquea una escritura ya commiteada (D-12 fail-open,
+        WR-02).
         """
         if self._cache is None:
             return None
@@ -62,19 +77,27 @@ class CachedModel(Model):
                 values = {k: getattr(self, k) for k in pk_keys}
                 if any(v is None for v in values.values()):
                     return None
-                return values
-            # La escritura identifica la fila por claves no-PK (p. ej. `rfc`): se
-            # reutiliza `Model.load` para heredar los parámetros LIGADOS y el
-            # `current_scope()` activo; no se escribe SQL nuevo ni se interpola.
+                return [values]
+            # La escritura identifica la(s) fila(s) por claves no-PK (p. ej. `rfc`):
+            # se reutiliza `Model.search` para heredar los parámetros LIGADOS, el
+            # `current_scope()` activo y el filtrado multi-fila.
             if any(getattr(self, k) is None for k in write_keys):
                 return None
-            probe = await super().load(keys=write_keys)
-            if not getattr(probe, "__exists"):
-                return None
-            values = {k: getattr(probe, k) for k in pk_keys}
-            if any(v is None for v in values.values()):
-                return None
-            return values
+            cond = None
+            for k in write_keys:
+                eq = Filter.eq(k, getattr(self, k))
+                cond = eq if cond is None else cond & eq
+            rows = await self.search(
+                filter=cond,
+                columns=list(type(self)._pk_cols()),
+                include_deleted=True,
+            )
+            pks = [
+                {k: getattr(r, k) for k in pk_keys}
+                for r in rows
+                if all(getattr(r, k) is not None for k in pk_keys)
+            ]
+            return pks or None
         except Exception as exc:
             logger.warning(
                 "no se pudo resolver la PK de %s para invalidar la caché: %r",
@@ -83,22 +106,45 @@ class CachedModel(Model):
             )
             return None
 
-    async def _invalidate_pk(self, pk_values) -> None:
-        """Borra la única entrada posible de la fila; fail-open (D-12).
+    @staticmethod
+    def _union(*lists) -> list[dict]:
+        """Une listas de valores de PK deduplicando por la tupla ordenada de valores.
 
-        La clave se deriva del MISMO dominio que `load()` escribe (la PK), así
-        que una escritura por cualquier clave elimina la entrada cacheada de la
-        fila afectada. La derivación va DENTRO del `try` (WR-02).
+        Tolerante a `None` (una sonda fallida no aporta candidatos). Acota el TOCTOU
+        (WR-02): la unión de la sonda previa y la posterior incluye la fila a la que
+        otra transacción pudo mover la clave entre ambas.
         """
-        if self._cache is None or pk_values is None:
+        seen = set()
+        result = []
+        for items in lists:
+            if not items:
+                continue
+            for item in items:
+                fingerprint = tuple(sorted(item.items()))
+                if fingerprint in seen:
+                    continue
+                seen.add(fingerprint)
+                result.append(item)
+        return result
+
+    async def _invalidate_pks(self, pk_values) -> None:
+        """Borra la entrada de CADA fila afectada; fail-open (D-12).
+
+        La clave se deriva del MISMO dominio que `load()` escribe (la PK), así que
+        una escritura por cualquier clave elimina las entradas cacheadas de TODAS las
+        filas que casan. La derivación va DENTRO del `try` (WR-02).
+        """
+        if self._cache is None or not pk_values:
             return
-        if any(v is None for v in pk_values.values()):
-            return
-        try:
-            key = type(self)._cache_key_for(list(type(self)._pk_fields()), pk_values)
-            await self._cache.delete(key)
-        except Exception as exc:
-            logger.warning("no se pudo invalidar la caché de %s: %r", self._table, exc)
+        pk_keys = list(type(self)._pk_fields())
+        for values in pk_values:
+            if any(v is None for v in values.values()):
+                continue
+            try:
+                key = type(self)._cache_key_for(pk_keys, values)
+                await self._cache.delete(key)
+            except Exception as exc:
+                logger.warning("no se pudo invalidar la caché de %s: %r", self._table, exc)
 
     async def load(self, keys=None, duration: int = 300) -> "CachedModel":
         """Carga la fila cacheando SIEMPRE bajo la PK (dominio canónico).
@@ -106,7 +152,8 @@ class CachedModel(Model):
         Una lectura por otra clave (`load(keys=["rfc"])`) consulta la BD, aprende
         la PK de la fila devuelta y recachea bajo ella: no acierta en caché y no
         deja entradas bajo claves arbitrarias, de modo que toda escritura puede
-        invalidar la única entrada posible (CR-01).
+        invalidar la entrada de la fila (CR-01). La clave incorpora el `scope()`
+        activo, así que un acierto nunca cruza tenants (CR-02).
         """
         read_keys = self._normalize_keys(keys, type(self)._pk_fields())
         cache = self._cache
@@ -138,33 +185,44 @@ class CachedModel(Model):
         return obj
 
     async def update(self, keys=None, data=None) -> int:
-        """Actualiza e invalida la entrada de la PK real tras el commit (D-15)."""
-        pk = await self._resolve_pk_values(keys)
+        """Actualiza e invalida las entradas de TODAS las filas afectadas (D-15).
+
+        La PK se resuelve ANTES y DESPUÉS de la escritura y se invalida la unión
+        (WR-02): si otra transacción mueve la clave a otra fila entre ambas sondas,
+        la re-sonda también la captura. Un fallo de resolución/invalidación es
+        fail-open (D-12).
+        """
+        pks = await self._resolve_pk_values(keys)
         count = await super().update(keys=keys, data=data)
-        await self._invalidate_pk(pk)
+        pks_after = await self._resolve_pk_values(keys)
+        await self._invalidate_pks(self._union(pks, pks_after))
         return count
 
     async def delete(self, keys=None, physical: bool = False) -> bool:
-        """Borra (lógico o físico) e invalida la entrada de la PK real (D-15).
+        """Borra (lógico o físico) e invalida las entradas de las filas afectadas (D-15).
 
-        La PK se resuelve ANTES del borrado: un borrado físico elimina la fila y
-        el SELECT posterior ya no la encontraría.
+        La PK se resuelve ANTES del borrado (un borrado físico elimina la fila y la
+        sonda posterior ya no la encontraría) y DESPUÉS para acotar el TOCTOU
+        (WR-02); se invalida la unión. Fail-open (D-12).
         """
-        pk = await self._resolve_pk_values(keys)
+        pks = await self._resolve_pk_values(keys)
         result = await super().delete(keys=keys, physical=physical)
-        await self._invalidate_pk(pk)
+        pks_after = await self._resolve_pk_values(keys)
+        await self._invalidate_pks(self._union(pks, pks_after))
         return result
 
     async def upsert(self, conflict: list[str] | None = None, values: dict | None = None) -> int:
-        """Upsert e invalida la entrada de la PK real tras el commit (D-15).
+        """Upsert e invalida las entradas de las filas afectadas tras el commit (D-15).
 
         El caso canónico `upsert(conflict=["rfc"])` desde una instancia con el
-        auto-`id` sin asignar resuelve la PK real y borra esa única entrada
-        (CR-01).
+        auto-`id` sin asignar resuelve la PK real (puede ser más de una si la clave
+        de conflicto no es única) y borra esas entradas (CR-01). Re-sonda
+        post-escritura para acotar el TOCTOU (WR-02); fail-open (D-12).
         """
-        pk = await self._resolve_pk_values(conflict)
+        pks = await self._resolve_pk_values(conflict)
         count = await super().upsert(conflict=conflict, values=values)
-        await self._invalidate_pk(pk)
+        pks_after = await self._resolve_pk_values(conflict)
+        await self._invalidate_pks(self._union(pks, pks_after))
         return count
 
     @classmethod
