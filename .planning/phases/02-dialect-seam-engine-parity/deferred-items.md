@@ -74,3 +74,55 @@ closed by `02-09`; the two entries below are closed by `02-08`.
 - **CHANGELOG wording for Phase 8 to reuse:** "`Model.upsert()` en MariaDB emite
   `ON DUPLICATE KEY UPDATE` en vez de `ON CONFLICT`, que MariaDB no implementa
   (el camino estaba roto)."
+
+## Encontrados durante 02-08 (ejecución del MERGE en MSSQL/Oracle)
+
+Defectos **preexistentes** del render `merge` que aparecieron al añadir la
+cobertura de motor de `Model.insert(replace=True)` (Task 3). El plan asumía que
+la sentencia era ejecutable en ambos motores; no lo era.
+
+### MSSQL — `MERGE` sin `;` terminal (error 10713)
+
+- **Síntoma:** `pyodbc.ProgrammingError` 10713: "A MERGE statement must be
+  terminated by a semi-colon (;)".
+- **Causa:** `builders._merge_sql` no añade `;`, y SQL Server lo exige.
+- **Estado:** **CORREGIDO** en 02-08 (Rule 3, desbloqueaba el test de motor). Se
+  añade `;` SOLO al SQL que va al driver en `MssqlDb.execute`, de modo que
+  `_prepare`, golden strings y snapshots conservan el SQL byte-idéntico.
+- **Cobertura:** `tests/test_mssql.py::TestMssqlParity::test_model_insert_replace_no_rompe_el_merge`
+  (fallaba con 10713 antes del fix).
+
+### Oracle — `USING (SELECT …)` sin `FROM dual` (ORA-00923)
+
+- **Síntoma:** `oracledb.exceptions.DatabaseError: ORA-00923: FROM keyword not
+  found where expected`.
+- **Causa:** `builders._merge_sql` emite `USING (SELECT {n} AS c, …) src`; Oracle
+  exige una fuente (`FROM dual`) en ese subquery.
+- **Estado:** **CORREGIDO** en 02-08 (Rule 3) a nivel de driver en
+  `OracleDb.execute` (regex que inserta `FROM dual`), preservando byte-identidad
+  de `_prepare`/snapshots/golden strings.
+- **Cobertura:** `tests/test_oracle.py::TestOracleParity::test_model_insert_replace_no_rompe_el_merge`
+  (caracteriza el fallo restante; ver abajo).
+
+### Oracle — el fallback `merge` actualiza la columna del `ON` (ORA-38104) — PENDIENTE
+
+- **Síntoma (tras el fix de `FROM dual`):** `ORA-38104: Columns referenced in the
+  ON Clause cannot be updated: "DST"."ENABLED"`.
+- **Causa:** cuando `conflict=None`, `build_insert` resuelve el objetivo a
+  `columns[0]` (`enabled`) y `_merge_sql` incluye TODAS las columnas de `data` en
+  el `WHEN MATCHED THEN UPDATE SET`, incluida `enabled`, que es la misma columna
+  del `ON`. Oracle prohíbe actualizar una columna del `ON` del `MERGE`.
+- **Impacto:** `Model.insert(replace=True)` **no es ejecutable en Oracle** para un
+  modelo de PK autoincremental (el caso que 02-08 documenta). Es el fallback
+  `merge` preexistente, ya reconocido como semánticamente incorrecto; en Oracle
+  además no es ejecutable.
+- **NO corregido en 02-08:** exigiría excluir la columna del `ON` del `SET` en
+  `builders._merge_sql`, lo que cambiaría el SQL del adaptador (golden strings y
+  snapshots pinados byte a byte por el criterio de 02-08). Queda DOCUMENTADO.
+- **Sugerencia para una fase futura:** excluir de `set_sql` las columnas de
+  `conflict_cols` (como ya hace `build_upsert` con `update_cols`) y regenerar los
+  snapshots de forma visible; entonces `Model.insert(replace=True)` en Oracle
+  sería ejecutable.
+- **Cobertura actual:** `tests/test_oracle.py::TestOracleParity::test_model_insert_replace_no_rompe_el_merge`
+  caracteriza ORA-38104 (falla si el builder se corrige, para forzar la
+  actualización del test).
