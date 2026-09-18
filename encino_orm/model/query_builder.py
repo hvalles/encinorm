@@ -196,6 +196,14 @@ class QueryBuilder:
 
     # --- generación de SQL ---
     def _build_base(self) -> tuple[str, list]:
+        # Contrato de identificadores del módulo (barrido CR-01, ronda 2): los
+        # ÚNICOS identificadores que llegan al SQL son (1) `_table`, validado en
+        # `__init__`/`join` con la allowlist ESTRICTA; (2) los alias, validados en
+        # `__init__`/`join`/`join_subquery`; (3) las expresiones de columna,
+        # validadas por `_safe_column` con `_COLUMN_RE` (tolerante a puntos a
+        # propósito: `mm.agente`). `_COLUMN_RE` NO se unifica con la estricta
+        # (Pitfall 10: unificar sería un cambio de comportamiento y relajarla
+        # reabriría la superficie de inyección).
         params = []
         sql = f"FROM {self._model_class._table} {self._alias}"
         for join in self._joins:
