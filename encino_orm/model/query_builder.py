@@ -45,6 +45,14 @@ class QueryBuilder:
     """
 
     def __init__(self, model_class, db=None, alias: str = "mm"):
+        # `_build_base()` interpola `_table` en el FROM/JOIN; el ÚNICO sitio que lo
+        # validaba era `Model._build_column_map()`, que `QueryBuilder` no dispara
+        # (solo llama a `_column_map()` para `select("alias.*")`). Por eso el
+        # defecto sobrevivió a la ronda anterior y se cierra aquí, en la frontera
+        # pública. Allowlist ESTRICTA: un nombre de tabla es siempre un
+        # identificador desnudo (el cualificado se resuelve con `schema=` en los
+        # builders), así que no se usa la `_COLUMN_RE` tolerante a puntos.
+        check_identifier(model_class._table, "nombre de tabla")
         self._model_class = model_class
         self._db = db
         # Un alias es siempre un identificador desnudo en el FROM/JOIN generado;
@@ -102,6 +110,9 @@ class QueryBuilder:
         # Validar ANTES de comprobar duplicados: un alias hostil debe fallar como
         # identificador inválido, no como alias duplicado.
         alias = check_identifier(alias, "alias")
+        # El destino del JOIN se interpola igual que el FROM; su `_table` pasa por
+        # la misma allowlist estricta (puede venir de un modelo dinámico).
+        check_identifier(other._table, "nombre de tabla")
         if alias in self._aliases:
             raise DuplicateAliasError(f"alias '{alias}' duplicado")
         self._aliases.add(alias)
