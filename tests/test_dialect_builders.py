@@ -343,6 +343,23 @@ class TestBuildUpsert:
             "INSERT INTO t (a,b) VALUES ({0},{1}) ON DUPLICATE KEY UPDATE b = VALUES(b)"
         )
 
+    def test_build_upsert_mariadb_emite_on_duplicate_key(self):
+        # WR-04: MariaDB habla el protocolo MySQL y espera `ON DUPLICATE KEY
+        # UPDATE`, no el `ON CONFLICT` de PostgreSQL/SQLite.
+        qry = build_upsert(
+            "t",
+            {"a": 1, "b": "x"},
+            strategy=strategy_for("mariadb"),
+            upsert_kind=UPSERT_KIND["mariadb"],
+            conflict=["a"],
+            update_cols=["b"],
+        )
+        assert qry.sql_template == (
+            "INSERT INTO t (a,b) VALUES ({0},{1}) ON DUPLICATE KEY UPDATE b = VALUES(b)"
+        )
+        assert "ON CONFLICT" not in qry.sql_template
+        assert strategy_for("mariadb") is strategy_for("mysql")
+
     def test_merge_mssql_con_as(self):
         qry = build_upsert(
             "t",
@@ -499,11 +516,29 @@ class TestUpsertKindYStrategyFor:
             "mssql",
             "oracle",
         }
-        assert UPSERT_KIND["mariadb"] == "on_conflict"
+        # EDICIÓN DELIBERADA (02-08): 02-02 preservó verbatim el valor previo
+        # ("on_conflict") para mantener la byte-identidad del refactor, pero
+        # MariaDB NO implementa `ON CONFLICT` (sintaxis de PostgreSQL/SQLite):
+        # MariaDB 11 —imagen de CI promovida a motor REQUERIDO por 02-05— espera
+        # `ON DUPLICATE KEY UPDATE`, la misma forma que MySQL.
+        assert UPSERT_KIND["mariadb"] == "on_duplicate"
         assert UPSERT_KIND["mysql"] == "on_duplicate"
         assert UPSERT_KIND["mssql"] == "merge"
         assert UPSERT_KIND["oracle"] == "merge"
         assert set(UPSERT_KINDS) == {"on_conflict", "on_duplicate", "merge"}
+
+    def test_upsert_kind_mariadb_es_on_duplicate(self):
+        # Complementa `test_mapa_por_dialecto` (que pina el valor editado) y
+        # verifica que el mapa conserva los seis dialectos.
+        assert UPSERT_KIND["mariadb"] == "on_duplicate"
+        assert set(UPSERT_KIND) == {
+            "sqlite",
+            "mysql",
+            "mariadb",
+            "postgresql",
+            "mssql",
+            "oracle",
+        }
 
     def test_strategy_for_normaliza_engine_y_str(self):
         from encino_orm.engine import Engine

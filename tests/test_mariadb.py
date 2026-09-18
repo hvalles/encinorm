@@ -69,6 +69,27 @@ _PARITY_DDL_SIN_MONTO = (
 )
 
 
+class _UpsertModel(Model):
+    """Modelo dedicado de upsert: clave ÚNICA DE DATO (no la PK autoincremental).
+
+    `Model.upsert` omite `id` del INSERT cuando la PK es autoincremental, así que
+    `ON DUPLICATE KEY UPDATE` solo puede dispararse sobre una clave que SÍ viaja
+    en el INSERT. Mismo motivo por el que `tests/test_bulk_upsert.py` usa
+    `Usuario(email UNIQUE)` + `upsert(conflict=["email"])`.
+    """
+
+    _table = "test_upsert_parity"
+    nombre: str | None = None
+    monto: float | None = None
+
+
+_UPSERT_DDL = (
+    "CREATE TABLE test_upsert_parity ("
+    "id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50) UNIQUE, monto DOUBLE, "
+    "enabled TINYINT(1) DEFAULT 1, created_at DATETIME, updated_at DATETIME)"
+)
+
+
 async def _reset(db, ddl):
     await db.execute(Query("DROP TABLE IF EXISTS test_parity", []))
     await db.execute(Query(ddl, []))
@@ -192,3 +213,25 @@ class TestMariadbParity:
 
         await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
         assert await db.last_id() == 2
+
+    @pytest.mark.asyncio
+    async def test_model_upsert_on_duplicate_key(self, mariadb_connected_db):
+        # WR-04: `Model.upsert` debe emitir `ON DUPLICATE KEY UPDATE` (MariaDB no
+        # implementa `ON CONFLICT`). El objetivo de conflicto es una clave ÚNICA
+        # DE DATO presente en el INSERT, no la PK autoincremental (que se omite).
+        db = mariadb_connected_db
+        await db.execute(Query("DROP TABLE IF EXISTS test_upsert_parity", []))
+        await db.execute(Query(_UPSERT_DDL, []))
+
+        obj = _UpsertModel(db, nombre="Ana", monto=10.0)
+        await obj.insert()
+
+        obj.monto = 99.0
+        await obj.upsert(conflict=["nombre"])
+
+        # `count() == 1` + `monto == 99.0` distinguen el UPDATE en sitio de un
+        # INSERT plano (que dejaría dos filas); no es una tautología de "no lanza".
+        assert await _UpsertModel(db).count() == 1
+        filas = await _UpsertModel(db).search(Filter.eq("nombre", "Ana"))
+        assert len(filas) == 1
+        assert filas[0].monto == 99.0
