@@ -31,9 +31,30 @@ class _FailingDeleteCache:
         raise RuntimeError("backend caído")
 
 
+class ClientePK(CachedModel):
+    """Modelo con PK por defecto (`id`) para el caso CR-01: la clave de ESCRITURA
+    (`rfc`) no coincide con la de LECTURA (`load()` usa la PK)."""
+
+    _table = "clientes_pk"
+    rfc: str | None = Field(default=None)
+    nombre: str | None = Field(default=None)
+
+
+DDL_PK = (
+    "CREATE TABLE clientes_pk (id INTEGER PRIMARY KEY AUTOINCREMENT, rfc TEXT, nombre TEXT, "
+    "enabled INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)"
+)
+
+
 @pytest.fixture
 async def db(connected_db):
     await connected_db.execute(Query(DDL, []))
+    return connected_db
+
+
+@pytest.fixture
+async def db_pk(connected_db):
+    await connected_db.execute(Query(DDL_PK, []))
     return connected_db
 
 
@@ -150,3 +171,23 @@ class TestCachedModel:
 
         await Cliente.insert_many(db, [{"rfc": otro_rfc, "nombre": "Sin cache"}])
         assert await cache.get(key) is not None
+
+    @pytest.mark.asyncio
+    async def test_invalidate_also_pk_domain_cr01(self, db_pk):
+        """CR-01: un write por una clave distinta de la PK debe invalidar TAMBIÉN la
+        entrada de la PK que `load()` escribe por defecto; si no, un `load()` posterior
+        devuelve el valor viejo."""
+        cache = MemoryCacheBackend()
+        c = ClientePK(db_pk, cache=cache, rfc="R1", nombre="Viejo")
+        await c.insert()
+
+        loaded = await ClientePK(db_pk, cache=cache, id=c.id).load()
+        pk_key = loaded._cache_key(list(ClientePK._pk_fields()))
+        assert await cache.get(pk_key) is not None
+
+        c.nombre = "Nuevo"
+        await c.update(keys=["rfc"])
+
+        assert await cache.get(pk_key) is None
+        again = await ClientePK(db_pk, cache=cache, id=c.id).load()
+        assert again.nombre == "Nuevo"
