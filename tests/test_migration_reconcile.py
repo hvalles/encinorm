@@ -39,15 +39,24 @@ class LedgerDb(Db):
         fail_ddl: bool = False,
         fail_promote: bool = False,
         fail_duplicate_insert: bool = False,
+        fail_compensation: bool = False,
+        last_id_available: bool = True,
     ):
         self.transactional_ddl = transactional_ddl
         self.fail_ddl = fail_ddl
         self.fail_promote = fail_promote
         self.fail_duplicate_insert = fail_duplicate_insert
+        # IN-01: fuerza que el DELETE de compensación falle.
+        self.fail_compensation = fail_compensation
+        # False modela un motor sin `last_id()` útil (Oracle devuelve 0).
+        self.last_id_available = last_id_available
         self.ledger: dict[str, dict] = {}
-        # Registro de cada DELETE emitido, para verificar el compare-and-delete
-        # de la compensación (WR-01).
+        # Registro de cada DELETE emitido, para verificar el borrado por
+        # identidad y el compare-and-delete de la compensación (WR-01).
         self.delete_calls: list[dict] = []
+        # Autoincremento del ledger y `lastrowid` de ESTA instancia (WR-01).
+        self._next_id = 0
+        self._last_id = 0
         self._entry: dict | None = None
         self._published: dict | None = None
 
@@ -103,17 +112,26 @@ class LedgerDb(Db):
             if kind == "INSERT":
                 if self.fail_duplicate_insert and qry[1]["name"] in self.ledger:
                     raise RuntimeError("nombre duplicado en el ledger")
-                self.ledger[qry[1]["name"]] = dict(qry[1])
+                # El ledger real asigna un `id` autoincremental; lo modelamos y
+                # recordamos la identidad de la última fila insertada (WR-01).
+                self._next_id += 1
+                row = dict(qry[1])
+                row["id"] = self._next_id
+                self.ledger[qry[1]["name"]] = row
+                self._last_id = self._next_id
             elif kind == "DELETE":
                 # Fiel al SQL real (`DELETE ... WHERE col = {n} AND ...`): todas
-                # las claves del dict deben coincidir con la fila. Un `{name}`
-                # sobre una fila `applied` la borra; un `{name, status: pending}`
-                # sobre una fila `applied` NO.
+                # las claves del dict deben coincidir con la fila. Soporta tanto
+                # el borrado por identidad `{id}` como el compare-and-delete
+                # `{name, status: pending}` (WR-01).
                 keys = dict(qry[1])
                 self.delete_calls.append(keys)
-                row = self.ledger.get(keys["name"])
-                if row is not None and all(row.get(k) == v for k, v in keys.items()):
-                    self.ledger.pop(keys["name"], None)
+                if self.fail_compensation:
+                    raise RuntimeError("compensación falló")
+                for nombre, row in list(self.ledger.items()):
+                    if all(row.get(k) == v for k, v in keys.items()):
+                        self.ledger.pop(nombre, None)
+                        break
             elif kind == "UPDATE":
                 if self.fail_promote and qry[2].get("status") == STATUS_APPLIED:
                     raise RuntimeError("promote a applied falló")
@@ -143,12 +161,45 @@ class LedgerDb(Db):
         return await self.fetch_one(qry) is not None
 
     async def last_id(self):
-        return 0
+        # Identidad de la última fila insertada por ESTA instancia (modela el
+        # `lastrowid` de MySQL/MariaDB). 0 si no hubo INSERT o si el motor no
+        # expone `last_id()` útil (Oracle).
+        return self._last_id if self.last_id_available else 0
 
     async def migrate(self, name, qry): ...
 
     async def migrate_status(self):
         return list(self.ledger.values())
+
+
+class ReinsertionLedgerDb(LedgerDb):
+    """Simula el interleaving rollback+reinserción de WR-01 residual.
+
+    La transacción fallida de ESTA llamada hace rollback de su fila `pending`
+    (el fallo ocurre ANTES del commit implícito del DDL); acto seguido otro
+    runner publica su propia fila `pending` con un `id` nuevo (autoincremento
+    global). El `last_id()` de esta instancia sigue apuntando a la fila que
+    ELLA insertó, así que la compensación no debe tocar la fila ajena.
+    """
+
+    @asynccontextmanager
+    async def transaction(self):
+        self._entry = copy.deepcopy(self.ledger)
+        try:
+            yield self
+        except Exception:
+            # Fallo ANTES del commit implícito: el rollback elimina la fila de A.
+            self.ledger.clear()
+            self.ledger.update(copy.deepcopy(self._entry))
+            # El otro runner re-publica `pending` con un id distinto (id=2).
+            self._next_id += 1
+            self.ledger["v1"] = {
+                "name": "v1",
+                "status": STATUS_PENDING,
+                "sql_text": "CREATE TABLE t",
+                "id": self._next_id,
+            }
+            raise
 
 
 DDL = Query("CREATE TABLE t (id INTEGER PRIMARY KEY)", [])
@@ -218,6 +269,45 @@ class TestApplyTwoPhase:
     async def test_compensacion_borra_solo_la_fila_pending_propia(self):
         """La compensación usa compare-and-delete sobre `status='pending'`."""
         db = LedgerDb(transactional_ddl=False, fail_ddl=True)
+
+        with pytest.raises(RuntimeError):
+            await _apply(db, "v1", DDL)
+
+        assert db.ledger == {}
+        assert db.delete_calls == [{"name": "v1", "status": STATUS_PENDING}]
+
+    @pytest.mark.asyncio
+    async def test_wr01_compensacion_no_borra_la_fila_reinsertada(self):
+        """WR-01 residual: el borrado por identidad no toca la fila de B.
+
+        A inserta `pending` (id=1) y su DDL falla ANTES del commit (el rollback
+        elimina su fila); B re-publica `pending` (id=2). La compensación de A
+        debe borrar por `id=1` (inexistente) y dejar intacta la fila de B.
+        """
+        db = ReinsertionLedgerDb(transactional_ddl=False, fail_ddl=True)
+
+        with pytest.raises(RuntimeError):
+            await _apply(db, "v1", DDL)
+
+        # La fila de B (id=2) sobrevive; la compensación apuntó a la de A (id=1).
+        assert db.ledger["v1"]["id"] == 2
+        assert db.ledger["v1"]["status"] == STATUS_PENDING
+        assert db.delete_calls == [{"id": 1}]
+
+    @pytest.mark.asyncio
+    async def test_in01_compensacion_fallida_no_enmascara_el_error_raiz(self):
+        """IN-01: la excepción del DDL raíz sobrevive a un fallo de compensación."""
+        db = LedgerDb(transactional_ddl=False, fail_ddl=True, fail_compensation=True)
+
+        with pytest.raises(RuntimeError) as exc:
+            await _apply(db, "v1", DDL)
+
+        assert "DDL falló" in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_compensacion_sin_last_id_usa_compare_and_delete(self):
+        """Fallback (Oracle, `last_id()==0`): compare-and-delete `{name, pending}`."""
+        db = LedgerDb(transactional_ddl=False, fail_ddl=True, last_id_available=False)
 
         with pytest.raises(RuntimeError):
             await _apply(db, "v1", DDL)
