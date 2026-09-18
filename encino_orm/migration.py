@@ -5,6 +5,16 @@ from dataclasses import dataclass
 from .exceptions import MigrationError
 from .query import Query
 
+# Fuente única del nombre del ledger. Los adaptadores lo importan desde aquí
+# (adaptador -> migration, nunca al revés) para no crear ciclos de importación.
+MIGRATIONS_TABLE = "_encino_orm_migrations"
+
+# Máquina de estados de la columna `status` (D-01/D-07). El DEFAULT del ledger
+# es `applied` porque una fila solo existe tras un DDL exitoso.
+STATUS_PENDING = "pending"
+STATUS_APPLIED = "applied"
+STATUS_ROLLING_BACK = "rolling_back"
+
 
 @dataclass(frozen=True)
 class Migration:

@@ -9,11 +9,11 @@ from .dialects.identifiers import check_identifier
 from .dialects.strategies import LIMITS, SQLITE_INSERT, InsertStrategy
 from .exceptions import ConnectionError
 from .introspection.types import ColumnSpec, _normalize
+from .migration import MIGRATIONS_TABLE
 from .observability import current_trace_id
 from .query import Query
 
 _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
-_MIGRATIONS_TABLE = "_encino_orm_migrations"
 
 
 def _log(method, sql, values, elapsed):
@@ -112,7 +112,8 @@ class SqliteDb(Db):
     def _tables_sql(self) -> str:
         return (
             "SELECT name FROM sqlite_master "
-            "WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_encino_orm_migrations'"
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+            f"AND name <> '{MIGRATIONS_TABLE}'"
         )
 
     async def columns_of(self, table: str) -> list[ColumnSpec]:
@@ -224,27 +225,53 @@ class SqliteDb(Db):
         await self._ensure_migrations_table()
 
         existing = await self.fetch_one(
-            Query(f"SELECT id FROM {_MIGRATIONS_TABLE} WHERE name = {{0}}", [name])
+            Query(f"SELECT id FROM {MIGRATIONS_TABLE} WHERE name = {{0}}", [name])
         )
         if existing is not None:
             return
 
         await self.execute(qry)
-        await self.execute(self.insert(_MIGRATIONS_TABLE, {"name": name, "sql_text": qry.sql}))
+        await self.execute(self.insert(MIGRATIONS_TABLE, {"name": name, "sql_text": qry.sql}))
         await self.commit()
 
     async def migrate_status(self) -> list[dict]:
         self._ensure_connected()
         await self._ensure_migrations_table()
-        return await self.fetch_all(Query(f"SELECT * FROM {_MIGRATIONS_TABLE} ORDER BY id", []))
+        return await self.fetch_all(Query(f"SELECT * FROM {MIGRATIONS_TABLE} ORDER BY id", []))
 
     async def _ensure_migrations_table(self):
         self._ensure_connected()
         await self._connection.execute(
-            f"CREATE TABLE IF NOT EXISTS {_MIGRATIONS_TABLE} ("
+            f"CREATE TABLE IF NOT EXISTS {MIGRATIONS_TABLE} ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT, "
             "name TEXT NOT NULL UNIQUE, "
             "applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+            "status TEXT NOT NULL DEFAULT 'applied', "
             "sql_text TEXT NOT NULL)"
         )
         await self._connection.commit()
+        await self._ensure_status_column()
+
+    async def _ensure_status_column(self):
+        """Añade `status` al ledger si falta (instalaciones legacy, D-04).
+
+        `CREATE TABLE IF NOT EXISTS` no añade columnas a una tabla ya existente;
+        el guard es "verify-then-swallow": si el `ALTER` falla por una carrera
+        multi-proceso, se re-lee el catálogo y solo se re-lanza si `status`
+        sigue ausente (Pitfall 6).
+        """
+        check_identifier(MIGRATIONS_TABLE, "tabla del ledger")
+        cols = {c.name.lower() for c in await self.columns_of(MIGRATIONS_TABLE)}
+        if "status" in cols:
+            return
+        try:
+            await self._connection.execute(
+                f"ALTER TABLE {MIGRATIONS_TABLE} ADD status TEXT NOT NULL DEFAULT 'applied'"
+            )
+            await self._connection.commit()
+        except Exception:
+            if await self.in_transaction():
+                await self.rollback()
+            cols = {c.name.lower() for c in await self.columns_of(MIGRATIONS_TABLE)}
+            if "status" not in cols:
+                raise
