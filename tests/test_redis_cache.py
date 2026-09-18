@@ -66,10 +66,13 @@ class TestCachedModelRedis:
         await connected_db.execute(Query(DDL, []))
         await ClienteRedis(connected_db, rfc="XAXX010101000", nombre="Héctor").insert()
 
+        # El dominio de caché es canónico (la PK): la lectura no-PK aprende la PK
+        # de la fila devuelta y cachea SOLO bajo ella, que es la clave que usamos
+        # para comprobar el hit (la instancia `c1` no lleva `id`; el objeto sí).
         c1 = ClienteRedis(connected_db, rfc="XAXX010101000", cache=redis_cache)
         obj = await c1.load(keys=["rfc"], duration=600)
         assert obj.nombre == "Héctor"
-        key = c1._cache_key(["rfc"])
+        key = ClienteRedis._cache_key_for(("id",), {"id": obj.id})
         try:
             assert await redis_cache.get(key) is not None
 
@@ -77,8 +80,8 @@ class TestCachedModelRedis:
             await connected_db.execute(
                 Query("DELETE FROM clientes_redis WHERE rfc = {0}", ["XAXX010101000"])
             )
-            c2 = ClienteRedis(connected_db, rfc="XAXX010101000", cache=redis_cache)
-            obj2 = await c2.load(keys=["rfc"], duration=600)
+            c2 = ClienteRedis(connected_db, id=obj.id, cache=redis_cache)
+            obj2 = await c2.load(duration=600)
             assert obj2.nombre == "Héctor"
             assert getattr(obj2, "__exists") is True
         finally:

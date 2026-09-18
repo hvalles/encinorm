@@ -41,9 +41,19 @@ class ClientePK(CachedModel):
 
 
 DDL_PK = (
-    "CREATE TABLE clientes_pk (id INTEGER PRIMARY KEY AUTOINCREMENT, rfc TEXT, nombre TEXT, "
+    "CREATE TABLE clientes_pk (id INTEGER PRIMARY KEY AUTOINCREMENT, rfc TEXT UNIQUE, nombre TEXT, "
     "enabled INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)"
 )
+
+
+def _pk_key() -> str:
+    """Clave del dominio canónico (`id=1`) que `load()` debe escribir SIEMPRE."""
+    return ClientePK._cache_key_for(("id",), {"id": 1})
+
+
+def _rfc_key() -> str:
+    """Clave de LECTURA no-PK que el dominio canónico ya NO debe poblar."""
+    return ClientePK._cache_key_for(("rfc",), {"rfc": "R1"})
 
 
 @pytest.fixture
@@ -190,4 +200,95 @@ class TestCachedModel:
 
         assert await cache.get(pk_key) is None
         again = await ClientePK(db_pk, cache=cache, id=c.id).load()
+        assert again.nombre == "Nuevo"
+
+    @pytest.mark.asyncio
+    async def test_cr01_non_pk_read_caches_under_pk_only(self, db_pk):
+        """El dominio de caché es canónico: una lectura no-PK aprende la PK de la
+        fila y cachea SOLO bajo ella; no deja entrada bajo la clave de lectura."""
+        cache = MemoryCacheBackend()
+        await ClientePK(db_pk, cache=cache, rfc="R1", nombre="Viejo").insert()
+
+        obj = await ClientePK(db_pk, cache=cache, rfc="R1").load(keys=["rfc"])
+        assert obj.nombre == "Viejo"
+        assert await cache.get(_pk_key()) is not None
+        assert await cache.get(_rfc_key()) is None
+
+        # Una lectura no-PK NO acierta en caché: si la fila desaparece de la BD,
+        # el siguiente `load(keys=["rfc"])` lo refleja (no sirve la entrada PK).
+        await db_pk.execute(Query("DELETE FROM clientes_pk WHERE rfc = {0}", ["R1"]))
+        gone = await ClientePK(db_pk, cache=cache, rfc="R1").load(keys=["rfc"])
+        assert getattr(gone, "__exists") is False
+
+    @pytest.mark.asyncio
+    async def test_cr01_update_without_instance_pk_invalidates_pk_entry(self, db_pk):
+        """CR-01: un `update(keys=["rfc"])` desde una instancia SIN la PK (`id=None`)
+        resuelve la PK real de la fila e invalida esa única entrada."""
+        cache = MemoryCacheBackend()
+        await ClientePK(db_pk, cache=cache, rfc="R1", nombre="Viejo").insert()
+
+        loaded = await ClientePK(db_pk, cache=cache, id=1).load()
+        assert loaded.nombre == "Viejo"
+        assert await cache.get(_pk_key()) is not None
+
+        w = ClientePK(db_pk, cache=cache, rfc="R1", nombre="Nuevo")
+        assert w.id is None
+        await w.update(keys=["rfc"])
+
+        assert await cache.get(_pk_key()) is None
+        again = await ClientePK(db_pk, cache=cache, id=1).load()
+        assert again.nombre == "Nuevo"
+
+    @pytest.mark.asyncio
+    async def test_cr01_upsert_without_instance_pk_invalidates_pk_entry(self, db_pk):
+        """CR-01: el caso canónico `upsert(conflict=["rfc"])` con el auto-`id` sin
+        asignar debe invalidar la entrada cacheada bajo la PK real."""
+        cache = MemoryCacheBackend()
+        await ClientePK(db_pk, cache=cache, rfc="R1", nombre="Viejo").insert()
+
+        loaded = await ClientePK(db_pk, cache=cache, id=1).load()
+        assert loaded.nombre == "Viejo"
+        assert await cache.get(_pk_key()) is not None
+
+        w = ClientePK(db_pk, cache=cache, rfc="R1", nombre="Nuevo")
+        assert w.id is None
+        await w.upsert(conflict=["rfc"])
+
+        assert await cache.get(_pk_key()) is None
+        again = await ClientePK(db_pk, cache=cache, id=1).load()
+        assert again.nombre == "Nuevo"
+
+    @pytest.mark.asyncio
+    async def test_cr01_delete_without_instance_pk_invalidates_pk_entry(self, db_pk):
+        """CR-01: un `delete(keys=["rfc"])` desde una instancia SIN la PK resuelve
+        la PK real antes del borrado (una vez borrada, el SELECT ya no la hallaría)."""
+        cache = MemoryCacheBackend()
+        await ClientePK(db_pk, cache=cache, rfc="R1", nombre="Viejo").insert()
+
+        loaded = await ClientePK(db_pk, cache=cache, id=1).load()
+        assert loaded.nombre == "Viejo"
+        assert await cache.get(_pk_key()) is not None
+
+        w = ClientePK(db_pk, cache=cache, rfc="R1")
+        assert w.id is None
+        await w.delete(keys=["rfc"])
+
+        assert await cache.get(_pk_key()) is None
+
+    @pytest.mark.asyncio
+    async def test_cr01_update_by_pk_invalidates_non_pk_cached_entry(self, db_pk):
+        """Residual inverso: `load(keys=["rfc"])` (que cachea bajo la PK) seguido de
+        un `update()` por PK debe invalidar esa entrada; el `load(keys=["rfc"])`
+        posterior va a BD y devuelve el valor NUEVO."""
+        cache = MemoryCacheBackend()
+        await ClientePK(db_pk, cache=cache, rfc="R1", nombre="Viejo").insert()
+
+        await ClientePK(db_pk, cache=cache, rfc="R1").load(keys=["rfc"])
+        assert await cache.get(_pk_key()) is not None
+
+        w = ClientePK(db_pk, cache=cache, id=1, nombre="Nuevo")
+        await w.update()
+
+        assert await cache.get(_pk_key()) is None
+        again = await ClientePK(db_pk, cache=cache, rfc="R1").load(keys=["rfc"])
         assert again.nombre == "Nuevo"
