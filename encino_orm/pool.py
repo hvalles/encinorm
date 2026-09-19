@@ -2,6 +2,7 @@ import asyncio
 import contextvars
 import logging
 import time
+import warnings
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
@@ -90,8 +91,15 @@ class PoolDb(Db):
         min_size: int = 2,
         max_size: int = 10,
         idle_timeout: float | None = 60,
+        *,
+        reset_on_release: str = "rollback",
         **conn_kwargs,
     ):
+        if reset_on_release not in ("rollback", "commit"):
+            raise ValueError(
+                f"reset_on_release inválido: {reset_on_release!r}; "
+                "usa 'rollback' (default) o 'commit'"
+            )
         if isinstance(engine, Engine):
             engine = engine.value
         self._engine = engine
@@ -99,6 +107,17 @@ class PoolDb(Db):
         self._min_size = min_size
         self._max_size = max_size
         self._idle_timeout = idle_timeout
+        self._reset_on_release = reset_on_release
+        if reset_on_release == "commit":
+            # El warning se engancha a la POLÍTICA, no a `in_transaction()`:
+            # en MSSQL/Oracle un SELECT deja `_in_tx=True` y avisar por cada
+            # lectura rompería `filterwarnings=["error"]` (Pitfall 4 / A1).
+            warnings.warn(
+                "reset_on_release='commit' está deprecado: la liberación con "
+                "transacción abierta revierte por defecto (usa 'rollback')",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self._conn_kwargs = conn_kwargs
         self._template = self._engine_cls()
         self._idle = asyncio.Queue()
@@ -225,6 +244,16 @@ class PoolDb(Db):
         self._checked_out.discard(handle)
         handle.checked_out = False
         handle.owner_task = None
+        # Política de reset del sobrante (POOL-04): `execute`/`_run` ya cerraron
+        # la transacción explícitamente; aquí solo se trata lo que el llamador
+        # dejó abierto. En MSSQL/Oracle `in_transaction()` puede ser True tras un
+        # SELECT, así que revertir una lectura es inocuo y NO emite warning
+        # (Pitfall 4): el warning vive en la política "commit" (constructor).
+        if await handle.driver.in_transaction():
+            if self._reset_on_release == "commit":
+                await handle.driver.commit()
+            else:
+                await handle.driver.rollback()
         handle.touch()
         await self._idle.put(handle)
 

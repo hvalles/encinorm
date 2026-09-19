@@ -1,5 +1,6 @@
 import asyncio
 import time
+import warnings
 from contextlib import asynccontextmanager
 
 import pytest
@@ -424,6 +425,45 @@ class TestPoolStandaloneRollback:
         assert ("rollback", None) not in handle.driver.calls
         assert p._idle.qsize() == 1
         await p.close()
+
+
+class TestPoolResetOnRelease:
+    """POOL-04: política `reset_on_release` aplicada al sobrante al liberar."""
+
+    @pytest.mark.asyncio
+    async def test_release_with_reset_on_release_commit_commits(self, fake_engine):
+        with pytest.warns(DeprecationWarning, match="reset_on_release='commit'"):
+            p = PoolDb("fake", min_size=0, max_size=2, reset_on_release="commit")
+        await p.connect()
+        conn = await p.acquire()
+        conn.driver._in_tx = True
+
+        await p.release(conn)
+
+        assert ("commit",) in conn.driver.calls
+        await p.close()
+
+    def test_invalid_reset_on_release_raises(self, fake_engine):
+        # Fail-closed: NO se expone "none" (el comportamiento accidental que la
+        # fase elimina, A2).
+        with pytest.raises(ValueError):
+            PoolDb("fake", min_size=0, max_size=2, reset_on_release="none")
+
+    @pytest.mark.asyncio
+    async def test_select_leftover_does_not_warn(self, fake_engine):
+        # El warning se engancha a la POLÍTICA "commit", no a `in_transaction()`:
+        # en MSSQL/Oracle un SELECT deja `_in_tx=True` y no debe avisar
+        # (Pitfall 4 / A1). Con el default "rollback" no se emite ningún warning.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            p = PoolDb("fake", min_size=0, max_size=2)
+            await p.connect()
+            conn = await p.acquire()
+            conn.driver._in_tx = True
+            await p.release(conn)
+            await p.close()
+
+        assert not any(issubclass(w.category, DeprecationWarning) for w in caught)
 
 
 class TestModelWithPool:

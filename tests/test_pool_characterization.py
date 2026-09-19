@@ -5,11 +5,12 @@ pendientes — y son la red de seguridad de la Fase 4: el refactor del pool
 (POOL-01…POOL-07) ACTUALIZA (nunca borra) cada aserción que invierte. Cada
 aserción que se espera invertir nombra el requisito POOL que la cambia.
 
-Estado en 04-01: POOL-01 (handle `PooledConnection`) y POOL-02 (admisión sin
-carrera y `release()` con ownership) ya están implementados e invertidos; el
-cache de id a nivel de pool (POOL-03) se eliminó y la captura por conexión/tarea
-llega en 04-02 (`execute_insert`). POOL-04 (reset al liberar) y POOL-05/06
-(reaper y `close()`) siguen pendientes y conservan su baseline.
+Estado en 04-03: POOL-01 (handle `PooledConnection`), POOL-02 (admisión sin
+carrera y `release()` con ownership), POOL-03 (id por conexión/tarea con
+`execute_insert`) y POOL-04 (cierre explícito en `execute`/`_run` y política
+`reset_on_release` con rollback por defecto) ya están implementados e
+invertidos. POOL-05/06 (reaper y `close()`) siguen pendientes y conservan su
+baseline.
 
 Restricciones (D-09 + Research Correction 4): no se "arregla" ningún resultado
 sorprendente, no se suaviza ninguna aserción de estado privado y no se
@@ -340,7 +341,7 @@ class TestPoolReleaseSemantics:
         assert reused is conn
         await p.close()
 
-    async def test_release_does_not_commit_or_rollback(self, fake_engine):
+    async def test_release_rolls_back_leftover_transaction(self, fake_engine):
         p = PoolDb("fake", min_size=0, max_size=2)
         await p.connect()
         conn = await p.acquire()
@@ -348,10 +349,10 @@ class TestPoolReleaseSemantics:
 
         await p.release(conn)
 
-        # POOL-04: Fase 4 hace que release() revierta por defecto; hoy no toca
-        # la transacción en absoluto.
-        assert ("commit",) not in conn.driver.calls
-        assert ("rollback", None) not in conn.driver.calls
+        # POOL-04: aserción INVERTIDA (antes: `release()` no tocaba la
+        # transacción en absoluto). Con la política default `"rollback"`, el
+        # sobrante de transacción se revierte al liberar.
+        assert ("rollback", None) in conn.driver.calls
         await p.close()
 
     async def test_release_does_not_check_liveness(self, fake_engine):
