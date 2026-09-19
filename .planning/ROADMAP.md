@@ -320,7 +320,7 @@ Plans:
 
 **Wave 1** *(parallel, disjoint: `context.py` vs `security/*`)*
 
-- [ ] 06-01-PLAN.md — `ConnectionRegistry` replacing the `_default_db` global, with deprecated backward-compatible shims; migrates `tests/test_singleton.py` to the undeprecated path under `filterwarnings=["error"]` — CFG-01
+- [x] 06-01-PLAN.md — `ConnectionRegistry` replacing the `_default_db` global, with deprecated backward-compatible shims; migrates `tests/test_singleton.py` to the undeprecated path under `filterwarnings=["error"]` — CFG-01
 - [ ] 06-02-PLAN.md — Immutable `SecurityConfig` + `security_dependencies(config)` guard factories replacing mutable `SECRET`/`GET_DB`, with deprecated globals; migrates `B008` to `Annotated` — CFG-02
 
 **Wave 2** *(parallel, disjoint: `http/routes.py` vs `graphql/schema.py`; blocked on Wave 1 so public signatures change once)*
@@ -467,7 +467,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 3. Data Correctness | 13/13 | Complete    | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 6/6 | Complete    | 2026-09-19 |
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
-| 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
+| 6. Config & Optional-Layer Hygiene | 1/5 | In Progress|  |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
 | 8. Release 0.3.0 | 0/5 | Not started | - |
 

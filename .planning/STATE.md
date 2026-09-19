@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 5 complete (4/4) — ready to discuss Phase 6
-last_updated: 2026-09-19T05:52:44.837Z
+status: executing
+stopped_at: "Completed 06-01-PLAN.md (CFG-01: ConnectionRegistry) — Fase 6 en curso (1/5)"
+last_updated: "2026-09-19T06:26:38.101Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 40
-  completed_plans: 40
-  percent: 63
+  total_plans: 45
+  completed_plans: 41
+  percent: 91
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 6
-Plan: Not started
-Status: Ready to plan
+Plan: 2 of 5
+Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [██████████] 100%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -97,6 +97,7 @@ Progress: [██████████] 100%
 | Phase 5 P2 | 9 min | 3 tasks | 8 files |
 | Phase 5 P3 | 3min | 3 tasks | 7 files |
 | Phase 5 P4 | 7 min | 3 tasks | 15 files |
+| Phase 06 P01 | 6 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -212,6 +213,9 @@ Recent decisions affecting current work:
 - [Phase 05]: la taxonomia es aditiva y _translate_exception cortocircuita el lock PRIMERO (devuelve el original sin traducir) para que retry() siga reconociendolo; el resto se traduce a ConnectionLostError/OperationalError/IntegrityError/ProgrammingError. — Traducir un lock romperia el reintento por deadlock (Pitfall 3 / T-05-04-01); ConnectionLostError hereda de ConnectionError y los tres QueryError-derived pasan a mapearse a HTTP 400.
 - [Phase 05]: chaining raise ... from exc adoptado como desviacion DELIBERADA de la convencion del repo, documentada en docs/engines.md y CHANGELOG.md. — La traduccion REEMPLAZA el tipo de excepcion; perder la causa del driver destruiria el diagnostico (ASVS V7 / T-05-04-05).
 - [Phase 05]: el ratchet de mypy retira base/oracle/mysql/mssql tras corregir sus residuales sin # type: ignore; encino_orm.pool queda intacto. — base:109 (last_exc) y mysql:69 (args) se arreglaron en Task 1; oracle out.getvalue() se corrige con guard out is not None en Task 3; pool es residual de Fase 4.
+- [Phase 06]: ConnectionRegistry con estado de instancia reemplaza el global mutable _default_db; resolve_db() sin argumentos conserva el default del _registry de modulo — Dos apps/tenants en el mismo proceso dejan de pisarse; la firma retrocompatible evita romper model/model.py y el barrel (Pitfall 11)
+- [Phase 06]: El DeprecationWarning de los shims set_default_db/get_default_db vive SOLO en los shims y aterriza en el MISMO commit que la migracion de tests/test_singleton.py (W1) — filterwarnings=[error] convierte el camino caliente en fallo de suite (Pitfall 1); ningun commit intermedio queda rojo
+- [Phase 06]: El import perezoso de pool dentro de ConnectionRegistry.resolve() usa from . import pool — Preserva el contrato de importacion diferida y satisface el grep de control del plan, cuyo regex ^\s* tambien matcheaba el import intencional
 
 ### Pending Todos
 
@@ -236,6 +240,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T05:29:35.539Z
-Stopped at: Completed 05-04-PLAN.md (RESL-04: taxonomia publica y traduccion driver -> libreria) — Fase 5 completa (4/4)
+Last session: 2026-09-19T06:26:38.091Z
+Stopped at: Completed 06-01-PLAN.md (CFG-01: ConnectionRegistry) — Fase 6 en curso (1/5)
 Resume file: None

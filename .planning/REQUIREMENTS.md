@@ -61,7 +61,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 ### Config & Optional-Layer Hygiene
 
-- [ ] **CFG-01**: `ConnectionRegistry` reemplaza el global `_default_db`, con shims retrocompatibles deprecados
+- [x] **CFG-01**: `ConnectionRegistry` reemplaza el global `_default_db`, con shims retrocompatibles deprecados
 - [ ] **CFG-02**: `SecurityConfig` inmutable y factorías de guards reemplazan los globales mutables `SECRET`/`GET_DB`
 - [ ] **CFG-03**: Los handlers generados con `exec()` se sustituyen por closures/`__signature__` en un refactor que preserva comportamiento, con snapshot OpenAPI antes/después
 - [ ] **CFG-04**: `build_schema` de GraphQL usa un namespace por build y deja de mutar el namespace del módulo
@@ -168,7 +168,7 @@ Qué fase cubre cada requisito.
 | RESL-02 | Phase 5 | Complete |
 | RESL-03 | Phase 5 | Complete |
 | RESL-04 | Phase 5 | Complete |
-| CFG-01 | Phase 6 | Pending |
+| CFG-01 | Phase 6 | Complete |
 | CFG-02 | Phase 6 | Pending |
 | CFG-03 | Phase 6 | Pending |
 | CFG-04 | Phase 6 | Pending |
