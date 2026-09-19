@@ -318,11 +318,23 @@ generated handlers stop being built with `exec()` — without changing the HTTP 
 
 Plans:
 
-- [ ] 06-01: `ConnectionRegistry` replacing the `_default_db` global, with deprecated backward-compatible shims — CFG-01
-- [ ] 06-02: Immutable `SecurityConfig` + guard factories replacing mutable `SECRET`/`GET_DB`, with deprecated globals — CFG-02
-- [ ] 06-03: Replace `exec()`-generated handlers with closures/`__signature__` as a behavior-preserving refactor, guarded by an OpenAPI snapshot taken before and after — CFG-03
-- [ ] 06-04: GraphQL `build_schema` uses a per-build namespace and stops mutating the module namespace — CFG-04
-- [ ] 06-05: Explicit trust-boundary documentation for `Filter.raw`, `Query` and `db.fn.*` fragments — CFG-05
+**Wave 1** *(parallel, disjoint: `context.py` vs `security/*`)*
+
+- [ ] 06-01-PLAN.md — `ConnectionRegistry` replacing the `_default_db` global, with deprecated backward-compatible shims; migrates `tests/test_singleton.py` to the undeprecated path under `filterwarnings=["error"]` — CFG-01
+- [ ] 06-02-PLAN.md — Immutable `SecurityConfig` + `security_dependencies(config)` guard factories replacing mutable `SECRET`/`GET_DB`, with deprecated globals; migrates `B008` to `Annotated` — CFG-02
+
+**Wave 2** *(parallel, disjoint: `http/routes.py` vs `graphql/schema.py`; blocked on Wave 1 so public signatures change once)*
+
+- [ ] 06-03-PLAN.md — Replace `exec()`-generated REST handlers with closures/`__signature__` as a behavior-preserving refactor, guarded by an OpenAPI snapshot taken **before** the rewrite — CFG-03 (HTTP)
+- [ ] 06-04-PLAN.md — Replace the GraphQL `_pk_resolver` `exec()` with closures/`__signature__` (guarded by an SDL snapshot taken before the rewrite) **and** make `build_schema` use a per-build namespace — CFG-03 (GraphQL) + CFG-04
+
+**Wave 3** *(blocked on Waves 1–2; single owner of the shared files)*
+
+- [ ] 06-05-PLAN.md — Explicit trust-boundary documentation for `Filter.raw`, `Query` and `db.fn.*` (`docs/trust-boundaries.md` + regression test), deprecation banners for `set_default_db` in `README.md`/`docs/getting-started.md`, `CHANGELOG.md` entries for CFG-01…05, retirement of the `S102`/`B008`/mypy-ratchet suppressions naming Phase 6 (incl. `encino_orm.http.parsing`), and the isolated `PyJWT>=2.8,<2.15` cap bump with `uv lock` + `uv audit`/`pip-audit` and the 5 GHSA ignores removed — CFG-05
+
+**Waves:** 1 → `06-01`, `06-02`; 2 → `06-03`, `06-04`; 3 → `06-05`. The Wave 1 pair is disjoint (`context.py`+`__init__.py` vs `security/*`). The Wave 2 pair is disjoint (`http/routes.py` vs `graphql/schema.py`) and waits for Wave 1 so the public config signatures are frozen before the OpenAPI/SDL snapshots are captured. `06-05` runs last because it is the single owner of `pyproject.toml`, `CHANGELOG.md`, `mkdocs.yml` and `ci.yml` (Pitfall 8: three parallel plans editing the same gate block would conflict). All five plans are autonomous (no checkpoints; no new packages).
+
+**Deviation documented (Open Question 3).** The ROADMAP text attributes CFG-03 to "handlers" and CFG-04 to the GraphQL namespace, but the second `exec()` site is `graphql/schema.py:103`. To keep `06-03` and `06-04` disjoint in files, **`06-04` owns all of `graphql/schema.py`** (exec → closures + per-build namespace) with **two** guardians (SDL snapshot + namespace non-mutation), and `06-03` owns HTTP + OpenAPI only.
 
 ### Phase 7: Performance & Benchmarks
 
