@@ -1,6 +1,6 @@
 """Construcción del `strawberry.Schema` con queries y mutations por modelo."""
 
-from typing import Optional
+from inspect import Parameter, Signature
 
 import strawberry
 from strawberry.schema.config import StrawberryConfig
@@ -48,60 +48,63 @@ def _pk_arg_type(model, field):
 
 
 def _pk_resolver(model, gtype, op, itype=None):
-    """Construye un resolver `get`/`update`/`delete` derivado de `_primary_key`."""
+    """Construye un resolver `get`/`update`/`delete` derivado de `_primary_key`.
+
+    La firma observable (nombres, anotaciones y tipo de retorno que Strawberry
+    convierte en argumentos GraphQL) se declara con `inspect.Signature` en
+    `__signature__`; no se genera ni ejecuta código con `exec()`.
+    """
     pk = list(model._primary_key)
-    type_names = [f"_pk_t{i}" for i in range(len(pk))]
-    sig = ", ".join(f"{f}: {tn}" for f, tn in zip(pk, type_names, strict=False))
-    kwargs = ", ".join((f"{f}=int({f})" if f == "id" else f"{f}={f}") for f in pk)
+    arg_types = {f: _pk_arg_type(model, f) for f in pk}
+
+    def _cast(values):
+        # Replica la coercion `id=int(id)` del cuerpo generado original.
+        return {f: (int(values[f]) if f == "id" else values[f]) for f in pk}
 
     if op == "get":
-        decl = f"async def resolver(info: Info, {sig}) -> Optional[gtype]:"
-        body = (
-            "    async with db_session(info) as conn:\n"
-            f"        obj = await cursor(model, conn, {kwargs}).load()\n"
-            "        return obj if obj._exists else None\n"
-        )
-    elif op == "update":
-        decl = f"async def resolver(info: Info, {sig}, data: itype) -> gtype:"
-        body = (
-            "    async with db_session(info) as conn:\n"
-            f"        obj = await cursor(model, conn, {kwargs}).load()\n"
-            "        if not obj._exists:\n"
-            "            raise NotFoundError(model._table)\n"
-            "        for k, v in strawberry.asdict(data).items():\n"
-            "            if v is not None:\n"
-            "                setattr(obj, k, v)\n"
-            "        await obj.update()\n"
-            f"        return await cursor(model, conn, {kwargs}).load()\n"
-        )
-    else:  # delete
-        decl = f"async def resolver(info: Info, {sig}) -> bool:"
-        body = (
-            "    async with db_session(info) as conn:\n"
-            f"        obj = await cursor(model, conn, {kwargs}).load()\n"
-            "        if not obj._exists:\n"
-            "            return False\n"
-            "        await obj.delete()\n"
-            "        return True\n"
-        )
 
-    src = f"{decl}\n{body}"
-    ns = {
-        "__name__": __name__,
-        "Info": Info,
-        "Optional": Optional,
-        "strawberry": strawberry,
-        "db_session": db_session,
-        "cursor": cursor,
-        "model": model,
-        "gtype": gtype,
-        "itype": itype,
-        "NotFoundError": NotFoundError,
-    }
-    for i, f in enumerate(pk):
-        ns[f"_pk_t{i}"] = _pk_arg_type(model, f)
-    exec(src, ns)
-    return ns["resolver"]
+        async def resolver(info, **kwargs):
+            async with db_session(info) as conn:
+                obj = await cursor(model, conn, **_cast(kwargs)).load()
+                return obj if obj._exists else None
+
+        return_annotation = gtype | None
+    elif op == "update":
+
+        async def resolver(info, data, **kwargs):
+            async with db_session(info) as conn:
+                obj = await cursor(model, conn, **_cast(kwargs)).load()
+                if not obj._exists:
+                    raise NotFoundError(model._table)
+                for k, v in strawberry.asdict(data).items():
+                    if v is not None:
+                        setattr(obj, k, v)
+                await obj.update()
+                return await cursor(model, conn, **_cast(kwargs)).load()
+
+        return_annotation = gtype
+    else:  # delete
+
+        async def resolver(info, **kwargs):
+            async with db_session(info) as conn:
+                obj = await cursor(model, conn, **_cast(kwargs)).load()
+                if not obj._exists:
+                    return False
+                await obj.delete()
+                return True
+
+        return_annotation = bool
+
+    parameters = [Parameter("info", Parameter.POSITIONAL_OR_KEYWORD, annotation=Info)]
+    parameters += [
+        Parameter(f, Parameter.POSITIONAL_OR_KEYWORD, annotation=arg_types[f]) for f in pk
+    ]
+    if op == "update":
+        parameters.append(Parameter("data", Parameter.POSITIONAL_OR_KEYWORD, annotation=itype))
+    resolver.__signature__ = Signature(parameters, return_annotation=return_annotation)
+    resolver.__name__ = "resolver"
+    resolver.__qualname__ = "resolver"
+    return resolver
 
 
 def _get_resolver(model, gtype):
