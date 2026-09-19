@@ -336,19 +336,37 @@ class TestCopyTable:
         assert inserts == []
 
     @pytest.mark.asyncio
-    async def test_tabla_solo_auto_pk(self, src):
+    async def test_tabla_solo_auto_pk(self, src, dst):
         # `target_cols == []` (solo PK autoincremental y preserve_ids=False): el
-        # multi-VALUES sin columnas no existe, así que se conserva el camino fila
-        # a fila original y la copia sigue funcionando.
+        # multi-VALUES sin columnas no existe. Se inserta una fila DEFAULT por
+        # fila origen con SQL específico de dialecto. Regresión MR-01: el camino
+        # emitía `INSERT INTO t () VALUES ()` y fallaba con error de sintaxis en
+        # SqliteDb real (el test anterior lo pinaba con un doble).
         await src.execute(Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT)", []))
         for _i in range(3):
             await src.execute(Query("INSERT INTO t DEFAULT VALUES", []))
-        spy = FakeDb()
+        assert await copy_table(src, dst, "t", create=True, preserve_ids=False) == 3
+        rows = await dst.fetch_all(Query("SELECT id FROM t ORDER BY id", []))
+        assert [r["id"] for r in rows] == [1, 2, 3]
+
+    @pytest.mark.asyncio
+    async def test_mas_columnas_que_MAX_PARAMS_degradan_a_fila_a_fila(self, src):
+        # LR-01: `batch_size` devuelve 0 (ni una fila cabe en lote: 3 columnas
+        # con MAX_PARAMS=2). La copia degrada al insert de fila única, donde la
+        # sentencia lleva exactamente las 3 columnas y se respeta el límite.
+        await src.execute(
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, a TEXT, b TEXT, c TEXT)", [])
+        )
+        for i in range(3):
+            await src.execute(
+                Query("INSERT INTO t (a, b, c) VALUES ({0},{1},{2})", [f"a{i}", f"b{i}", f"c{i}"])
+            )
+        spy = FakeDb(dialect="sqlite", max_params=2, max_rows=1000)
         assert await copy_table(src, spy, "t", preserve_ids=False) == 3
-        # El camino fila a fila ejecuta un `insert` simple (con keys vacías) por fila.
-        assert len(spy.insert_calls) == 3
-        assert len(spy.executes) == 3
-        assert all(q.sql_template.startswith("INSERT INTO t ()") for q in spy.executes)
+        inserts = [q for q in spy.executes if q.sql_template.startswith("INSERT")]
+        assert len(inserts) == 3  # una sentencia por fila
+        assert all(q.sql_template.startswith("INSERT INTO t (a,b,c)") for q in inserts)
+        assert all(len(q.params) == 3 for q in inserts)
 
     @pytest.mark.asyncio
     async def test_error_propagado(self, src):

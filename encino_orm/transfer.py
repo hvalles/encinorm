@@ -9,7 +9,7 @@ import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from .dialects import build_multi_insert, strategy_for
+from .dialects import build_insert, build_multi_insert, strategy_for
 from .dialects.identifiers import check_identifier
 from .engine import Engine, engine_of
 from .query import Query
@@ -21,6 +21,39 @@ def _auto_pk_name(columns) -> str | None:
     if len(pk) == 1 and pk[0].datatype == "int":
         return pk[0].name
     return None
+
+
+def batch_size(n_columns: int, max_params: int, max_rows: int) -> int:
+    """Filas por lote del camino multi-VALUES de `copy_table`.
+
+    `max_params // n_columns` es la capacidad de una fila en parámetros, techada
+    por `max_rows`. Puede devolver 0 cuando el destino no admite NI UNA fila con
+    ese número de columnas (más columnas que `max_params`): el llamador debe
+    degradar al insert de fila única (LR-01). Vive en producción para que el
+    canario de `tests/test_benchmarks.py` mida ESTE código y no una copia literal
+    (LR-02).
+    """
+    return min(max_params // max(n_columns, 1), max_rows)
+
+
+def _default_row_sql(table: str, auto_pk: str, dialect: str) -> str:
+    """SQL de inserción de una fila con TODOS los valores por defecto.
+
+    Solo se usa cuando la copia NO tiene columnas de datos (`target_cols == []`:
+    una tabla con únicamente la PK autoincremental y `preserve_ids=False`). El
+    `INSERT INTO t () VALUES ()` no es válido en SQLite/MSSQL/Oracle y el
+    multi-VALUES sin columnas no existe en ningún dialecto (MR-01); Oracle no
+    tiene `DEFAULT VALUES`, así que inserta el `DEFAULT` explícito en la columna
+    de identidad (única columna garantizada en esta rama).
+    """
+    table = check_identifier(table, "tabla")
+    if dialect in (Engine.SQLITE, Engine.POSTGRESQL, Engine.MSSQL):
+        return f"INSERT INTO {table} DEFAULT VALUES"
+    if dialect in (Engine.MYSQL, Engine.MARIADB):
+        return f"INSERT INTO {table} () VALUES ()"
+    if dialect == Engine.ORACLE:
+        return f"INSERT INTO {table} ({check_identifier(auto_pk, 'columna')}) VALUES (DEFAULT)"
+    raise ValueError(f"motor sin forma de fila de solo defaults: {dialect!r}")
 
 
 def _as_naive_utc(value: datetime) -> datetime:
@@ -158,17 +191,46 @@ async def copy_table(
     async with dst.transaction():
         if truncate:
             await dst.execute(Query(f"DELETE FROM {table}", []))
-        if target_cols:
+        if not target_cols:
+            # Sin columnas de datos (solo PK autoincremental y preserve_ids=False):
+            # no hay valores que ligar; se inserta una fila de DEFAULTs por fila
+            # origen con SQL específico de dialecto (MR-01).
+            default_qry = Query(_default_row_sql(table, auto_pk, dialect), [])
+            for _row in rows:
+                await dst.execute(default_qry)
+                total += 1
+        else:
             max_params = getattr(dst, "MAX_PARAMS", 500)
             max_rows = getattr(dst, "MAX_ROWS", 1000)
-            chunk = max(1, min(max_params // max(len(target_cols), 1), max_rows))
-            batch = []
-            for row in rows:
-                batch.append(_serialize(row))
-                if len(batch) >= chunk:
-                    # La lista de columnas se toma de la PRIMERA fila del lote y es
-                    # estable dentro del lote: todas las filas serializan el mismo
-                    # `target_cols`, así que `batch` comparte `keys()`.
+            chunk = batch_size(len(target_cols), max_params, max_rows)
+            if chunk == 0:
+                # Más columnas de datos que el techo de parámetros del destino
+                # (LR-01): ni una fila cabe en lote. Degrada al insert de fila
+                # única, válido en los seis dialectos; es el límite respetándose
+                # a sí mismo (una fila por sentencia).
+                for row in rows:
+                    await dst.execute(
+                        build_insert(table, _serialize(row), strategy=strategy_for(dialect))
+                    )
+                    total += 1
+            else:
+                batch = []
+                for row in rows:
+                    batch.append(_serialize(row))
+                    if len(batch) >= chunk:
+                        # La lista de columnas se toma de la PRIMERA fila del lote y es
+                        # estable dentro del lote: todas las filas serializan el mismo
+                        # `target_cols`, así que `batch` comparte `keys()`.
+                        qry = build_multi_insert(
+                            table,
+                            list(batch[0].keys()),
+                            [list(d.values()) for d in batch],
+                            strategy=strategy_for(dialect),
+                        )
+                        await dst.execute(qry)
+                        total += len(batch)
+                        batch = []
+                if batch:
                     qry = build_multi_insert(
                         table,
                         list(batch[0].keys()),
@@ -177,23 +239,6 @@ async def copy_table(
                     )
                     await dst.execute(qry)
                     total += len(batch)
-                    batch = []
-            if batch:
-                qry = build_multi_insert(
-                    table,
-                    list(batch[0].keys()),
-                    [list(d.values()) for d in batch],
-                    strategy=strategy_for(dialect),
-                )
-                await dst.execute(qry)
-                total += len(batch)
-        else:
-            # Tabla con una única columna PK autoincremental y preserve_ids=False:
-            # `target_cols == []` y el multi-VALUES sin columnas no existe en ningún
-            # dialecto. Se conserva el camino fila a fila (degradado, explícito).
-            for row in rows:
-                await dst.execute(dst.insert(table, _serialize(row)))
-                total += 1
     return total
 
 

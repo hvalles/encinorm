@@ -36,11 +36,15 @@ def _silence_tracer_logger():
 def _measure(fn, *, inner, warmup=3, reps=9) -> tuple[float, float, float]:
     """Devuelve (mediana, p95, sigma) de ops/s de `fn` (sin argumentos).
 
-    Cada repetición cronometrada ejecuta `inner` llamadas en un bucle for plano
-    (apuntando a >= 0.5 s en CI). `gc.collect()` se llama ANTES de cada bucle
-    cronometrado y el GC se desactiva DURANTE la medición, restaurándose después
-    (misma metodología que `timeit`); así el cronometrado no se ve contaminado
-    por recolecciones automáticas disparadas por las propias asignaciones.
+    Cada repetición cronometrada ejecuta `inner` llamadas en un bucle for plano.
+    Los bursts son CORTOs a propósito (ventanas reales ~5-160 ms): uno largo
+    (>= 1 s por repetición) colapsa la medición en este host por
+    thermal-throttle del CPU, y los bursts cortos deliberados compensan el ruido
+    de scheduler con la MEDIANA de 9 repeticiones (IN-01). `gc.collect()` se
+    llama ANTES de cada bucle cronometrado y el GC se desactiva DURANTE la
+    medición, restaurando su estado previo después (misma metodología que
+    `timeit`); así el cronometrado no se ve contaminado por recolecciones
+    automáticas disparadas por las propias asignaciones (IN-03).
     """
 
     def run():
@@ -50,6 +54,7 @@ def _measure(fn, *, inner, warmup=3, reps=9) -> tuple[float, float, float]:
     for _ in range(warmup):
         run()
     samples = []
+    gc_was_enabled = gc.isenabled()
     for _ in range(reps):
         gc.collect()
         gc.disable()
@@ -58,7 +63,8 @@ def _measure(fn, *, inner, warmup=3, reps=9) -> tuple[float, float, float]:
             run()
             elapsed = time.perf_counter() - t0
         finally:
-            gc.enable()
+            if gc_was_enabled:
+                gc.enable()
         samples.append(inner / elapsed)
     return statistics.median(samples), _percentile(samples, 0.95), statistics.stdev(samples)
 
@@ -184,16 +190,17 @@ def test_to_mysql_floor():
     _assert_floor("to_mysql", median, p95, std, 226_000)
 
 
-# 5. Fórmula de tamaño de lote (la misma que insert_many) — ~2,65M en CI
-#    (2,65M x 0.6 = piso 1,58M; recalibrado en la primera corrida del job).
+# 5. Fórmula de tamaño de lote `batch_size` (producción: encino_orm.transfer) —
+#    ~2,65M en CI (2,65M x 0.6 = piso 1,58M; recalibrado en la primera corrida
+#    del job). El canario mide la FUNCIÓN de producción, no una copia literal
+#    (LR-02): un cambio en `batch_size` parpadearía el gate en vez de ocultarse.
 def test_batch_sizing_floor():
-    result = max(1, min(32767 // max(5, 1), 1000))
-    assert result == 1000  # smoke: la fórmula sigue siendo válida
+    from encino_orm.transfer import batch_size
 
-    def _sizing():
-        return max(1, min(32767 // max(5, 1), 1000))
+    result = batch_size(5, 32767, 1000)
+    assert result == 1000  # smoke: 32767//5 = 6553, techado a MAX_ROWS 1000
 
-    median, p95, std = _measure(_sizing, inner=200_000)
+    median, p95, std = _measure(lambda: batch_size(5, 32767, 1000), inner=200_000)
     _assert_floor("batch_sizing", median, p95, std, 1_580_000)
 
 
