@@ -220,6 +220,18 @@ SQLite es embebido y no tiene socket: `SqliteDb._reconnect()` **rechaza** una ba
 `:memory:` (reconectar crearía una base vacía y perdería los datos) lanzando
 `ConnectionLostError`.
 
+**Limitaciones conocidas del reciclado (RESL-03).**
+
+- El reciclado proactivo **nunca** corre con una transacción abierta (CR-01):
+  cerrar la conexión revertiría el trabajo no confirmado en silencio. En MSSQL
+  (y Oracle) `in_transaction()` es conservador — puede ser `True` tras un simple
+  `SELECT` hasta el `commit()` explícito —, así que con esos motores el reciclado
+  puede quedar diferido hasta el próximo cierre de transacción (N-04).
+- La detección de un `KILL` en mitad de query en MSSQL se apoya en marcadores del
+  mensaje en inglés (`HY000`); con un servidor en otro idioma puede no
+  reconocerse como desconexión (WR-06). El resto de clases (`08xxx`) se detectan
+  por SQLSTATE, independiente del idioma.
+
 ### 3. Implementa las migraciones
 
 Copia `_ensure_migrations_table`/`migrate`/`migrate_status` de un motor existente

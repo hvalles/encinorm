@@ -102,11 +102,22 @@ class MssqlDb(Db):
         return int(codes[-1]) if codes else None
 
     def is_lock_error(self, exc: Exception) -> bool:
-        # 1205 deadlock victim, 1222 lock request timeout (por código nativo o
-        # por SQLSTATE: `40001` serialización, `HYT00` timeout).
-        if self._native_code(exc) in (1205, 1222):
+        # 1205 deadlock victim, 1222 lock request timeout: por código nativo o
+        # por SQLSTATE de serialización (`40001`). `HYT00` (timeout genérico) SOLO
+        # es lock si el mensaje lo confirma (N-01): tratarlo como lock siempre
+        # dejaría escapar crudo un timeout que no es de bloqueo.
+        code = self._native_code(exc)
+        if code in (1205, 1222):
             return True
-        return self._sqlstate(exc) in ("40001", "HYT00")
+        if code is not None:
+            return False
+        sqlstate = self._sqlstate(exc)
+        if sqlstate == "40001":
+            return True
+        if sqlstate == "HYT00":
+            message = self._message(exc).lower()
+            return "lock" in message or "1222" in message
+        return False
 
     def is_unique_violation(self, exc: Exception) -> bool:
         code = self._native_code(exc)

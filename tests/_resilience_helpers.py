@@ -246,6 +246,18 @@ def mssql_not_null() -> Exception:
     return _MssqlExc("23000", 515, "Cannot insert the value NULL into column")
 
 
+class _MssqlExcSinCodigo(Exception):
+    """`pyodbc.Error` con SQLSTATE y mensaje pero SIN código nativo al final."""
+
+    def __init__(self, sqlstate: str, message: str):
+        self.args = (sqlstate, message)
+
+
+def mssql_timeout_generic() -> Exception:
+    """`HYT00` sin código: timeout genérico, NO lock (N-01)."""
+    return _MssqlExcSinCodigo("HYT00", "Timeout expired")
+
+
 def mssql_syntax() -> Exception:
     """SQLSTATE 42000 + 102 (syntax) → `ProgrammingError`."""
     return _MssqlExc("42000", 102, "Incorrect syntax near 'x'")

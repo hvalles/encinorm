@@ -46,6 +46,7 @@ from tests._resilience_helpers import (
     mssql_lock_timeout,
     mssql_not_null,
     mssql_syntax,
+    mssql_timeout_generic,
     mysql_disconnect,
     mysql_gone_away,
     mysql_integrity,
@@ -397,9 +398,9 @@ class TestWithReconnect:
                 super().__init__(*args, **kwargs)
                 self.reconnect_calls = 0
 
-            async def _with_reconnect(self, fn, *, retry):
+            async def _with_reconnect(self, fn, *, is_read):
                 self.reconnect_calls += 1
-                return await super()._with_reconnect(fn, retry=retry)
+                return await super()._with_reconnect(fn, is_read=is_read)
 
         monkeypatch.setitem(pool_module._ENGINES, "fake", _DriverEspia)
         pool = _PoolEspia("fake", min_size=1, max_size=2)
@@ -665,6 +666,16 @@ def test_translate_encinoorm_error_tal_cual():
     db = SqliteDb()
     exc = QueryError("boom")
     assert db._translate_exception(exc) is exc
+
+
+def test_mssql_hyt00_sin_codigo_no_es_lock_y_se_traduce():
+    """N-01: un `HYT00` genérico (timeout, sin código 1222) NO es lock y se
+    traduce a `OperationalError` en vez de escapar crudo."""
+    exc = mssql_timeout_generic()
+    db = MssqlDb()
+    assert db.is_lock_error(exc) is False
+    assert db.is_disconnect_error(exc) is False
+    assert type(db._translate_exception(exc)) is OperationalError
 
 
 @pytest.mark.asyncio
