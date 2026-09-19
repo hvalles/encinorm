@@ -621,6 +621,23 @@ class TestPoolResetOnRelease:
         await p.close()
 
     @pytest.mark.asyncio
+    async def test_tarea_hija_no_comparte_la_conexion_del_padre(self, fake_engine):
+        # WR-01/WR2-01: `asyncio.create_task` copia el contextvar, así que una
+        # tarea hija dentro de `transaction()` vería la conexión del padre y
+        # podría intercalar sentencias en ella. Se falla cerrado.
+        p = PoolDb("fake", min_size=1, max_size=2)
+        await p.connect()
+
+        async def hija():
+            return await p.execute(Query("SELECT 1", []))
+
+        async with p.transaction():
+            with pytest.raises(ConnectionError):
+                await asyncio.create_task(hija())
+
+        await p.close()
+
+    @pytest.mark.asyncio
     async def test_select_leftover_does_not_warn(self, fake_engine):
         # El warning se engancha a la POLÍTICA "commit", no a `in_transaction()`:
         # en MSSQL/Oracle un SELECT deja `_in_tx=True` y no debe avisar

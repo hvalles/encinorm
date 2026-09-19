@@ -55,7 +55,18 @@ class FakeDb:
             self._in_tx = False
             raise
 
-    def insert(self, tabla, data, ignore_duplicated=False, replace=False):
+    def insert(
+        self,
+        tabla,
+        data,
+        ignore_duplicated=False,
+        replace=False,
+        conflict=None,
+        *,
+        schema=None,
+        returning=None,
+    ):
+        self.returning = returning
         return f"INSERT {tabla} {data}"
 
     def delete(self, tabla, keys):

@@ -430,8 +430,26 @@ class PoolDb(Db):
         return await self._run("_ensure_migrations_table")
 
     # --- Delegación ---
-    async def _run(self, method: str, *args):
+    def _owned_connection(self) -> "PooledConnection | None":
+        """Handle retenido por la tarea ACTUAL, o `None` fuera de una transacción.
+
+        El contextvar lo copia `asyncio.create_task()`, así que una tarea HIJA
+        dentro de `transaction()` vería la conexión del padre y podría intercalar
+        sentencias en ella (rompe la atomicidad). Se compara el `owner_task`
+        (POOL-02/WR-01) y se falla cerrado en vez de compartir la conexión.
+        """
         handle = _current_connection.get()
+        if handle is None:
+            return None
+        if handle.owner_task is not asyncio.current_task():
+            raise ConnectionError(
+                "la conexión del pool pertenece a otra tarea; no la compartas con "
+                "tareas hijas (asyncio.create_task copia el contexto)"
+            )
+        return handle
+
+    async def _run(self, method: str, *args):
+        handle = self._owned_connection()
         if handle is not None:
             # Dentro de `transaction()` la transacción la gobierna el usuario:
             # no se cierra nada aquí.
@@ -464,7 +482,7 @@ class PoolDb(Db):
             await self.release(handle)
 
     async def _run_scoped(self, method: str, *args):
-        handle = _current_connection.get()
+        handle = self._owned_connection()
         if handle is None:
             raise ConnectionError(f"{method}() solo es válido dentro de pool.transaction()")
         return await getattr(handle.driver, method)(*args)
