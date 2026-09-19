@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 04-04-PLAN.md (POOL-05/06: reaper perezoso + close() idempotente)"
-last_updated: "2026-09-19T03:16:47.116Z"
+stopped_at: "Completed 04-06-PLAN.md (POOL-07: tests deterministas de concurrencia/estres) — Phase 4 completa"
+last_updated: "2026-09-19T03:22:00.000Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 36
-  completed_plans: 35
-  percent: 38
+  completed_plans: 36
+  percent: 50
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 4
-Plan: 5 of 6 (04-04 complete)
-Status: Ready to execute
+Plan: 6 of 6 (04-06 complete)
+Status: Phase complete
 Last activity: 2026-09-19
 
-Progress: [██████████] 97%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -90,6 +90,7 @@ Progress: [██████████] 97%
 | Phase 04 P02 | 16 | 3 tasks | 28 files |
 | Phase 04 P03 | 3min | 3 tasks | 5 files |
 | Phase 04 P04 | 8min | 3 tasks | 5 files |
+| Phase 04 P06 | 20 min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,8 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-04: el reaper perezoso NO reencola dentro del bucle de drenado (el sketch del plan producia un bucle infinito); recolecta keep/to_close y reencola/cierra despues. — Reencolar un handle no reapeado mientras se sigue drenando lo devuelve a get_nowait() y la cola nunca se vacia (reproducido con timeout).
 - [Phase 04]: 04-04: connect() reabre el pool (_closed=False); release() cierra handles con pool cerrado o generacion obsoleta; _generation se asigna por handle y se incrementa en close(). — Sin el reset, un connect() tras close() cerraria todos los handles nuevos al liberarse; la generacion (A6) invalida los obsoletos tras close/reconnect.
 - [Phase 04]: 04-04: el ratchet de mypy de encino_orm.pool NO se retira (5 errores de tipado: 3 var-annotated + 2 override sobre atributos escribibles de Db); PT011/B017 diferidos y sin piso de cobertura para pool.py. — Los override exigen tocar base.py (fuera de alcance) y # type: ignore inline esta prohibido; el residual queda documentado para que el ratchet no mienta (Open Questions 4/5).
+- [Phase 04]: 04-06: los tests de admision liberan los handles (acquire -> sleep(0) -> release) y llaman `barrier.release()` explicitamente, porque con la reserva-antes-del-await solo `max_size` tareas alcanzan `connect()` y la barrera `parties=5` nunca se libera sola; se asserta `len(set(handles)) == max_size` (handles reutilizados), no 5 handles distintos (inalcanzable con `max_size=2`). — Evita un test colgante y afirma la propiedad real de capacidad (T-04-06-01).
+- [Phase 04]: 04-06: POOL-07 cubierto con 6 tests deterministas (carrera de admision, ids concurrentes sin cruce, commit standalone visible, `execute_insert` en transaccion, variante `stress` con `repeat(5)` y barrera single-use); el valor RED historico (`_size == 5`, cruce de ids) queda en la caracterizacion de Fase 1 porque `files_modified` prohibe editar `pool.py`. — Los tests AFIRMAN el comportamiento final; sin editar los ficheros de 04-04.
 
 ### Pending Todos
 
@@ -218,6 +221,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T03:16:47.106Z
-Stopped at: Completed 04-04-PLAN.md (POOL-05/06: reaper perezoso + close() idempotente)
+Last session: 2026-09-19T03:22:00.000Z
+Stopped at: Completed 04-06-PLAN.md (POOL-07: tests deterministas de concurrencia/estres) — Phase 4 completa
 Resume file: None

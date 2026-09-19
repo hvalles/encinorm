@@ -65,7 +65,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Safety Net — CI Gates & Test Infrastructure** - Make CI able to fail: lint, types, per-engine coverage, required-engine switch, and pool characterization tests before any refactor (completed 2026-09-17)
 - [x] **Phase 2: Dialect Seam & Engine Parity** - One identifier-validation choke point, shared DML builders, `Query` correctness, and proof that count/paginate/list_tables work on all six engines (completed 2026-09-18)
 - [x] **Phase 3: Data Correctness** - Migration ledger, atomic-or-reconciled `migrate()`, and `CachedModel` write-invalidation (parallel to Phase 2) (completed 2026-09-18)
-- [ ] **Phase 4: Pool Correctness & Concurrency** - `PooledConnection` handle, race-free `acquire()`, in-insert `last_id`, explicit release policy, lazy reaper, deterministic stress tests
+- [x] **Phase 4: Pool Correctness & Concurrency** - `PooledConnection` handle, race-free `acquire()`, in-insert `last_id`, explicit release policy, lazy reaper, deterministic stress tests (completed 2026-09-19)
 - [ ] **Phase 5: Resilience** - Classified disconnects, single reconnect outside transactions, `pre_ping`/lifetime for direct connections, public error taxonomy
 - [ ] **Phase 6: Config & Optional-Layer Hygiene** - `ConnectionRegistry` + `SecurityConfig` replace mutable globals; `exec()` codegen becomes closures; trust boundaries documented
 - [ ] **Phase 7: Performance & Benchmarks** - Profile first, then batched `copy_table`, a benchmark gate that fails a 2× regression, and bounded tracer/cache structures
@@ -272,7 +272,7 @@ Plans:
 - [x] 04-03: `reset_on_release` policy (rollback by default, configurable commit), with explicit commit-or-rollback in `execute`/`_run` first so standalone writes are not silently dropped; `DeprecationWarning` + CHANGELOG entry — POOL-04
 - [x] 04-04: Generation counter + lazy idle reaper closing connections above `min_size` (no background daemon), and an idempotent `close()` that never closes an in-use connection; retire the `encino_orm.pool` mypy-ratchet entry — POOL-05, POOL-06
 - [x] 04-05: Test infrastructure only (dev deps `pytest-timeout`/`pytest-repeat` + `uv lock`, `stress` marker, CI `--timeout-method=signal`, shared `EventBarrier` helper); no behavior assertions — POOL-07 *(logical `04-05a`; split from the original `04-05` to isolate the blocking-human package-legitimacy checkpoint)*
-- [ ] 04-06: Deterministic concurrency/stress tests using a hand-rolled `asyncio.Event` barrier (never `asyncio.Barrier`/`TaskGroup` on 3.10) asserting the final pool behavior, with `pytest-timeout` per marker and a `pytest-repeat` stress variant behind the `stress` marker — POOL-07 *(logical `04-05b`)*
+- [x] 04-06: Deterministic concurrency/stress tests using a hand-rolled `asyncio.Event` barrier (never `asyncio.Barrier`/`TaskGroup` on 3.10) asserting the final pool behavior, with `pytest-timeout` per marker and a `pytest-repeat` stress variant behind the `stress` marker — POOL-07 *(logical `04-05b`)*
 
 ### Phase 5: Resilience
 
@@ -453,7 +453,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
 | 3. Data Correctness | 13/13 | Complete    | 2026-09-18 |
-| 4. Pool Correctness & Concurrency | 5/6 | In Progress|  |
+| 4. Pool Correctness & Concurrency | 6/6 | Complete   | 2026-09-19 |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |

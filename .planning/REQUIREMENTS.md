@@ -50,7 +50,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 - [x] **POOL-04**: Existe una política `reset_on_release` configurable con rollback por defecto, más warning de deprecación y entrada de CHANGELOG
 - [x] **POOL-05**: Un contador de generación y un reaper perezoso cierran conexiones inactivas por encima de `min_size` sin daemon en background
 - [x] **POOL-06**: `close()` es idempotente y nunca cierra una conexión en uso por el llamador
-- [ ] **POOL-07**: Existen tests deterministas de concurrencia/estrés compatibles con Python 3.10 (barrera `asyncio.Event`) más `pytest-timeout`
+- [x] **POOL-07**: Existen tests deterministas de concurrencia/estrés compatibles con Python 3.10 (barrera `asyncio.Event`) más `pytest-timeout`
 
 ### Resilience
 
@@ -163,7 +163,7 @@ Qué fase cubre cada requisito.
 | POOL-04 | Phase 4 | Complete |
 | POOL-05 | Phase 4 | Complete |
 | POOL-06 | Phase 4 | Complete |
-| POOL-07 | Phase 4 | Pending |
+| POOL-07 | Phase 4 | Complete |
 | RESL-01 | Phase 5 | Pending |
 | RESL-02 | Phase 5 | Pending |
 | RESL-03 | Phase 5 | Pending |
