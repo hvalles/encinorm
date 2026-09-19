@@ -1040,6 +1040,17 @@ class TestBuildMultiInsert:
         with pytest.raises(ValueError):
             build_multi_insert("t", [], [[1]], strategy=SQLITE_INSERT)
 
+    def test_filas_desparejas_lanzan(self):
+        # Una fila corta y una larga con TOTAL coincidente: sin el guard, los
+        # valores se desplazarían entre filas y se corromperían en silencio
+        # (el contrato de `Query` solo compara el total de placeholders).
+        for filas in ([[1], [2, 3, 4]], [[1, 2], [3]], [[1, 2, 3], [4]]):
+            with pytest.raises(ValueError, match="fila"):
+                build_multi_insert("t", ["a", "b"], filas, strategy=SQLITE_INSERT)
+        # El guard es común a las dos ramas de render (multi-VALUES y Oracle).
+        with pytest.raises(ValueError, match="fila"):
+            build_multi_insert("t", ["a"], [[1, 2]], strategy=ORACLE_INSERT)
+
     def test_params_igual_a_filas_por_columnas(self):
         qry = build_multi_insert(
             "t", ["a", "b", "c"], [[1, 2, 3], [4, 5, 6], [7, 8, 9]], strategy=SQLITE_INSERT

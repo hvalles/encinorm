@@ -213,14 +213,22 @@ def build_multi_insert(
     SIEMPRE como parámetros `{n}` encadenados en orden fila a fila, nunca
     interpolados.
 
+    Contrato de longitud por fila: cada `row` debe tener EXACTAMENTE
+    `len(columns)` valores. Una fila despareja desplazaría sus valores a la fila
+    siguiente en el encadenado de params sin error (el total de placeholders
+    cuadraría) y corrompería los datos en silencio, así que se valida fail-closed
+    ANTES de aplanar (HR-01).
+
     `strategy.multi_values` discrimina el render: `True` genera el multi-VALUES
     `(...),(...),...`; `False` (Oracle, que no soporta multi-VALUES) genera un
     `INSERT ALL ... SELECT 1 FROM DUAL`. `ignore_duplicated` replica el
     comportamiento por kind de `build_insert`: prefijo (`INSERT OR IGNORE` /
-    `INSERT IGNORE`), sufijo (`ON CONFLICT DO NOTHING`) o flag de `Query`
-    cuando `carries_ignore_duplicated` (MSSQL/Oracle). Nunca emite
-    `OUTPUT INSERTED`/`RETURNING`: la captura de ids es opt-in y de fila única
-    (`build_insert`); `copy_table` no la necesita.
+    `INSERT IGNORE`) y sufijo (`ON CONFLICT DO NOTHING`) saltan POR FILA las
+    duplicadas; con `carries_ignore_duplicated` (MSSQL/Oracle) el SQL no cambia
+    y el `Query` lleva el flag, pero la semántica es ALL-OR-NOTHING: el adaptador
+    descarta el lote COMPLETO y `execute` devuelve 0 si CUALQUIER fila viola la
+    unicidad (MR-02). Nunca emite `OUTPUT INSERTED`/`RETURNING`: la captura de ids
+    es opt-in y de fila única (`build_insert`); `copy_table` no la necesita.
     """
     if not rows:
         raise ValueError(f"rows vacío: {rows!r}")
@@ -233,6 +241,14 @@ def build_multi_insert(
 
     n_rows = len(rows)
     n_cols = len(columns)
+    # Contrato de longitud por fila (HR-01): con total coincidente el contrato de
+    # `Query` no detecta una fila despareja, así que los valores se desplazarían
+    # entre filas en silencio. Se valida cada fila ANTES de aplanar.
+    for i, row in enumerate(rows):
+        if len(row) != n_cols:
+            raise ValueError(
+                f"fila {i} con {len(row)} valores para {n_cols} columnas: {row!r}"
+            )
     values = [v for row in rows for v in row]
 
     if strategy.multi_values:
