@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: in_progress
-stopped_at: Completed 04-01-PLAN.md (POOL-01/POOL-02)
-last_updated: "2026-09-18T23:17:53.824Z"
-last_activity: 2026-09-18
+status: executing
+stopped_at: Completed 04-05-PLAN.md (POOL-07 infra)
+last_updated: "2026-09-19T02:42:13.612Z"
+last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 36
-  completed_plans: 31
+  completed_plans: 32
   percent: 38
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 4
-Plan: 1 of 6 (04-01 complete)
-Status: In progress
-Last activity: 2026-09-18
+Plan: 2 of 6 (04-05 complete)
+Status: Ready to execute
+Last activity: 2026-09-19
 
-Progress: [██████████] 100%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ Progress: [██████████] 100%
 | Phase 03 P12 | 4 min | 2 tasks | 2 files |
 | Phase 03 P13 | 3 min | 2 tasks | 3 files |
 | Phase 04 P01 | 7 min | 3 tasks | 5 files |
+| Phase 04 P05 | 25 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -180,6 +181,9 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-01: `acquire()` reserva `_size` ANTES del `await` y la devuelve en `except BaseException`; el test de overshoot se reescribió con `EventBarrier.release()` + `acquire(timeout=0.5)` porque con `parties=5` solo `max_size` tareas alcanzan `connect()` (el test literal del plan se colgaría). Evidencia RED `_size == 5` → GREEN `_size == 2`.
 - [Phase 04]: 04-01: `needs_check = idle_timeout is None or handle.is_idle_for(idle_timeout)` preserva la semántica de `_needs_check` (con `idle_timeout=None` siempre se comprueba liveness); `is_idle_for(None)` devuelve `False` como pedía el plan.
 - [Phase 04]: 04-01: `_current_connection` guarda el handle y `resolve_db()` desenvaina `.driver` (Pitfall 8); `session()` NO fija `_current_connection` (Open Question 2) y `last_id()` fuera de transacción devuelve 0 (Open Question 3).
+- [Phase 04]: 04-05: pytest-timeout==2.4.0/pytest-repeat==0.9.4 pinados tras aprobacion humana explicita; upstream canonico github.com/pytest-dev/... verificado en PyPI.
+- [Phase 04]: 04-05: timeout global DESACTIVADO (timeout = 0); el limite va por marker SOLO en los tests de barrera, para no matar el job engine-heavy (Oracle 60-120 s). --timeout-method=signal en los jobs test y engine-heavy.
+- [Phase 04]: 04-05: tests/_pool_helpers.py ofrece EventBarrier 3.10-safe (solo asyncio.Event) + FakeDb/BlockingFakeDb con execute_insert; los ficheros de test existentes NO se migran aqui (esa migracion es de 04-06).
 
 ### Pending Todos
 
@@ -204,6 +208,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T23:17:25Z
-Stopped at: Completed 04-01-PLAN.md (POOL-01/POOL-02)
+Last session: 2026-09-19T02:42:13.600Z
+Stopped at: Completed 04-05-PLAN.md (POOL-07 infra)
 Resume file: None
