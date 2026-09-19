@@ -23,10 +23,12 @@ snapshot ausente FALLA, no se omite, asi que el ``.ambr`` va en el MISMO commit
 que este fichero y ANTES de tocar ``encino_orm/graphql/schema.py``.
 """
 
+import sys
 from typing import ClassVar
 
 import pytest
 
+import encino_orm.graphql.schema as schema_mod
 from encino_orm.graphql import build_schema
 from encino_orm.model import Model
 from encino_orm.sqlite import SqliteDb
@@ -38,6 +40,13 @@ class Ciudad(Model):
 
     _table = "ciudades"
     ciudad: str | None = None
+
+
+class Sonda(Model):
+    """Modelo sonda: ningun otro build lo registra, para aislar la no-mutacion."""
+
+    _table = "sondas"
+    sonda: str | None = None
 
 
 class Membresia(Model):
@@ -168,3 +177,23 @@ async def test_operaciones_pk_siguen_funcionando(db):
     )
     assert composite.errors is None
     assert composite.data["membresia"]["role"] == "owner"
+
+
+def test_build_schema_no_muta_el_namespace_del_modulo():
+    """Dos builds sucesivos no acumulan tipos en el namespace del modulo real.
+
+    Se incluye un build con el modelo sonda ``Sonda`` (que ningun otro test
+    registra) para que la asercion no dependa del orden de ejecucion: los
+    builds previos ya pudieron dejar ``Region``/``Agente`` en el namespace.
+    """
+    before = set(vars(schema_mod))
+    build_schema([Region, Agente])
+    build_schema([Sonda])
+    assert set(vars(schema_mod)) == before
+
+
+def test_build_schema_no_fuga_modulos_sinteticos():
+    """El namespace por build se registra solo durante la construccion del schema."""
+    build_schema([Region, Agente])
+    build_schema([Ciudad])
+    assert not [k for k in sys.modules if "_build_" in k]
