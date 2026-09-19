@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 06-02-PLAN.md (CFG-02: SecurityConfig) — Fase 6 en curso (2/5)"
-last_updated: "2026-09-19T06:53:00.179Z"
+stopped_at: "Completed 06-03-PLAN.md (CFG-03: HTTP codegen) — Fase 6 en curso (3/5)"
+last_updated: "2026-09-19T06:56:32.000Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 45
-  completed_plans: 42
-  percent: 93
+  completed_plans: 43
+  percent: 95
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 6
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [█████████░] 93%
+Progress: [█████████░] 95%
 
 ## Performance Metrics
 
@@ -99,6 +99,7 @@ Progress: [█████████░] 93%
 | Phase 5 P4 | 7 min | 3 tasks | 15 files |
 | Phase 06 P01 | 6 min | 2 tasks | 4 files |
 | Phase 06 P02 | 4 min | 2 tasks | 4 files |
+| Phase 06 P03 | 2 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -221,6 +222,9 @@ Recent decisions affecting current work:
 - [Phase 06]: security_dependencies(config) devuelve (get_current_user_factory, require_factory) con Annotated[...] en la inyeccion — B008 deja de aplicar y el per-file-ignore de guard.py es retirable por 06-05; fastapi sigue importandose dentro de cada factoria (importacion diferida)
 - [Phase 06]: El DeprecationWarning del fallback legacy se emite en guard.py DESPUES de validar la config — Sin globales lanza AuthenticationError sin avisar (fail-closed bajo filterwarnings=[error]); el mensaje nombra los globales y su reemplazo, nunca el valor del secreto (Pitfall 12)
 - [Phase 06]: La constante SECRET del test se renombra a _SIGNING_MATERIAL y Depends(...) migra a Annotated[...] — S105 y B008 quedan retirables por 06-05 (probe ruff --isolated en verde)
+- [Phase 06]: El snapshot OpenAPI (tests/__snapshots__/test_http_openapi.ambr) se captura y commitea CONTRA el exec() vigente (ca20a32) ANTES del rewrite (fa76bcf); Task 2 corre sin --snapshot-update y exige diff cero — Un snapshot capturado despues bendice la regresion y vacia el Criterio de Exito 3 (T-06-03-01/Pitfall 2)
+- [Phase 06]: _build_path_handler construye closures get/put/delete con inspect.Signature en __signature__ (PK -> data/physical -> db=Depends(get_db) sin annotation); handler.__name__/__qualname__ = 'handler' preserva el operationId — FastAPI lee __signature__ tal cual; sin exec() no hay S102 ni __globals__ fragil (Pitfalls 3/4/5)
+- [Phase 06]: create/list_ migran a Annotated[object, Depends(get_db)] (list_ con default None por seguir a parametros con default) — Elimina los 2 B008 de routes.py que 06-05 retirara; el OpenAPI byte-identico lo cubre el snapshot
 
 ### Pending Todos
 
@@ -245,6 +249,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T06:53:00.169Z
-Stopped at: Completed 06-02-PLAN.md (CFG-02: SecurityConfig) — Fase 6 en curso (2/5)
+Last session: 2026-09-19T06:56:32.000Z
+Stopped at: Completed 06-03-PLAN.md (CFG-03: HTTP codegen) — Fase 6 en curso (3/5)
 Resume file: None

@@ -325,7 +325,7 @@ Plans:
 
 **Wave 2** *(parallel, disjoint: `http/routes.py` vs `graphql/schema.py`; blocked on Wave 1 so public signatures change once)*
 
-- [ ] 06-03-PLAN.md — Replace `exec()`-generated REST handlers with closures/`__signature__` as a behavior-preserving refactor, guarded by an OpenAPI snapshot taken **before** the rewrite — CFG-03 (HTTP)
+- [x] 06-03-PLAN.md — Replace `exec()`-generated REST handlers with closures/`__signature__` as a behavior-preserving refactor, guarded by an OpenAPI snapshot taken **before** the rewrite — CFG-03 (HTTP)
 - [ ] 06-04-PLAN.md — Replace the GraphQL `_pk_resolver` `exec()` with closures/`__signature__` (guarded by an SDL snapshot taken before the rewrite) **and** make `build_schema` use a per-build namespace — CFG-03 (GraphQL) + CFG-04
 
 **Wave 3** *(blocked on Waves 1–2; single owner of the shared files)*
@@ -467,7 +467,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 3. Data Correctness | 13/13 | Complete    | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 6/6 | Complete    | 2026-09-19 |
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
-| 6. Config & Optional-Layer Hygiene | 2/5 | In Progress|  |
+| 6. Config & Optional-Layer Hygiene | 3/5 | In Progress|  |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
 | 8. Release 0.3.0 | 0/5 | Not started | - |
 
