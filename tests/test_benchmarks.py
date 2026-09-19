@@ -91,7 +91,8 @@ class _B(Model):
 #
 # Lineas base del harness (mediana de ops/s, runs locales 2026-09-19):
 # sql_build ~254K, query_construction ~175K, query_with_params ~221K,
-# to_mysql ~377K, batch_sizing ~10,5M. Pisos = 0.6x de esas líneas base.
+# to_mysql ~377K, batch_sizing ~10,5M, multi_insert_gen ~1,3K. Pisos = 0.6x de
+# esas líneas base.
 #
 # NOTA de calibracion vs RESEARCH Q3: el RESEARCH media to_mysql ~625K y
 # Query ~236K con plantillas más pequeñas y una granularidad distinta
@@ -186,3 +187,38 @@ def test_batch_sizing_floor():
 
     median, p95, std = _measure(_sizing, inner=200_000)
     _assert_floor("batch_sizing", median, p95, std, 6_300_000)
+
+
+# 6. Generación multi-VALUES (PERF-01): `build_multi_insert` con el workload del
+# plan 07-03 (200 filas x 5 columnas) — ~1.306 medidos (runs locales 2026-09-19).
+# El RESEARCH Q3 media 1.516 con un cohort distinto; el piso se calibra con lo que
+# ESTA suite mide (misma doctrina que el resto de unidades); la PRIMERA corrida
+# del job `benchmarks` recalibra ±20%. Entre más filas por lote más se degrada la
+# medición por thermal-throttle del host (verificado: un lote de 500 filas cae de
+# ~670 a ~240 ops/s sostenidas), por eso `inner` corto.
+MULTI_TABLE = "t"
+MULTI_COLS = ["a", "b", "c", "d", "e"]
+MULTI_ROWS = [
+    [i, f"v{i}", i / 2.0, i % 2 == 0, f"2026-09-{i % 28 + 1:02d} 10:00:00"] for i in range(200)
+]
+
+
+def test_multi_insert_gen_floor():
+    from encino_orm.dialects import build_multi_insert, strategy_for
+    from encino_orm.engine import Engine
+
+    qry = build_multi_insert(
+        MULTI_TABLE, MULTI_COLS, MULTI_ROWS, strategy=strategy_for(Engine.SQLITE)
+    )
+    assert isinstance(qry, Query)
+    assert len(qry.params) == len(MULTI_ROWS) * len(MULTI_COLS)  # smoke: params encadenados
+    assert "VALUES" in qry.sql  # smoke: la unidad no está rota
+    assert "INSERT ALL" not in qry.sql  # smoke: no es la rama Oracle
+
+    def _gen():
+        return build_multi_insert(
+            MULTI_TABLE, MULTI_COLS, MULTI_ROWS, strategy=strategy_for(Engine.SQLITE)
+        )
+
+    median, p95, std = _measure(_gen, inner=200)
+    _assert_floor("multi_insert_gen", median, p95, std, 780)

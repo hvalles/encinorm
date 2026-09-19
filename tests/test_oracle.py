@@ -9,6 +9,7 @@ from encino_orm.model import Filter, Model
 from encino_orm.model.types import ddl_type
 from encino_orm.oracle import _to_oracle
 from tests._resilience_helpers import oracle_disconnect_dpy, oracle_disconnect_ora, oracle_lock
+from tests._transfer_helpers import assert_copy_equivale, sqlite_source
 from tests.conftest import engine_unavailable
 
 ORACLE_CONFIG = {
@@ -396,3 +397,30 @@ class TestOracleParity:
         assert devuelto == 0
         assert zoe.id is None
         assert zoe.id != ana.id
+
+
+_DROP_T = (
+    "BEGIN EXECUTE IMMEDIATE 'DROP TABLE t'; "
+    "EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;"
+)
+
+
+@pytest.mark.integration
+@pytest.mark.optional_engine
+class TestTransferCopy:
+    """Copia cross-engine sqlite -> Oracle vía `INSERT ALL` (PERF-01).
+
+    Oracle es el único motor con `multi_values=False` (ORA-00938): este test es
+    la sonda real de que `copy_table` pasa por el camino `INSERT ALL`.
+    """
+
+    @pytest.mark.asyncio
+    async def test_copy_table_100_filas_insert_all(self, oracle_connected_db):
+        db = oracle_connected_db
+        src = await sqlite_source(n_rows=100)
+        try:
+            await db._execute_raw(_DROP_T)
+            await assert_copy_equivale(src, db, n_rows=100)
+        finally:
+            await db._execute_raw(_DROP_T)
+            await src.close()

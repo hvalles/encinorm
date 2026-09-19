@@ -10,6 +10,7 @@ from tests._resilience_helpers import (
     mysql_interface,
     mysql_lock,
 )
+from tests._transfer_helpers import assert_copy_equivale, sqlite_source
 from tests.conftest import engine_unavailable
 
 # Todas las clases de este modulo necesitan un MySQL vivo (D-08): el marker se
@@ -415,3 +416,18 @@ def test_is_disconnect_error():
     assert db.is_lock_error(lock) is True
     assert db.is_disconnect_error(lock) is False
     assert not (db.is_disconnect_error(lock) and db.is_lock_error(lock))
+
+
+class TestTransferCopy:
+    """Copia cross-engine sqlite -> MySQL vía multi-VALUES por lotes (PERF-01)."""
+
+    @pytest.mark.asyncio
+    async def test_copy_table_500_filas_multi_values(self, mysql_connected_db):
+        db = mysql_connected_db
+        src = await sqlite_source(n_rows=500)
+        try:
+            await db.execute(Query("DROP TABLE IF EXISTS t", []))
+            await assert_copy_equivale(src, db, n_rows=500)
+        finally:
+            await db.execute(Query("DROP TABLE IF EXISTS t", []))
+            await src.close()

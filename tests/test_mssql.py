@@ -14,6 +14,7 @@ from tests._resilience_helpers import (
     mssql_disconnect_midquery,
     mssql_lock,
 )
+from tests._transfer_helpers import assert_copy_equivale, sqlite_source
 from tests.conftest import engine_unavailable
 
 MSSQL_CONFIG = {
@@ -432,3 +433,25 @@ class TestMssqlParity:
         with pytest.raises(ValueError) as exc:
             await _MergeModel(db, nombre="Ana", monto=10.0).upsert()
         assert "no está en el INSERT" in str(exc.value)
+
+
+@pytest.mark.integration
+@pytest.mark.optional_engine
+class TestTransferCopy:
+    """Copia cross-engine sqlite -> SQL Server vía multi-VALUES (PERF-01).
+
+    Con `preserve_ids=False` el `id` IDENTITY queda fuera del INSERT; el motor
+    genera valores secuenciales (evita `SET IDENTITY_INSERT`, que el driver no
+    habilita). La equivalencia canónica se verifica sobre el resto de columnas.
+    """
+
+    @pytest.mark.asyncio
+    async def test_copy_table_100_filas_multi_values(self, mssql_connected_db):
+        db = mssql_connected_db
+        src = await sqlite_source(n_rows=100)
+        try:
+            await db.execute(Query("IF OBJECT_ID('t', 'U') IS NOT NULL DROP TABLE t", []))
+            await assert_copy_equivale(src, db, n_rows=100, preserve_ids=False)
+        finally:
+            await db.execute(Query("IF OBJECT_ID('t', 'U') IS NOT NULL DROP TABLE t", []))
+            await src.close()

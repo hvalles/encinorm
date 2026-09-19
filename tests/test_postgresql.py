@@ -8,6 +8,7 @@ from encino_orm import PostgresDb, Query
 from encino_orm.model import Filter, Model
 from encino_orm.postgresql import _rowcount, _to_postgres
 from tests._resilience_helpers import pg_cached_stmt, pg_disconnect, pg_interface, pg_lock
+from tests._transfer_helpers import assert_copy_equivale, sqlite_source
 from tests.conftest import engine_unavailable
 
 POSTGRES_CONFIG = {
@@ -464,3 +465,19 @@ class TestPostgresParity:
         filas = await _NaturalPkModel(db).search(Filter.eq("codigo", "A"))
         assert len(filas) == 1
         assert filas[0].monto == 99.0
+
+
+@pytest.mark.integration
+class TestTransferCopy:
+    """Copia cross-engine sqlite -> PostgreSQL vía multi-VALUES por lotes (PERF-01)."""
+
+    @pytest.mark.asyncio
+    async def test_copy_table_500_filas_multi_values(self, pg_connected_db):
+        db = pg_connected_db
+        src = await sqlite_source(n_rows=500)
+        try:
+            await db.execute(Query("DROP TABLE IF EXISTS t", []))
+            await assert_copy_equivale(src, db, n_rows=500)
+        finally:
+            await db.execute(Query("DROP TABLE IF EXISTS t", []))
+            await src.close()
