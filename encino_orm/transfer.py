@@ -194,7 +194,10 @@ async def copy_table(
         if not target_cols:
             # Sin columnas de datos (solo PK autoincremental y preserve_ids=False):
             # no hay valores que ligar; se inserta una fila de DEFAULTs por fila
-            # origen con SQL específico de dialecto (MR-01).
+            # origen con SQL específico de dialecto (MR-01). La rama solo es
+            # alcanzable con PK autoincremental presente, así que `auto_pk` no es
+            # None aquí (mypy necesita el assert para estrecharlo).
+            assert auto_pk is not None
             default_qry = Query(_default_row_sql(table, auto_pk, dialect), [])
             for _row in rows:
                 await dst.execute(default_qry)
