@@ -16,6 +16,7 @@ proceso pueden resolver a bases de datos distintas sin pisarse.
 """
 
 import contextvars
+import warnings
 from contextlib import contextmanager
 
 from .exceptions import ConnectionError
@@ -79,6 +80,11 @@ def set_default_db(db) -> None:
 
     Deprecado: usa un `ConnectionRegistry` explícito y su método `set_default()`.
     """
+    warnings.warn(
+        "set_default_db() está deprecado; usa un ConnectionRegistry explícito",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     _registry.set_default(db)
 
 
@@ -87,6 +93,11 @@ def get_default_db():
 
     Deprecado: usa `ConnectionRegistry.get_default()` sobre un registry explícito.
     """
+    warnings.warn(
+        "get_default_db() está deprecado; usa ConnectionRegistry.get_default()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return _registry.get_default()
 
 
