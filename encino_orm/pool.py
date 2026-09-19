@@ -303,16 +303,27 @@ class PoolDb(Db):
     async def _run(self, method: str, *args):
         handle = _current_connection.get()
         if handle is not None:
+            # Dentro de `transaction()` la transacción la gobierna el usuario:
+            # no se cierra nada aquí.
             return await getattr(handle.driver, method)(*args)
         handle = await self.acquire()
         try:
-            return await getattr(handle.driver, method)(*args)
-        finally:
-            # dejar la conexión limpia antes de devolverla al pool: si la
-            # operación dejó una transacción abierta (SQLite/MySQL no
-            # autocommit), se confirma para que sea visible entre conexiones.
+            result = await getattr(handle.driver, method)(*args)
+        except BaseException:
+            # `BaseException` (no solo `Exception`): ni una cancelación debe
+            # dejar la transacción abierta al devolver la conexión al pool. Se
+            # re-lanza siempre el error raíz, sin enmascararlo.
+            if await handle.driver.in_transaction():
+                await handle.driver.rollback()
+            raise
+        else:
+            # Cierre EXPLÍCITO antes de liberar: SQLite/MySQL no autocommitan,
+            # así que sin este commit una escritura standalone no sería visible
+            # entre conexiones (y `release()` la revertiría, POOL-04).
             if await handle.driver.in_transaction():
                 await handle.driver.commit()
+            return result
+        finally:
             await self.release(handle)
 
     async def _run_scoped(self, method: str, *args):
@@ -348,10 +359,20 @@ class PoolDb(Db):
             return await handle.driver.execute(qry)
         handle = await self.acquire()
         try:
-            return await handle.driver.execute(qry)
-        finally:
+            result = await handle.driver.execute(qry)
+        except BaseException:
+            # Cierre explícito en error (ver `_run`): revierte el sobrante y
+            # re-lanza el error raíz sin enmascararlo.
+            if await handle.driver.in_transaction():
+                await handle.driver.rollback()
+            raise
+        else:
+            # Cierre explícito en éxito (ver `_run`): hace visible la escritura
+            # entre conexiones antes de devolver el handle al pool.
             if await handle.driver.in_transaction():
                 await handle.driver.commit()
+            return result
+        finally:
             await self.release(handle)
 
     async def execute_insert(self, qry):

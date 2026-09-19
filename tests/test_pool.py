@@ -376,6 +376,56 @@ class TestPoolStandaloneCommit:
         await p.close()
 
 
+class TestPoolStandaloneRollback:
+    """POOL-04 / Correction #5: `execute`/`_run` cierran la transacción en error.
+
+    El cierre explícito ocurre ANTES de liberar; sin la rama de error la
+    transacción quedaría abierta al devolver la conexión al pool.
+    """
+
+    @pytest.mark.asyncio
+    async def test_standalone_error_rolls_back(self, monkeypatch):
+        class FailingFakeDb(FakeDb):
+            async def execute(self, qry):
+                self.calls.append(("execute", qry))
+                self._in_tx = True
+                raise RuntimeError("boom")
+
+        monkeypatch.setitem(pool_module._ENGINES, "failing", FailingFakeDb)
+        p = PoolDb("failing", min_size=1, max_size=1)
+        await p.connect()
+        handle = next(iter(p._connections))
+
+        with pytest.raises(RuntimeError):
+            await p.execute(Query("INSERT 1", []))
+
+        assert ("rollback", None) in handle.driver.calls
+        assert handle.driver._in_tx is False
+        # El handle vuelve a la cola de ociosas pese al error.
+        assert p._idle.qsize() == 1
+        await p.close()
+
+    @pytest.mark.asyncio
+    async def test_standalone_error_without_transaction_does_not_rollback(self, monkeypatch):
+        class FailingNoTxFakeDb(FakeDb):
+            async def execute(self, qry):
+                self.calls.append(("execute", qry))
+                # No abre transacción: no hay sobrante que revertir.
+                raise RuntimeError("boom")
+
+        monkeypatch.setitem(pool_module._ENGINES, "failing_notx", FailingNoTxFakeDb)
+        p = PoolDb("failing_notx", min_size=1, max_size=1)
+        await p.connect()
+        handle = next(iter(p._connections))
+
+        with pytest.raises(RuntimeError):
+            await p.execute(Query("INSERT 1", []))
+
+        assert ("rollback", None) not in handle.driver.calls
+        assert p._idle.qsize() == 1
+        await p.close()
+
+
 class TestModelWithPool:
     @pytest.fixture
     async def sqlite_pool(self, tmp_path):
