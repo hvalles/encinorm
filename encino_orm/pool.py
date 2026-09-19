@@ -189,9 +189,50 @@ class PoolDb(Db):
         self._checked_out.add(handle)
         self._stats["acquires"] += 1
 
+    async def _reap(self) -> None:
+        """Cierra las conexiones ociosas por encima de `min_size` (POOL-05).
+
+        Reaper PEREZOSO: no hay daemon ni `asyncio.Task` de fondo (no hay nada
+        que cancelar en `close()`); se invoca al ENTRAR en `acquire()` y al SALIR
+        de `release()`, de modo que el coste se paga en el camino que ya está
+        adquiriendo o liberando. Es idempotente y O(ociosas): drena la cola de
+        ociosas y solo cierra las que llevan más de `idle_timeout` sin usarse,
+        nunca por debajo de `min_size`. Con `idle_timeout=None` está desactivado.
+
+        Los drivers se cierran FUERA del bucle de drenado (se recogen en una
+        lista y se cierran después) para no intercalar un `await` que devuelva a
+        la cola un handle a medio procesar (T-04-04-04).
+        """
+        if self._idle_timeout is None:
+            return
+        to_close: list[PooledConnection] = []
+        keep: list[PooledConnection] = []
+        while True:
+            try:
+                handle = self._idle.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            if self._size > self._min_size and handle.is_idle_for(self._idle_timeout):
+                self._size -= 1
+                self._connections.discard(handle)
+                self._checked_out.discard(handle)
+                to_close.append(handle)
+            else:
+                # NO se reencola dentro del bucle: reencolar un handle no
+                # reapeado mientras se sigue drenando lo devolvería a
+                # `get_nowait()` y el bucle nunca vaciaría la cola.
+                keep.append(handle)
+        for handle in keep:
+            self._idle.put_nowait(handle)
+        for handle in to_close:
+            await handle.driver.close()
+
     async def acquire(self, timeout: float | None = None) -> PooledConnection:
         if not self._connected:
             raise ConnectionError("Pool no conectado")
+        # Reaper perezoso: libera ociosas por encima de `min_size` antes de
+        # intentar adquirir (POOL-05).
+        await self._reap()
         while True:
             try:
                 handle = self._idle.get_nowait()
@@ -255,6 +296,10 @@ class PoolDb(Db):
             else:
                 await handle.driver.rollback()
         handle.touch()
+        # Reaper perezoso (POOL-05): una liberación puede disparar el reaping de
+        # las ociosas. Se invoca ANTES de encolar este handle (recién tocado,
+        # así que nunca se reapea a sí mismo).
+        await self._reap()
         await self._idle.put(handle)
 
     def _as_handle(self, conn) -> PooledConnection:

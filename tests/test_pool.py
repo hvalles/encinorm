@@ -234,6 +234,95 @@ class TestPool:
         assert handle.driver.closed is True
 
 
+class TestPoolReaper:
+    """POOL-05: reaper perezoso de ociosas por encima de `min_size`."""
+
+    @pytest.mark.asyncio
+    async def test_reap_closes_idle_above_min_size(self, fake_engine):
+        p = PoolDb("fake", min_size=1, max_size=4, idle_timeout=60)
+        await p.connect()
+
+        conns = [await p.acquire() for _ in range(4)]
+        for conn in conns:
+            await p.release(conn)
+
+        assert p._size == 4
+        assert p._idle.qsize() == 4
+
+        all_handles = list(p._connections)
+        stale = time.monotonic() - 100
+        for handle in all_handles:
+            handle.last_used = stale
+
+        await p._reap()
+
+        assert p._size == p._min_size
+        assert p._idle.qsize() == 1
+        # Las 3 por encima de `min_size` se cierran; la conservada sigue viva.
+        assert sum(1 for h in all_handles if h.driver.closed) == 3
+        await p.close()
+
+    @pytest.mark.asyncio
+    async def test_reap_disabled_when_idle_timeout_none(self, fake_engine):
+        p = PoolDb("fake", min_size=1, max_size=4, idle_timeout=None)
+        await p.connect()
+
+        conns = [await p.acquire() for _ in range(4)]
+        for conn in conns:
+            await p.release(conn)
+
+        all_handles = list(p._connections)
+        stale = time.monotonic() - 100
+        for handle in all_handles:
+            handle.last_used = stale
+
+        await p._reap()
+
+        assert p._size == 4
+        assert all(h.driver.closed is False for h in all_handles)
+        await p.close()
+
+    @pytest.mark.asyncio
+    async def test_reap_keeps_recent_idle(self, fake_engine):
+        p = PoolDb("fake", min_size=1, max_size=4, idle_timeout=60)
+        await p.connect()
+
+        conns = [await p.acquire() for _ in range(4)]
+        for conn in conns:
+            await p.release(conn)
+
+        all_handles = list(p._connections)
+        # `last_used` reciente (recién tocado por release): no se reap nada.
+        await p._reap()
+
+        assert p._size == 4
+        assert all(h.driver.closed is False for h in all_handles)
+        await p.close()
+
+    @pytest.mark.asyncio
+    async def test_acquire_triggers_reap(self, fake_engine):
+        p = PoolDb("fake", min_size=1, max_size=4, idle_timeout=60)
+        await p.connect()
+
+        conns = [await p.acquire() for _ in range(4)]
+        for conn in conns:
+            await p.release(conn)
+
+        all_handles = list(p._connections)
+        stale = time.monotonic() - 100
+        for handle in all_handles:
+            handle.last_used = stale
+
+        # Sin llamar `_reap()` a mano: el propio `acquire()` lo dispara.
+        handle = await p.acquire()
+
+        assert p._size == p._min_size
+        assert sum(1 for h in all_handles if h.driver.closed) == 3
+        assert handle.driver.closed is False
+        await p.release(handle)
+        await p.close()
+
+
 class TestPoolTransactionScope:
     @pytest.mark.asyncio
     async def test_operations_use_held_connection(self, pool):
