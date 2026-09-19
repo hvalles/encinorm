@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 06-01-PLAN.md (CFG-01: ConnectionRegistry) — Fase 6 en curso (1/5)"
-last_updated: "2026-09-19T06:26:38.101Z"
+stopped_at: "Completed 06-02-PLAN.md (CFG-02: SecurityConfig) — Fase 6 en curso (2/5)"
+last_updated: "2026-09-19T06:53:00.179Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 45
-  completed_plans: 41
-  percent: 91
+  completed_plans: 42
+  percent: 93
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 6
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -98,6 +98,7 @@ Progress: [█████████░] 91%
 | Phase 5 P3 | 3min | 3 tasks | 7 files |
 | Phase 5 P4 | 7 min | 3 tasks | 15 files |
 | Phase 06 P01 | 6 min | 2 tasks | 4 files |
+| Phase 06 P02 | 4 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -216,6 +217,10 @@ Recent decisions affecting current work:
 - [Phase 06]: ConnectionRegistry con estado de instancia reemplaza el global mutable _default_db; resolve_db() sin argumentos conserva el default del _registry de modulo — Dos apps/tenants en el mismo proceso dejan de pisarse; la firma retrocompatible evita romper model/model.py y el barrel (Pitfall 11)
 - [Phase 06]: El DeprecationWarning de los shims set_default_db/get_default_db vive SOLO en los shims y aterriza en el MISMO commit que la migracion de tests/test_singleton.py (W1) — filterwarnings=[error] convierte el camino caliente en fallo de suite (Pitfall 1); ningun commit intermedio queda rojo
 - [Phase 06]: El import perezoso de pool dentro de ConnectionRegistry.resolve() usa from . import pool — Preserva el contrato de importacion diferida y satisface el grep de control del plan, cuyo regex ^\s* tambien matcheaba el import intencional
+- [Phase 06]: SecurityConfig es un @dataclass(frozen=True) en encino_orm/security/config.py que solo importa stdlib — El value object inmutable reemplaza los globales mutables; los guards cierran sobre la config y mutar guard.SECRET/GET_DB deja de cambiar 200/401/403 (Success Criterion 2) y el nucleo no adquiere dependencia dura de fastapi/PyJWT
+- [Phase 06]: security_dependencies(config) devuelve (get_current_user_factory, require_factory) con Annotated[...] en la inyeccion — B008 deja de aplicar y el per-file-ignore de guard.py es retirable por 06-05; fastapi sigue importandose dentro de cada factoria (importacion diferida)
+- [Phase 06]: El DeprecationWarning del fallback legacy se emite en guard.py DESPUES de validar la config — Sin globales lanza AuthenticationError sin avisar (fail-closed bajo filterwarnings=[error]); el mensaje nombra los globales y su reemplazo, nunca el valor del secreto (Pitfall 12)
+- [Phase 06]: La constante SECRET del test se renombra a _SIGNING_MATERIAL y Depends(...) migra a Annotated[...] — S105 y B008 quedan retirables por 06-05 (probe ruff --isolated en verde)
 
 ### Pending Todos
 
@@ -240,6 +245,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T06:26:38.091Z
-Stopped at: Completed 06-01-PLAN.md (CFG-01: ConnectionRegistry) — Fase 6 en curso (1/5)
+Last session: 2026-09-19T06:53:00.169Z
+Stopped at: Completed 06-02-PLAN.md (CFG-02: SecurityConfig) — Fase 6 en curso (2/5)
 Resume file: None
