@@ -389,11 +389,21 @@ get a release candidate, then a documented 0.3.0 — with no way to publish past
 
 Plans:
 
-- [ ] 08-01: Cut 0.2.7 from the `v0.2.6` maintenance line with runtime `DeprecationWarning`s for each 0.3.0 break (implicit commit on release, unvalidated identifiers, mutable `SECRET`/`GET_DB`, post-hoc `last_id()`), and publish it first — REL-01
-- [ ] 08-02: OIDC trusted publishing (`id-token: write`, `uv publish`), protected `pypi` environment, delete `PYPI_API_TOKEN` — REL-03
-- [ ] 08-03: Publish 0.3.0rc1 and verify the release workflow is gated on CI before promoting to 0.3.0 — REL-02
-- [ ] 08-04: Complete `CHANGELOG.md` (every `### Changed`/`### Removed` with old + new behavior) and `MIGRATION-0.3.md` with before/after snippets — REL-04
-- [ ] 08-05: README pinning guidance (`~=0.2.6`, not `>=`), dev-credentials header + `.env.example`, dead-link fix for the gitignored `prompts/` path — REL-05
+**Wave 1**
+
+- [ ] 08-01-PLAN.md — 0.2.7 `DeprecationWarning`s para cada ruptura 0.3.0 (implicit commit on release, unvalidated identifiers — el que faltaba, mutable `SECRET`/`GET_DB`, post-hoc `last_id()`), versión + CHANGELOG `[0.2.7]` + dry-run de build, y checkpoint de publicación del tag `v0.2.7` — REL-01
+
+**Wave 2** *(independientes entre sí; 08-04 comparte `CHANGELOG.md` con 08-01, ya en wave 1)*
+
+- [ ] 08-02-PLAN.md — OIDC trusted publishing (`id-token: write`, `uv publish --trusted-publishing always`) en ambos workflows, entorno `pypi` protegido, eliminación de `PYPI_API_TOKEN` y validación en TestPyPI — REL-03
+- [ ] 08-04-PLAN.md — `CHANGELOG.md` con cada ruptura en viejo/nuevo y `docs/MIGRATION-0.3.md` con pares Antes/Después, registrada en la nav de MkDocs, con guard de fuente — REL-04
+
+**Wave 3** *(08-03 depende de 08-02 y 08-04; 08-05 es docs-only con ficheros disjuntos)*
+
+- [ ] 08-03-PLAN.md — Verificación del gate CI + entorno `pypi`, corte y publicación de 0.3.0rc1, y promoción a 0.3.0 — REL-02
+- [ ] 08-05-PLAN.md — README con pinning `~=0.2.6` (no `>=`), aviso de credenciales solo-desarrollo + `.env.example` rastreado, y eliminación de los enlaces muertos a `prompts/` — REL-05
+
+**Waves:** 1 → `08-01`; 2 → `08-02`, `08-04`; 3 → `08-03`, `08-05`. La cadena de publicación es estricta (0.2.7 → 0.3.0rc1 → 0.3.0) y `CHANGELOG.md`/`README.md` son ficheros compartidos, de modo que las olas quedan determinadas por esos dos hechos. `08-01`, `08-02` y `08-03` son no autónomos: D-04 exige un checkpoint humano por publicación real. `08-03` lleva 4 tareas (dos checkpoints de publicación) por la misma razón.
 
 ## Research Corrections Carried Into This Roadmap
 
@@ -479,7 +489,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
 | 6. Config & Optional-Layer Hygiene | 5/5 | Complete    | 2026-09-19 |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
-| 8. Release 0.3.0 | 0/5 | Not started | - |
+| 8. Release 0.3.0 | 0/5 | Planned | - |
 
 **Coverage:** 47/47 v1 requirements mapped ✓ (no orphans, no duplicates)
 
