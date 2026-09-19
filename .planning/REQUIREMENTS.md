@@ -54,7 +54,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 ### Resilience
 
-- [ ] **RESL-01**: Cada adaptador clasifica errores de desconexión mediante `is_disconnect_error`
+- [x] **RESL-01**: Cada adaptador clasifica errores de desconexión mediante `is_disconnect_error`
 - [ ] **RESL-02**: `_with_reconnect` reconecta una sola vez y **solo** cuando no hay transacción abierta
 - [ ] **RESL-03**: Las conexiones directas soportan `pre_ping` y `max_connection_lifetime`
 - [ ] **RESL-04**: Existe una taxonomía pública de errores que traduce excepciones de driver a excepciones de la librería
@@ -164,7 +164,7 @@ Qué fase cubre cada requisito.
 | POOL-05 | Phase 4 | Complete |
 | POOL-06 | Phase 4 | Complete |
 | POOL-07 | Phase 4 | Complete |
-| RESL-01 | Phase 5 | Pending |
+| RESL-01 | Phase 5 | Complete |
 | RESL-02 | Phase 5 | Pending |
 | RESL-03 | Phase 5 | Pending |
 | RESL-04 | Phase 5 | Pending |

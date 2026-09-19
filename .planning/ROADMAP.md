@@ -293,7 +293,7 @@ Plans:
 
 Plans:
 
-- [ ] 05-01: `is_disconnect_error` per adapter across all six engines — RESL-01
+- [x] 05-01: `is_disconnect_error` per adapter across all six engines — RESL-01
 - [ ] 05-02: `Db._with_reconnect` template method that reconnects exactly once and only when `in_transaction()` is false, kept strictly separate from the lock/deadlock retry path — RESL-02
 - [ ] 05-03: `pre_ping` + `max_connection_lifetime` policy for direct (non-pooled) connections — RESL-03
 - [ ] 05-04: Public error taxonomy translating driver exceptions into library exceptions — RESL-04

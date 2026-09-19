@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 4 complete (6/6) — ready to discuss Phase 5
-last_updated: 2026-09-19T03:59:33.078Z
+status: in_progress
+stopped_at: Completed 05-01 (RESL-01) — Phase 5 in progress (1/4)
+last_updated: 2026-09-19T04:52:00.000Z
 last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 4
-  total_plans: 36
-  completed_plans: 36
+  total_plans: 40
+  completed_plans: 37
   percent: 50
 ---
 
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 5
-Plan: Not started
-Status: Ready to plan
+Plan: 1 of 4
+Status: In progress
 Last activity: 2026-09-19
 
 Progress: [██████████] 100%
@@ -92,6 +92,7 @@ Progress: [██████████] 100%
 | Phase 04 P03 | 3min | 3 tasks | 5 files |
 | Phase 04 P04 | 8min | 3 tasks | 5 files |
 | Phase 04 P06 | 20 min | 3 tasks | 1 files |
+| Phase 05 P01 | 5 min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -199,6 +200,9 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-04: el ratchet de mypy de encino_orm.pool NO se retira (5 errores de tipado: 3 var-annotated + 2 override sobre atributos escribibles de Db); PT011/B017 diferidos y sin piso de cobertura para pool.py. — Los override exigen tocar base.py (fuera de alcance) y # type: ignore inline esta prohibido; el residual queda documentado para que el ratchet no mienta (Open Questions 4/5).
 - [Phase 04]: 04-06: los tests de admision liberan los handles (acquire -> sleep(0) -> release) y llaman `barrier.release()` explicitamente, porque con la reserva-antes-del-await solo `max_size` tareas alcanzan `connect()` y la barrera `parties=5` nunca se libera sola; se asserta `len(set(handles)) == max_size` (handles reutilizados), no 5 handles distintos (inalcanzable con `max_size=2`). — Evita un test colgante y afirma la propiedad real de capacidad (T-04-06-01).
 - [Phase 04]: 04-06: POOL-07 cubierto con 6 tests deterministas (carrera de admision, ids concurrentes sin cruce, commit standalone visible, `execute_insert` en transaccion, variante `stress` con `repeat(5)` y barrera single-use); el valor RED historico (`_size == 5`, cruce de ids) queda en la caracterizacion de Fase 1 porque `files_modified` prohibe editar `pool.py`. — Los tests AFIRMAN el comportamiento final; sin editar los ficheros de 04-04.
+- [Phase 05]: 05-01: `is_disconnect_error` por adaptador con senal TIPADA (errno/SQLSTATE/tipo/`.full_code`); el substring solo refuerza el caso MSSQL `HY000`. Los codigos de lock (1213/1205, 1205/1222, ORA-60/54/8177, `locked`/`busy`) quedan explicitamente FUERA para no romper `retry()`; la exclusion mutua se prueba por motor (Success Criterion 1). — Una clasificacion cruzada romperia el reintento por deadlock y expondria el Core Value a duplicar una escritura.
+- [Phase 05]: 05-01: MSSQL extrae el mensaje aceptando `args[1]` tupla (dobles) o string (pyodbc real); Oracle usa `from oracledb import exceptions` dentro de `real_oracle_disconnect` porque `oracledb.exceptions` no se expone como atributo tras `import oracledb`. — Ambas formas reales verificadas contra los drivers instalados; los drivers opcionales siguen sin importarse a nivel de modulo.
+- [Phase 05]: 05-01: `FakeResilientDb` define los metodos publicos con un puente `hasattr(Db, "_with_reconnect")`: en 05-01 (publicos aun abstractos) delegan en los privados y en 05-02 reenvian a `super()` para no saltarse el template method. — Satisface el criterio de instanciabilidad de 05-01 y deja el helper operativo para 05-02/03/04 sin editar la infraestructura.
 
 ### Pending Todos
 
@@ -223,6 +227,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T03:22:00.000Z
-Stopped at: Completed 04-06-PLAN.md (POOL-07: tests deterministas de concurrencia/estres) — Phase 4 completa
+Last session: 2026-09-19T04:52:00.000Z
+Stopped at: Completed 05-01-PLAN.md (RESL-01: `is_disconnect_error` por adaptador) — Phase 5 en progreso (1/4)
 Resume file: None
