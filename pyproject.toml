@@ -76,7 +76,7 @@ markers = [
     "integration: requiere un motor real (MySQL/PostgreSQL en CI; opcionales en local)",
     "optional_engine: motor no requerido en Fase 1 (MariaDB/Redis/MSSQL/Oracle); ver D-02",
     "concurrency: tests de pool/carreras; se excluyen de corridas con xdist",
-    "benchmark: medidos por pytest-codspeed; excluidos de corridas normales",
+    "benchmark: unidades síncronas del núcleo medidas con time.perf_counter (mediana/p95/sigma); excluidas de corridas normales",
     # POOL-07: variante de estrés (pytest-repeat). El marker queda inerte hasta
     # que 04-06 lo use; registrarlo evita que `--strict-markers` falle la
     # colección al aplicar `@pytest.mark.stress`.
