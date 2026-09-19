@@ -10,6 +10,46 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ### Cambiado
 
+- **CAMBIO DE COMPORTAMIENTO (CFG-01: default de conexión inyectable).** El
+  default de conexión de proceso deja de ser el global mutable `_default_db` y
+  pasa a vivir en un `ConnectionRegistry` inyectable (estado de instancia), de
+  modo que dos aplicaciones/tenants en el mismo proceso resuelven a sus propias
+  bases de datos sin pisarse. `set_default_db`/`get_default_db` quedan
+  **DEPRECADOS** (emiten `DeprecationWarning`) y `resolve_db()` sin argumentos
+  conserva el comportamiento histórico. La precedencia `bind`/`session`/
+  transacción del pool no cambia. Viejo: un único default de proceso; nuevo:
+  default inyectable por registry. La **retirada** de los globales (no solo su
+  deprecación) es `REL-01` (Fase 8). Nota de ownership: esta entrada es ADITIVA y
+  no prejuzga la enumeración de cambios incompatibles del milestone, que posee la
+  Fase 8 (`08-04`).
+- **CAMBIO DE COMPORTAMIENTO (CFG-02: configuración de seguridad inmutable).**
+  `SecurityConfig` (dataclass `frozen`) + `security_dependencies(config)`
+  reemplazan los globales mutables `SECRET`/`GET_DB`: los guards se construyen
+  cerrados sobre la config inyectada, así que mutar los globales **deja de cambiar
+  el comportamiento**. El fallback a los globales emite `DeprecationWarning` y las
+  firmas legacy `get_current_user(...)`/`require(...)` siguen funcionando. Viejo:
+  un secreto global de proceso mutado por la app; nuevo: config inmutable por
+  aplicación. Cap de `PyJWT`: PENDIENTE_BUMP. Nota de ownership: esta entrada es
+  ADITIVA y no prejuzga la enumeración de cambios incompatibles del milestone, que
+  posee la Fase 8 (`08-04`).
+- **CFG-03 (codegen sin `exec()`).** Los handlers REST `get`/`put`/`delete` y los
+  resolvers GraphQL `get`/`update`/`delete` se construyen con closures y una
+  `__signature__` explícita en vez de `exec()`; el contrato OpenAPI y la SDL son
+  **IDÉNTICOS** (cambio de implementación, no de contrato). Viejo: código generado
+  y compilado en caliente; nuevo: introspección de firmas con `inspect`. Nota de
+  ownership: ADITIVA; no prejuzga la enumeración del milestone (`08-04`).
+- **CFG-04 (namespace GraphQL por build).** `build_schema` usa un namespace
+  sintético por build y deja de mutar el namespace del módulo
+  `encino_orm.graphql.schema`; dos builds sucesivos dejan de interferir entre sí.
+  Viejo: los tipos generados se acumulaban en el módulo real; nuevo: namespace
+  aislado y efímero por build. Nota de ownership: ADITIVA; no prejuzga la
+  enumeración del milestone (`08-04`).
+- **CFG-05 (fronteras de confianza documentadas).** Las fronteras de confianza de
+  `Filter.raw`, `Query` y `db.fn.*` quedan documentadas con ejemplos seguros e
+  inseguros en `docs/trust-boundaries.md`; `Filter.raw` sigue reemitiendo el
+  fragmento verbatim (sin cambio de comportamiento). Nota de ownership: ADITIVA;
+  no prejuzga la enumeración del milestone (`08-04`).
+
 - **CAMBIO DE COMPORTAMIENTO (formato de clave de caché).** La clave de caché de
   `CachedModel` ahora incluye la huella del `scope()` activo:
   `sha1(tabla:[pk=...]|scope=<huella>)`. Una entrada cacheada bajo un tenant ya no
