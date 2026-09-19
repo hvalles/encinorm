@@ -92,6 +92,9 @@ class PostgresDb(Db):
         )
 
     async def connect(self, **kwargs):
+        # Las opciones de resiliencia (RESL-03) se consumen aquí y NO se reenvían
+        # a `asyncpg.connect`; los kwargs del driver quedan limpios.
+        kwargs = self._resilience_opts(dict(kwargs))
         # Kwargs ORIGINALES para `_reconnect` (contienen `password`: no loguear).
         self._connect_kwargs = dict(kwargs)
         self._connection = await asyncpg.connect(**kwargs)

@@ -115,6 +115,9 @@ class MssqlDb(Db):
 
     # --- ciclo de vida ---
     async def connect(self, **kwargs):
+        # Las opciones de resiliencia (RESL-03) se consumen aquí y NO se reenvían
+        # a la construcción de `conn_str`; los kwargs quedan limpios.
+        kwargs = self._resilience_opts(dict(kwargs))
         # Kwargs ORIGINALES (no el `conn_str`) para `_reconnect`; contienen
         # `password`: no loguear.
         self._connect_kwargs = dict(kwargs)

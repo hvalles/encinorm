@@ -70,6 +70,9 @@ class SqliteDb(Db):
         return False
 
     async def connect(self, **kwargs):
+        # Las opciones de resiliencia (RESL-03) se consumen aquí y NO se reenvían
+        # al driver; `_connect_kwargs` queda con los kwargs ya limpios.
+        kwargs = self._resilience_opts(dict(kwargs))
         database = kwargs.get("database", ":memory:")
         self._database = database
         # Se guarda el default ya resuelto para que `_reconnect` use la MISMA BD.
