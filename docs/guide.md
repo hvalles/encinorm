@@ -209,6 +209,37 @@ new_id = await a.insert()                    # el id sale del propio INSERT
 no expone el id en la frontera del driver, así que `execute_insert` devuelve
 `None` y `Model.insert` devuelve `0` sin asignar `self.id`.
 
+### Pool de conexiones (`PoolDb`)
+
+`PoolDb` administra un conjunto de conexiones y expone la misma interfaz `Db`.
+`execute`/`_run` **cierran la transacción explícitamente** (commit en éxito,
+rollback en error) antes de devolver la conexión al pool; por eso un
+`pool.execute(INSERT)` standalone es visible entre conexiones:
+
+```python
+pool = PoolDb("sqlite", min_size=2, max_size=5, database="app.db")
+await pool.connect()
+await pool.execute(pool.insert("agentes", {"nombre": "Ana"}))
+rows = await pool.fetch_all(Query("SELECT * FROM agentes", []))  # ve la fila
+```
+
+Si el llamador deja una transacción abierta al liberar una conexión, `release()`
+aplica la política `reset_on_release`:
+
+- `reset_on_release="rollback"` (**default**): revierte el sobrante.
+- `reset_on_release="commit"`: restaura el comportamiento antiguo (confirmar el
+  sobrante) y está **DEPRECADO** — emite `DeprecationWarning` al construir el
+  pool. Usa `"rollback"`.
+
+```python
+# default: el sobrante se revierte al liberar
+pool = PoolDb("postgresql", host="localhost", database="app")
+```
+
+> Nota: en MSSQL/Oracle una lectura puede marcar `in_transaction()` como
+> verdadero; revertir una lectura es inocuo y **no** emite warning. El warning
+> vive en la política `"commit"`, no en la presencia de transacción.
+
 ### Funciones SQL portables (`db.fn`)
 
 `db.fn` traduce funciones comunes al dialecto del motor. Devuelve un **fragmento

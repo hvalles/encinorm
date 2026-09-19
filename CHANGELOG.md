@@ -26,6 +26,19 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ### Corregido
 
+- **CAMBIO DE COMPORTAMIENTO (semántica de liberación del pool).** `PoolDb`
+  cierra ahora la transacción **explícitamente** en `execute`/`_run` (commit en
+  éxito, rollback en error) antes de devolver la conexión al pool, y `release()`
+  **revierte por defecto** cualquier transacción que el llamador deje abierta.
+  Antes, `release()` no tocaba la transacción y el commit implícito vivía en
+  `execute`/`_run` sin rama de error: una operación que lanzaba dejaba la
+  transacción abierta, y un sobrante al liberar se confirmaba de forma
+  accidental. La política es configurable con `PoolDb(..., reset_on_release=...)`:
+  `"rollback"` (default) revierte; `"commit"` restaura el comportamiento viejo y
+  queda **DEPRECADO** (emite `DeprecationWarning` al construir el pool). Un valor
+  distinto de esos dos lanza `ValueError`. Nota de ownership: esta entrada es
+  ADITIVA y no prejuzga la enumeración de cambios incompatibles del milestone,
+  que posee la Fase 8 (`08-04`).
 - El id de una inserción se captura **dentro** de la sentencia que lo produce y
   por conexión/tarea: nuevo `Db.execute_insert(qry)` y `Db.insert(...,
   returning=<col>)` opt-in (`cursor.lastrowid` en SQLite/MySQL/MariaDB,
