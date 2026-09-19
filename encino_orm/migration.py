@@ -73,15 +73,13 @@ async def _apply(db, name: str, qry: Query) -> None:
     En motores con commit implícito del DDL (MySQL/MariaDB/Oracle) la fila
     `pending` puede sobrevivir al fallo; ahí se compensa solo si ESTA llamada
     insertó la fila y el DDL NO llegó a correr. El borrado usa la IDENTIDAD de la
-    fila (`{id: ledger_id}`, capturada best-effort con `last_id()` tras el
-    INSERT) porque `{name, status}` no prueba propiedad: la fila `pending` que
-    otro runner re-publica tras nuestro rollback sobreviviría al
-    compare-and-delete. Si el motor no expone un `last_id()` útil (Oracle
-    devuelve 0), se cae al compare-and-delete `{name, status='pending'}`,
-    residual estrecho asignado a la Fase 4 / POOL-03 (captura de `last_id`
-    dentro del INSERT). Si el DDL sí corrió y falló el promote, la fila queda
-    `pending` A PROPÓSITO para que la reconciliación la detecte (Pitfall 8: nada
-    de teatro de atomicidad).
+    fila (`{id: ledger_id}`, capturada DENTRO del INSERT con `execute_insert`)
+    porque `{name, status}` no prueba propiedad: la fila `pending` que otro
+    runner re-publica tras nuestro rollback sobreviviría al compare-and-delete.
+    Si el motor no expone un id utilizable (un MERGE, o un doble de test que
+    devuelve 0), se cae al compare-and-delete `{name, status='pending'}`. Si el
+    DDL sí corrió y falló el promote, la fila queda `pending` A PROPÓSITO para
+    que la reconciliación la detecte (Pitfall 8: nada de teatro de atomicidad).
 
     Un fallo de la propia compensación NO reemplaza la excepción original del
     DDL: se registra un warning y se re-lanza el error raíz (IN-01).
@@ -94,19 +92,17 @@ async def _apply(db, name: str, qry: Query) -> None:
     ledger_id = 0
     try:
         async with db.transaction():
-            await db.execute(
+            # El id del ledger se captura en la MISMA sentencia (execute_insert);
+            # ya no hay un `last_id()` post-hoc best-effort.
+            ledger_id = await db.execute_insert(
                 db.insert(
                     MIGRATIONS_TABLE,
                     {"name": name, "status": STATUS_PENDING, "sql_text": qry.sql},
+                    returning="id",
                 )
             )
             inserted = True
-            # Best-effort: Oracle devuelve 0, así que un motor sin `last_id()`
-            # útil no debe romper el runner; solo activa el fallback.
-            try:
-                ledger_id = await db.last_id()
-            except Exception:
-                ledger_id = 0
+            ledger_id = ledger_id or 0
             await db.execute(qry)
             ddl_done = True
             await db.execute(
@@ -120,7 +116,7 @@ async def _apply(db, name: str, qry: Query) -> None:
             # Se borra por IDENTIDAD (`{id: ledger_id}`): `{name, status}` no
             # prueba propiedad y borraría la fila `pending` que otro runner
             # re-publicó tras nuestro rollback (WR-01 residual). Solo si el
-            # motor no expone `last_id()` útil se usa el compare-and-delete.
+            # motor no expone un id utilizable se usa el compare-and-delete.
             try:
                 async with db.transaction():
                     if ledger_id > 0:

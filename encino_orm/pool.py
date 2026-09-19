@@ -268,9 +268,18 @@ class PoolDb(Db):
         conflict: list[str] | None = None,
         *,
         schema: str | None = None,
+        returning: str | None = None,
     ):
+        # B3: reenvía `returning` al template; sin esto, un `Model.insert` con
+        # `_get_db()` siendo un `PoolDb` no capturaría el id (lo necesita 04-06).
         return self._template.insert(
-            tabla, data, ignore_duplicated, replace, conflict, schema=schema
+            tabla,
+            data,
+            ignore_duplicated,
+            replace,
+            conflict,
+            schema=schema,
+            returning=returning,
         )
 
     def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
@@ -345,6 +354,16 @@ class PoolDb(Db):
                 await handle.driver.commit()
             await self.release(handle)
 
+    async def execute_insert(self, qry):
+        """Ejecuta un INSERT capturando el id por conexión/tarea (POOL-03).
+
+        Dentro de `transaction()` opera sobre la conexión retenida; fuera,
+        `_run` adquiere, ejecuta, confirma y libera. El id sale del driver
+        (`lastrowid`/`RETURNING`/`OUTPUT`/`RETURNING INTO`), nunca de un cache
+        compartido entre tareas.
+        """
+        return await self._run("execute_insert", qry)
+
     async def fetch_all(self, qry):
         return await self._run("fetch_all", qry)
 
@@ -360,9 +379,11 @@ class PoolDb(Db):
     async def last_id(self):
         handle = _current_connection.get()
         if handle is not None:
-            return await handle.driver.last_id()
+            return await handle.driver._last_id_value()
         # Sin cache a nivel de pool: fuera de una transacción no hay una
         # conexión/tarea a la que asociar el id, así que se devuelve 0.
+        # (El aviso de deprecación se habilita en la Task 3, tras migrar todos
+        # los llamadores internos y de test.)
         return 0
 
     async def migrate(self, name: str, qry):

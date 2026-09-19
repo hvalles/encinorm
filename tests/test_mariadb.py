@@ -114,7 +114,7 @@ class TestMariadbLifecycle:
         assert await mariadb_connected_db.is_alive() is True
 
     @pytest.mark.asyncio
-    async def test_insert_and_last_id(self, mariadb_connected_db):
+    async def test_insert_and_execute_insert(self, mariadb_connected_db):
         db = mariadb_connected_db
         await db.execute(Query("DROP TABLE IF EXISTS usuarios", []))
         await db.execute(
@@ -123,8 +123,8 @@ class TestMariadbLifecycle:
             )
         )
 
-        assert await db.execute(db.insert("usuarios", {"nombre": "Héctor"})) == 1
-        assert await db.last_id() == 1
+        q = db.insert("usuarios", {"nombre": "Héctor"}, returning="id")
+        assert await db.execute_insert(q) == 1
 
         rows = await db.fetch_all(Query("SELECT * FROM usuarios ORDER BY id", []))
         assert [r["nombre"] for r in rows] == ["Héctor"]
@@ -218,15 +218,15 @@ class TestMariadbParity:
         assert "monto" in cols
 
     @pytest.mark.asyncio
-    async def test_last_id_characterization(self, mariadb_connected_db):
+    async def test_execute_insert_characterization(self, mariadb_connected_db):
         db = mariadb_connected_db
         await _reset(db, _PARITY_DDL)
 
-        await db.execute(db.insert("test_parity", {"nombre": "Ana"}))
-        assert await db.last_id() == 1
+        q1 = db.insert("test_parity", {"nombre": "Ana"}, returning="id")
+        assert await db.execute_insert(q1) == 1
 
-        await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
-        assert await db.last_id() == 2
+        q2 = db.insert("test_parity", {"nombre": "Luis"}, returning="id")
+        assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
     async def test_model_upsert_on_duplicate_key(self, mariadb_connected_db):

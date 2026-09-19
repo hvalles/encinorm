@@ -71,15 +71,16 @@ class TestD3LastIdStandalone:
         await p.close()
 
     @pytest.mark.asyncio
-    async def test_standalone_insert_has_no_pool_level_id(self, pool):
-        # POOL-03: se eliminó el cache de id a nivel de pool; fuera de una
-        # transacción `last_id()` devuelve 0. El reemplazo soportado
-        # (`execute_insert`) llega en 04-02, que añade la aserción del id real.
+    async def test_standalone_insert_captures_id_per_task(self, pool):
+        # POOL-03: `execute_insert` captura el id de ESTA sentencia por
+        # conexión/tarea; el cache de id a nivel de pool no existe, así que
+        # fuera de una transacción `last_id()` devuelve 0.
         await pool.execute(
             Query("CREATE TABLE u (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", [])
         )
-        await pool.execute(pool.insert("u", {"nombre": "x"}))
-        await pool.execute(pool.insert("u", {"nombre": "y"}))
+        first = await pool.execute_insert(pool.insert("u", {"nombre": "x"}, returning="id"))
+        second = await pool.execute_insert(pool.insert("u", {"nombre": "y"}, returning="id"))
+        assert (first, second) == (1, 2)
         assert await pool.last_id() == 0
 
 
@@ -176,7 +177,17 @@ class TestD4AutoRetry:
             async def commit(self): ...
             async def rollback(self, save_point=None): ...
             async def save_point(self, name): ...
-            def insert(self, tabla, data, ignore_duplicated=False, replace=False, conflict=None):
+            def insert(
+                self,
+                tabla,
+                data,
+                ignore_duplicated=False,
+                replace=False,
+                conflict=None,
+                *,
+                schema=None,
+                returning=None,
+            ):
                 # `Model.insert` decide por `qry.sql_template` (MERGE vs INSERT), así
                 # que el doble debe devolver un `Query` real, no una tupla.
                 return Query("INSERT INTO p VALUES ({0})", [1])
@@ -194,6 +205,14 @@ class TestD4AutoRetry:
                 self.last = 7
                 return 1
 
+            async def execute_insert(self, qry):
+                # `Model.insert` captura el id por aquí (POOL-03).
+                self.executes += 1
+                if self.executes == 1:
+                    raise Exception("database is locked")
+                self.last = 7
+                return 7
+
             async def fetch_all(self, qry):
                 return []
 
@@ -206,7 +225,7 @@ class TestD4AutoRetry:
             async def exists(self, qry):
                 return False
 
-            async def last_id(self):
+            async def _last_id_value(self):
                 return self.last
 
             async def migrate(self, name, qry): ...

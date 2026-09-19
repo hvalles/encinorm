@@ -698,8 +698,9 @@ class _ModelDbRegistrador:
     """Doble a mano que registra lo que `Model.insert` pasa al adaptador.
 
     Implementa el contrato mínimo que usa `Model.insert`: `transaction()` como
-    `asynccontextmanager`, `retry(fn)`, `insert(...)` (registrando los cinco
-    argumentos) y `execute`/`last_id`. `dialect` lo lee `engine_of`.
+    `asynccontextmanager`, `retry(fn)`, `insert(...)` (registrando los seis
+    argumentos, incluido `returning`) y `execute_insert`/`_last_id_value`.
+    `dialect` lo lee `engine_of`.
     """
 
     def __init__(self, dialect):
@@ -715,15 +716,27 @@ class _ModelDbRegistrador:
         return await fn()
 
     def insert(
-        self, tabla, data, ignore_duplicated=False, replace=False, conflict=None, *, schema=None
+        self,
+        tabla,
+        data,
+        ignore_duplicated=False,
+        replace=False,
+        conflict=None,
+        *,
+        schema=None,
+        returning=None,
     ):
-        self.insert_calls.append((tabla, data, ignore_duplicated, replace, conflict))
+        self.insert_calls.append((tabla, data, ignore_duplicated, replace, conflict, returning))
         return Query("INSERT INTO t VALUES ({0})", [1])
 
     async def execute(self, qry):
         return 1
 
-    async def last_id(self):
+    async def execute_insert(self, qry):
+        # `Model.insert` captura el id por aquí (POOL-03).
+        return self._last
+
+    async def _last_id_value(self):
         return self._last
 
 
@@ -781,6 +794,18 @@ class TestModelInsertConflictTarget:
         )
         assert "src.id" not in qry.sql_template
         assert "ON (dst.nombre = src.nombre)" in qry.sql_template
+
+    @pytest.mark.asyncio
+    async def test_model_insert_pide_returning_solo_para_pk_auto(self):
+        # Guard de la captura opt-in: `returning="id"` solo si `_is_auto_pk()`.
+        for dialecto in ("sqlite", "postgresql", "mssql", "oracle"):
+            db = _ModelDbRegistrador(dialecto)
+            await _ModelPkAuto(db, nombre="Ana", monto=1.0).insert()
+            assert db.insert_calls[-1][5] == "id"
+
+        natural = _ModelDbRegistrador("sqlite")
+        await _ModelPkNatural(natural, codigo="A", monto=1.0).insert()
+        assert natural.insert_calls[-1][5] is None
 
 
 class TestMergeConflictGuard:
@@ -851,12 +876,12 @@ class TestMergeConflictGuard:
 
 
 class _ModelDbMerge:
-    """Doble cuyo `insert()` devuelve un `Query` de MERGE y un `last_id()` OBSOLETO.
+    """Doble cuyo `insert()` devuelve un `Query` de MERGE y un id OBSOLETO.
 
-    Reproduce CR-03: `MssqlDb.execute` refresca `_last_id` solo para sentencias
-    `INSERT` y `OracleDb.execute` solo cuando la sentencia lleva `RETURNING`; un
-    MERGE nunca refresca el cache. El doble declara `_last = 1` a propósito (el id
-    de OTRA fila) para probar que `Model.insert` no lo consume ni lo asigna.
+    Reproduce CR-03: un MERGE no expone el id en la frontera del driver, así que
+    `execute_insert` devuelve `None`. El doble declara `_last = 1` a propósito
+    (el id de OTRA fila) para probar que `Model.insert` no lo consume ni lo
+    asigna.
     """
 
     def __init__(self, dialect):
@@ -872,7 +897,15 @@ class _ModelDbMerge:
         return await fn()
 
     def insert(
-        self, tabla, data, ignore_duplicated=False, replace=False, conflict=None, *, schema=None
+        self,
+        tabla,
+        data,
+        ignore_duplicated=False,
+        replace=False,
+        conflict=None,
+        *,
+        schema=None,
+        returning=None,
     ):
         sql = (
             "MERGE INTO t AS dst USING (SELECT {0} AS nombre) AS src "
@@ -886,12 +919,17 @@ class _ModelDbMerge:
         self.queries.append(qry)
         return 1
 
-    async def last_id(self):
+    async def execute_insert(self, qry):
+        # Un MERGE no captura id: `None` ("id no disponible").
+        self.queries.append(qry)
+        return None
+
+    async def _last_id_value(self):
         return self._last
 
 
 class TestModelInsertMergeNoConsumeIdObsoleto:
-    """CR-03: `Model.insert` no consume ni asigna un `last_id()` obsoleto en MERGE."""
+    """CR-03: `Model.insert` no consume ni asigna un id obsoleto en MERGE."""
 
     @pytest.mark.asyncio
     async def test_merge_no_devuelve_ni_asigna_id_obsoleto(self):
@@ -904,14 +942,14 @@ class TestModelInsertMergeNoConsumeIdObsoleto:
             assert len(db.queries) == 1
 
     @pytest.mark.asyncio
-    async def test_insert_plano_sigue_consumiendo_last_id(self):
+    async def test_insert_plano_consume_execute_insert(self):
         db = _ModelDbRegistrador("mssql")
         obj = _ModelPkAuto(db, nombre="Zoe", monto=5.0)
         assert await obj.insert() == 1
         assert obj.id == 1
 
     @pytest.mark.asyncio
-    async def test_suffix_replace_sigue_consumiendo_last_id(self):
+    async def test_suffix_replace_consume_execute_insert(self):
         db = _ModelDbRegistrador("postgresql")
         obj = _ModelPkAuto(db, nombre="Zoe", monto=5.0)
         assert await obj.insert(replace=True) == 1

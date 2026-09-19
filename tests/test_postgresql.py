@@ -193,17 +193,17 @@ class TestPostgresLifecycle:
 @pytest.mark.integration
 class TestPostgresBuildersAndQueries:
     @pytest.mark.asyncio
-    async def test_insert_execute_and_last_id(self, pg_connected_db):
+    async def test_insert_execute_and_execute_insert(self, pg_connected_db):
         db = pg_connected_db
         await _reset(
             db, "usuarios", "CREATE TABLE usuarios (id SERIAL PRIMARY KEY, nombre VARCHAR(50))"
         )
 
-        assert await db.execute(db.insert("usuarios", {"nombre": "Héctor"})) == 1
-        assert await db.last_id() == 1
+        q = db.insert("usuarios", {"nombre": "Héctor"}, returning="id")
+        assert await db.execute_insert(q) == 1
 
-        await db.execute(db.insert("usuarios", {"nombre": "Ana"}))
-        assert await db.last_id() == 2
+        q2 = db.insert("usuarios", {"nombre": "Ana"}, returning="id")
+        assert await db.execute_insert(q2) == 2
 
         rows = await db.fetch_all(Query("SELECT * FROM usuarios ORDER BY id", []))
         assert len(rows) == 2
@@ -409,15 +409,15 @@ class TestPostgresParity:
         assert "monto" in cols
 
     @pytest.mark.asyncio
-    async def test_last_id_characterization(self, pg_connected_db):
+    async def test_execute_insert_characterization(self, pg_connected_db):
         db = pg_connected_db
         await _reset(db, "test_parity", _PARITY_DDL)
 
-        await db.execute(db.insert("test_parity", {"nombre": "Ana"}))
-        assert await db.last_id() == 1
+        q1 = db.insert("test_parity", {"nombre": "Ana"}, returning="id")
+        assert await db.execute_insert(q1) == 1
 
-        await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
-        assert await db.last_id() == 2
+        q2 = db.insert("test_parity", {"nombre": "Luis"}, returning="id")
+        assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
     async def test_model_insert_replace_con_pk_natural(self, pg_connected_db):

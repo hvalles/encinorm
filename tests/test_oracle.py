@@ -36,17 +36,26 @@ class TestOracleInternal:
         assert sql == "SELECT * FROM t WHERE a = :parameter_0000 AND b = :parameter_0001"
         assert values == {"parameter_0000": 1, "parameter_0001": "x"}
 
-    def test_insert_builder_with_returning(self):
+    def test_insert_builder_sin_returning_no_lo_emite(self):
+        # EDICIÓN DELIBERADA (04-02): el `RETURNING id INTO :ret_id` es opt-in.
         db = OracleDb()
         sql, values = db._prepare(db.insert("t", {"a": 1, "b": "x"}))
+        assert sql == "INSERT INTO t (a,b) VALUES (:parameter_0000,:parameter_0001)"
+        assert values == {"parameter_0000": 1, "parameter_0001": "x"}
+
+    def test_insert_builder_with_returning(self):
+        db = OracleDb()
+        q = db.insert("t", {"a": 1, "b": "x"}, returning="id")
+        sql, values = db._prepare(q)
         assert sql == (
             "INSERT INTO t (a,b) VALUES (:parameter_0000,:parameter_0001) RETURNING id INTO :ret_id"
         )
         assert values == {"parameter_0000": 1, "parameter_0001": "x"}
+        assert q.returns_id is True
 
     def test_insert_builder_ignore_duplicated_flag(self):
         db = OracleDb()
-        q = db.insert("t", {"a": 1}, ignore_duplicated=True)
+        q = db.insert("t", {"a": 1}, ignore_duplicated=True, returning="id")
         assert q.ignore_duplicated is True
         sql, _ = db._prepare(q)
         assert sql == "INSERT INTO t (a) VALUES (:parameter_0000) RETURNING id INTO :ret_id"
@@ -55,13 +64,16 @@ class TestOracleInternal:
         db = OracleDb()
         q = db.insert("t", {"a": 1, "b": "x"}, replace=True)
         sql, values = db._prepare(q)
+        # EDICIÓN DELIBERADA (04-02, ORA-38104): el `SET` excluye la columna del
+        # `ON` (fallback `columns[0]` = `a`) para que el MERGE sea EJECUTABLE.
         assert sql == (
             "MERGE INTO t dst USING (SELECT :parameter_0000 AS a, :parameter_0001 AS b) src "
             "ON (dst.a = src.a) "
-            "WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b "
+            "WHEN MATCHED THEN UPDATE SET dst.b = src.b "
             "WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)"
         )
         assert values == {"parameter_0000": 1, "parameter_0001": "x"}
+        assert q.returns_id is False
 
     def test_update_builder(self):
         db = OracleDb()
@@ -176,7 +188,7 @@ class TestOracleLifecycle:
         assert await oracle_connected_db.is_alive() is True
 
     @pytest.mark.asyncio
-    async def test_insert_execute_and_last_id(self, oracle_connected_db):
+    async def test_insert_execute_and_execute_insert(self, oracle_connected_db):
         db = oracle_connected_db
         await db._execute_raw(
             "BEGIN EXECUTE IMMEDIATE 'DROP TABLE usuarios'; "
@@ -188,11 +200,11 @@ class TestOracleLifecycle:
             "nombre VARCHAR2(50))"
         )
 
-        assert await db.execute(db.insert("usuarios", {"nombre": "Héctor"})) == 1
-        assert await db.last_id() == 1
+        q = db.insert("usuarios", {"nombre": "Héctor"}, returning="id")
+        assert await db.execute_insert(q) == 1
 
-        await db.execute(db.insert("usuarios", {"nombre": "Ana"}))
-        assert await db.last_id() == 2
+        q2 = db.insert("usuarios", {"nombre": "Ana"}, returning="id")
+        assert await db.execute_insert(q2) == 2
 
         rows = await db.fetch_all(Query("SELECT * FROM usuarios ORDER BY id", []))
         assert [r["nombre"] for r in rows] == ["Héctor", "Ana"]
@@ -287,39 +299,37 @@ class TestOracleParity:
         assert "monto" in cols
 
     @pytest.mark.asyncio
-    async def test_last_id_characterization(self, oracle_connected_db):
+    async def test_execute_insert_characterization(self, oracle_connected_db):
         db = oracle_connected_db
         await _reset_parity(db, _PARITY_DDL)
 
-        await db.execute(db.insert("test_parity", {"nombre": "Ana"}))
-        assert await db.last_id() == 1
+        q1 = db.insert("test_parity", {"nombre": "Ana"}, returning="id")
+        assert await db.execute_insert(q1) == 1
 
-        await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
-        assert await db.last_id() == 2
+        q2 = db.insert("test_parity", {"nombre": "Luis"}, returning="id")
+        assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
     async def test_model_insert_replace_no_rompe_el_merge(self, oracle_connected_db):
-        # GUARD WR-05 / T-02-45b (CARACTERIZACIÓN, no ejecutabilidad): `Model.insert(
-        # replace=True)` deja `conflict=None` en `merge`, así que el MERGE usa el
-        # fallback `columns[0]` (`enabled`) y NO referencia `src.id` (columna ausente
-        # del `src` derivado) — eso lo prueba el guard DB-free de
-        # `test_dialect_builders.py`.
-        #
-        # A diferencia de MSSQL, la sentencia NO es EJECUTABLE en Oracle por un
-        # defecto PREEXISTENTE del render `merge`, ajeno a este plan y NO corregido
-        # aquí porque el SQL del adaptador está pinado byte a byte (golden strings y
-        # snapshots): el `WHEN MATCHED THEN UPDATE SET` actualiza la MISMA columna que
-        # el `ON` (el fallback `columns[0]`), y Oracle lo rechaza con ORA-38104. El
-        # `FROM dual` que Oracle exige en el `USING` sí se añade a nivel de driver
-        # (`oracle.py`), de modo que el fallo caracterizado es el defecto de fondo.
-        # NO se asserta `count()`. Si el builder se corrige, este test avisará.
+        # ORA-38104 CERRADO (04-02, POOL-03): el `WHEN MATCHED THEN UPDATE SET`
+        # del MERGE excluye la columna del `ON`, así que `Model.insert(
+        # replace=True)` es EJECUTABLE en Oracle. Sigue sin devolver id: `MERGE …
+        # RETURNING` no está soportado (ORA-00933), así que `insert` devuelve 0 y
+        # `zoe.id` queda intacto. Antes este test caracterizaba el ORA-38104.
         db = oracle_connected_db
         await _reset_parity(db, _PARITY_DDL)
 
         await _MergeModel(db, nombre="Ana", monto=10.0).insert()
-        with pytest.raises(Exception) as exc:
-            await _MergeModel(db, nombre="Zoe", monto=5.0).insert(replace=True)
-        assert "ORA-38104" in str(exc.value)
+
+        devuelto = await _MergeModel(db, nombre="Zoe", monto=5.0).insert(replace=True)
+        assert devuelto == 0
+
+        # El MERGE casa con la fila existente por el fallback `columns[0]`
+        # (`enabled`): semántica PREEXISTENTE, incorrecta y ya documentada.
+        filas = await db.fetch_all(Query("SELECT nombre, monto FROM test_parity", []))
+        assert len(filas) == 1
+        assert filas[0]["nombre"] == "Zoe"
+        assert filas[0]["monto"] == 5.0
 
     @pytest.mark.asyncio
     async def test_model_upsert_merge_con_conflicto_explicito(self, oracle_connected_db):
@@ -354,13 +364,10 @@ class TestOracleParity:
 
     @pytest.mark.asyncio
     async def test_model_insert_replace_no_asigna_id_ajeno(self, oracle_connected_db):
-        # CR-03 (mismo defecto de clase que MSSQL): `Model.insert(replace=True)` en
-        # Oracle NO debe asignar un id ajeno. En Oracle el camino `merge` ni siquiera
-        # es EJECUTABLE hoy (ORA-38104, defecto preexistente caracterizado en
-        # `test_model_insert_replace_no_rompe_el_merge`, con dueño en la Fase 4), así
-        # que la llamada falla ANTES de asignar: `zoe.id` queda intacto. El guard DB-free
-        # de `TestModelInsertMergeNoConsumeIdObsoleto` prueba la decisión de
-        # `Model.insert` con el dialecto `oracle` cuando el MERGE sí es ejecutable.
+        # CR-03: `Model.insert(replace=True)` en Oracle NO asigna un id ajeno.
+        # Desde el fix de ORA-38104 (04-02) el MERGE es EJECUTABLE, pero sigue
+        # sin capturar id (`MERGE … RETURNING` → ORA-00933), así que devuelve 0 y
+        # `zoe.id` queda intacto.
         db = oracle_connected_db
         await _reset_parity(db, _PARITY_DDL)
 
@@ -368,7 +375,7 @@ class TestOracleParity:
         await ana.insert()
 
         zoe = _MergeModel(db, nombre="Zoe", monto=5.0)
-        with pytest.raises(Exception) as exc:
-            await zoe.insert(replace=True)
-        assert "ORA-38104" in str(exc.value)
+        devuelto = await zoe.insert(replace=True)
+        assert devuelto == 0
         assert zoe.id is None
+        assert zoe.id != ana.id

@@ -97,6 +97,7 @@ class LedgerDb(Db):
         conflict=None,
         *,
         schema=None,
+        returning=None,
     ):
         return ("INSERT", dict(data))
 
@@ -106,19 +107,31 @@ class LedgerDb(Db):
     def update(self, tabla, keys, values, *, schema=None):
         return ("UPDATE", dict(keys), dict(values))
 
+    async def _insert_row(self, data: dict) -> int:
+        """Modela el INSERT del ledger y devuelve el `lastrowid` de ESTA instancia."""
+        if self.fail_duplicate_insert and data["name"] in self.ledger:
+            raise RuntimeError("nombre duplicado en el ledger")
+        # El ledger real asigna un `id` autoincremental; lo modelamos y
+        # recordamos la identidad de la última fila insertada (WR-01).
+        self._next_id += 1
+        row = dict(data)
+        row["id"] = self._next_id
+        self.ledger[data["name"]] = row
+        self._last_id = self._next_id
+        return self._last_id
+
+    async def execute_insert(self, qry):
+        """`_apply` captura el id del ledger por aquí (POOL-03)."""
+        if isinstance(qry, tuple) and qry[0] == "INSERT":
+            new_id = await self._insert_row(qry[1])
+            return new_id if self.last_id_available else 0
+        return 0
+
     async def execute(self, qry):
         if isinstance(qry, tuple):
             kind = qry[0]
             if kind == "INSERT":
-                if self.fail_duplicate_insert and qry[1]["name"] in self.ledger:
-                    raise RuntimeError("nombre duplicado en el ledger")
-                # El ledger real asigna un `id` autoincremental; lo modelamos y
-                # recordamos la identidad de la última fila insertada (WR-01).
-                self._next_id += 1
-                row = dict(qry[1])
-                row["id"] = self._next_id
-                self.ledger[qry[1]["name"]] = row
-                self._last_id = self._next_id
+                await self._insert_row(qry[1])
             elif kind == "DELETE":
                 # Fiel al SQL real (`DELETE ... WHERE col = {n} AND ...`): todas
                 # las claves del dict deben coincidir con la fila. Soporta tanto
@@ -160,10 +173,10 @@ class LedgerDb(Db):
     async def exists(self, qry):
         return await self.fetch_one(qry) is not None
 
-    async def last_id(self):
+    async def _last_id_value(self):
         # Identidad de la última fila insertada por ESTA instancia (modela el
         # `lastrowid` de MySQL/MariaDB). 0 si no hubo INSERT o si el motor no
-        # expone `last_id()` útil (Oracle).
+        # expone un id útil (Oracle).
         return self._last_id if self.last_id_available else 0
 
     async def migrate(self, name, qry): ...
@@ -178,8 +191,8 @@ class ReinsertionLedgerDb(LedgerDb):
     La transacción fallida de ESTA llamada hace rollback de su fila `pending`
     (el fallo ocurre ANTES del commit implícito del DDL); acto seguido otro
     runner publica su propia fila `pending` con un `id` nuevo (autoincremento
-    global). El `last_id()` de esta instancia sigue apuntando a la fila que
-    ELLA insertó, así que la compensación no debe tocar la fila ajena.
+    global). El id de ESTA instancia sigue apuntando a la fila que ELLA insertó,
+    así que la compensación no debe tocar la fila ajena.
     """
 
     @asynccontextmanager

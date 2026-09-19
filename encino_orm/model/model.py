@@ -492,11 +492,15 @@ class Model(BaseModel):
     async def insert(self, *, ignore_duplicated: bool = False, replace: bool = False) -> int:
         """Inserta el registro y devuelve el id cuando el motor lo expone.
 
-        En MSSQL/Oracle `replace=True` se renderiza como MERGE, y ese camino no
-        expone el id de la fila en la frontera del driver: `insert` devuelve `0`
-        ("id no disponible") y deja `self.id` intacto. En los dialectos
-        `prefix`/`suffix` (SQLite/MySQL/MariaDB/PostgreSQL) sigue devolviendo el id
-        real. La captura del id DENTRO del MERGE pertenece a la Fase 4 (POOL-03).
+        El id se captura DENTRO de la sentencia (`execute_insert`), por
+        conexión/tarea: `cursor.lastrowid` en SQLite/MySQL/MariaDB,
+        `INSERT … RETURNING` en PostgreSQL, `OUTPUT INSERTED` en MSSQL y
+        `RETURNING … INTO` en Oracle. En MSSQL/Oracle `replace=True` se renderiza
+        como MERGE, y ese camino no expone el id en la frontera del driver
+        (`MERGE … RETURNING` no existe en Oracle: ORA-00933): `insert` devuelve `0`
+        ("id no disponible") y deja `self.id` intacto. El `returning="id"` se pide
+        solo para una PK autoincremental (`_is_auto_pk()`); un modelo de PK
+        natural no lo pide y devuelve `0`.
         """
         errs = await self.validate()
         if errs:
@@ -529,17 +533,16 @@ class Model(BaseModel):
             if strategy.kind == "suffix":
                 conflict = [self._col(k) for k in type(self)._pk_fields()]
 
+        # `returning` es opt-in: solo la PK autoincremental puede capturarse. El
+        # render `merge` (MSSQL/Oracle) no emite captura, así que `execute_insert`
+        # devuelve `None` y `self.id` queda intacto.
+        returning = "id" if auto else None
+
         async def do_insert():
-            qry = self._get_db().insert(self._table, data, ignore_duplicated, replace, conflict)
-            await self._get_db().execute(qry)
-            # Un MERGE nunca refresca `_last_id`: `MssqlDb.execute` solo lo hace para
-            # sentencias `INSERT` y `OracleDb.execute` solo con `RETURNING`, que un
-            # MERGE no lleva. Consumirlo devolvía el id de OTRA fila (regresión de
-            # 02-08, que hizo ejecutable el MERGE). La captura REAL del id (p. ej.
-            # `OUTPUT INSERTED.id`) pertenece a la Fase 4 / POOL-03.
-            if qry.sql_template.lstrip().upper().startswith("MERGE"):
-                return None
-            return await self._get_db().last_id()
+            qry = self._get_db().insert(
+                self._table, data, ignore_duplicated, replace, conflict, returning=returning
+            )
+            return await self._get_db().execute_insert(qry)
 
         new_id = await self._transactional("insert", do_insert)
 

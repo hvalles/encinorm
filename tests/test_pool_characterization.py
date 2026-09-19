@@ -90,7 +90,15 @@ class FakeDb:
         self._in_tx = True
         return 1
 
-    async def last_id(self):
+    async def execute_insert(self, qry):
+        self.calls.append(("execute_insert", qry))
+        self._last = 42
+        self._in_tx = True
+        return self._last
+
+    async def _last_id_value(self):
+        # `PoolDb.last_id()` delega aquí; se registra la llamada para que la
+        # caracterización del scoping siga observándola.
         self.calls.append(("last_id",))
         return self._last
 

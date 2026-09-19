@@ -48,13 +48,22 @@ class TestMssqlInternal:
         db = MssqlDb()
         q = db.insert("t", {"a": 1, "b": "x"}, replace=True)
         sql, values = db._prepare(q)
+        # EDICIÓN DELIBERADA (04-02, ORA-38104): el `SET` excluye la columna del
+        # `ON` (fallback `columns[0]` = `a`).
         assert sql == (
             "MERGE INTO t AS dst USING (SELECT ? AS a, ? AS b) AS src "
             "ON (dst.a = src.a) "
-            "WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b "
+            "WHEN MATCHED THEN UPDATE SET dst.b = src.b "
             "WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)"
         )
         assert values == [1, "x"]
+
+    def test_insert_builder_output_inserted(self):
+        db = MssqlDb()
+        q = db.insert("t", {"a": 1}, returning="id")
+        sql, _ = db._prepare(q)
+        assert sql == "INSERT INTO t (a) OUTPUT INSERTED.id VALUES (?)"
+        assert q.returns_id is True
 
     def test_insert_builder_replace_merge_conflict(self):
         db = MssqlDb()
@@ -199,7 +208,7 @@ class TestMssqlLifecycle:
         assert await mssql_connected_db.is_alive() is True
 
     @pytest.mark.asyncio
-    async def test_insert_execute_and_last_id(self, mssql_connected_db):
+    async def test_insert_execute_and_execute_insert(self, mssql_connected_db):
         db = mssql_connected_db
         await db.execute(Query("IF OBJECT_ID('usuarios', 'U') IS NOT NULL DROP TABLE usuarios", []))
         await db.execute(
@@ -208,11 +217,11 @@ class TestMssqlLifecycle:
             )
         )
 
-        assert await db.execute(db.insert("usuarios", {"nombre": "Héctor"})) == 1
-        assert await db.last_id() == 1
+        q = db.insert("usuarios", {"nombre": "Héctor"}, returning="id")
+        assert await db.execute_insert(q) == 1
 
-        await db.execute(db.insert("usuarios", {"nombre": "Ana"}))
-        assert await db.last_id() == 2
+        q2 = db.insert("usuarios", {"nombre": "Ana"}, returning="id")
+        assert await db.execute_insert(q2) == 2
 
         rows = await db.fetch_all(Query("SELECT * FROM usuarios ORDER BY id", []))
         assert [r["nombre"] for r in rows] == ["Héctor", "Ana"]
@@ -331,15 +340,15 @@ class TestMssqlParity:
         assert "monto" in cols
 
     @pytest.mark.asyncio
-    async def test_last_id_characterization(self, mssql_connected_db):
+    async def test_execute_insert_characterization(self, mssql_connected_db):
         db = mssql_connected_db
         await _reset(db, "test_parity", _PARITY_DDL)
 
-        await db.execute(db.insert("test_parity", {"nombre": "Ana"}))
-        assert await db.last_id() == 1
+        q1 = db.insert("test_parity", {"nombre": "Ana"}, returning="id")
+        assert await db.execute_insert(q1) == 1
 
-        await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
-        assert await db.last_id() == 2
+        q2 = db.insert("test_parity", {"nombre": "Luis"}, returning="id")
+        assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
     async def test_model_insert_replace_no_rompe_el_merge(self, mssql_connected_db):

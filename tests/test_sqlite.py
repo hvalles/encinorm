@@ -178,7 +178,7 @@ class TestSqliteMigrations:
 
 class TestSqliteBuildersAndQueries:
     @pytest.mark.asyncio
-    async def test_insert_execute_and_last_id(self, connected_db):
+    async def test_insert_execute_and_execute_insert(self, connected_db):
         await connected_db.execute(
             Query(
                 "CREATE TABLE usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)",
@@ -186,12 +186,11 @@ class TestSqliteBuildersAndQueries:
             )
         )
 
-        q = connected_db.insert("usuarios", {"nombre": "Héctor"})
-        assert await connected_db.execute(q) == 1
-        assert await connected_db.last_id() == 1
+        q = connected_db.insert("usuarios", {"nombre": "Héctor"}, returning="id")
+        assert await connected_db.execute_insert(q) == 1
 
-        await connected_db.execute(connected_db.insert("usuarios", {"nombre": "Ana"}))
-        assert await connected_db.last_id() == 2
+        q2 = connected_db.insert("usuarios", {"nombre": "Ana"}, returning="id")
+        assert await connected_db.execute_insert(q2) == 2
 
         rows = await connected_db.fetch_all(Query("SELECT * FROM usuarios", []))
         assert len(rows) == 2
@@ -414,12 +413,12 @@ class TestSqliteParity:
             await _ParityModel(db).sync_schema(alter_types=True)
 
     @pytest.mark.asyncio
-    async def test_last_id_characterization(self, connected_db):
+    async def test_execute_insert_characterization(self, connected_db):
         db = connected_db
         await _reset(db, _PARITY_DDL)
 
-        await db.execute(db.insert("test_parity", {"nombre": "Ana"}))
-        assert await db.last_id() == 1
+        q1 = db.insert("test_parity", {"nombre": "Ana"}, returning="id")
+        assert await db.execute_insert(q1) == 1
 
-        await db.execute(db.insert("test_parity", {"nombre": "Luis"}))
-        assert await db.last_id() == 2
+        q2 = db.insert("test_parity", {"nombre": "Luis"}, returning="id")
+        assert await db.execute_insert(q2) == 2

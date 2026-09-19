@@ -1,3 +1,4 @@
+import asyncio
 import time
 from contextlib import asynccontextmanager
 
@@ -18,6 +19,7 @@ class FakeDb:
         self.calls = []
         self._last = 0
         self._in_tx = False
+        self.last_returning = None
 
     @property
     def is_connected(self):
@@ -46,9 +48,18 @@ class FakeDb:
             raise
 
     def insert(
-        self, tabla, data, ignore_duplicated=False, replace=False, conflict=None, *, schema=None
+        self,
+        tabla,
+        data,
+        ignore_duplicated=False,
+        replace=False,
+        conflict=None,
+        *,
+        schema=None,
+        returning=None,
     ):
         self.calls.append(("insert", tabla, conflict, schema))
+        self.last_returning = returning
         return f"INSERT {tabla} {data}"
 
     def delete(self, tabla, keys, *, schema=None):
@@ -69,7 +80,13 @@ class FakeDb:
         self._in_tx = True
         return 1
 
-    async def last_id(self):
+    async def execute_insert(self, qry):
+        self.calls.append(("execute_insert", qry))
+        self._last = 42
+        self._in_tx = True
+        return self._last
+
+    async def _last_id_value(self):
         self.calls.append(("last_id",))
         return self._last
 
@@ -186,6 +203,13 @@ class TestPool:
         assert ("insert", "t", ["a"], "s") in pool._template.calls
 
     @pytest.mark.asyncio
+    async def test_insert_reenvia_returning(self, pool):
+        # B3: `PoolDb.insert` reenvía `returning` al adaptador; sin esto un
+        # `Model.insert` con `_get_db()` siendo un `PoolDb` no captura el id.
+        pool.insert("t", {"a": 1}, returning="id")
+        assert pool._template.last_returning == "id"
+
+    @pytest.mark.asyncio
     async def test_delete_y_update_reenvian_schema(self, pool):
         pool.delete("t", {"id": 1}, schema="s")
         pool.update("t", {"id": 1}, {"a": 2}, schema="s")
@@ -215,10 +239,10 @@ class TestPoolTransactionScope:
         async with pool.transaction() as db:
             await pool.execute("INSERT 1")
             await pool.fetch_all("SELECT 1")
-            rid = await pool.last_id()
+            rid = await pool.execute_insert(Query("INSERT 2", []))
         assert ("execute", "INSERT 1") in db.calls
         assert ("fetch_all", "SELECT 1") in db.calls
-        assert ("last_id",) in db.calls
+        assert ("execute_insert", Query("INSERT 2", [])) in db.calls
         assert rid == 42
 
     @pytest.mark.asyncio
@@ -396,6 +420,36 @@ class TestPoolAutocommit:
         rows = await sqlite_pool.fetch_all(Query("SELECT * FROM t", []))
         assert len(rows) == 1
         assert rows[0]["nombre"] == "a"
+
+
+class TestPoolConcurrentInsertIds:
+    @pytest.fixture
+    async def sqlite_pool(self, tmp_path):
+        p = PoolDb("sqlite", min_size=1, max_size=3, database=str(tmp_path / "ids.db"))
+        await p.connect()
+        yield p
+        await p.close()
+
+    @pytest.mark.asyncio
+    async def test_concurrent_inserts_get_own_id(self, sqlite_pool):
+        # POOL-03: cada tarea recibe SU PROPIO id vía `execute_insert`, sin
+        # cruce; el id sale de la sentencia, no de un cache compartido.
+        await sqlite_pool.execute(
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", [])
+        )
+
+        async def insert_one(nombre):
+            qry = sqlite_pool.insert("t", {"nombre": nombre}, returning="id")
+            new_id = await sqlite_pool.execute_insert(qry)
+            return nombre, new_id
+
+        results = await asyncio.gather(*(insert_one(f"n{i}") for i in range(5)))
+        mapping = dict(results)
+        assert sorted(mapping.values()) == [1, 2, 3, 4, 5]
+
+        rows = await sqlite_pool.fetch_all(Query("SELECT nombre, id FROM t", []))
+        by_name = {r["nombre"]: r["id"] for r in rows}
+        assert by_name == mapping
 
 
 class TestCreateDbFactory:
