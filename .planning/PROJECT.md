@@ -47,6 +47,11 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - ✓ RESL-02: `_with_reconnect` reconecta exactamente una vez y solo fuera de transacción (lecturas re-ejecutan; escritura pre-ejecución ejecuta; escritura mid-statement reconecta y relanza para no duplicar) — Validated in Phase 5
 - ✓ RESL-03: conexiones directas con `pre_ping` y `max_connection_lifetime` (reaper perezoso, sin daemon; nunca dentro de una transacción) — Validated in Phase 5
 - ✓ RESL-04: taxonomía pública de errores (`ConnectionLostError`/`OperationalError`/`IntegrityError`/`ProgrammingError`) con traducción única que preserva `__cause__` y no toca los locks — Validated in Phase 5
+- ✓ CFG-01: `ConnectionRegistry` inyectable reemplaza el global `_default_db`; shims deprecados con `DeprecationWarning` — Validated in Phase 6
+- ✓ CFG-02: `SecurityConfig` inmutable + factorías de guards; mutar `SECRET`/`GET_DB` deja de cambiar el comportamiento; fail-closed ante secreto vacío — Validated in Phase 6
+- ✓ CFG-03: handlers REST/GraphQL generados con `exec()` sustituidos por closures + `__signature__`, con snapshot OpenAPI/SDL antes/después byte-idéntico — Validated in Phase 6
+- ✓ CFG-04: `build_schema` usa un namespace por build sin mutar el módulo ni filtrar `sys.modules` — Validated in Phase 6
+- ✓ CFG-05: fronteras de confianza de `Filter.raw`/`Query`/`db.fn.*` documentadas con ejemplos seguros/inseguros — Validated in Phase 6
 
 ### Active
 
@@ -56,9 +61,9 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - [ ] `upsert` con claves de conflicto globales no se acota por `scope()` (residual documentado; mitigación: unicidad multi-tenant `(tenant, clave)`)
 
 **Seguridad**
-- [ ] La configuración de JWT/secretos deja de depender de globales mutables; se prefiere inyección explícita por dependencia
+- [x] La configuración de JWT/secretos deja de depender de globales mutables; se prefiere inyección explícita por dependencia — Validated in Phase 6 (`SecurityConfig`)
 - [ ] Las credenciales de desarrollo (`docker-compose.yml`) están marcadas como solo-desarrollo y los workflows de release migran a trusted publishing/OIDC
-- [ ] Documentación explícita de superficies de confianza (`Filter.raw`, `Query`, fragmentos `db.fn.*`)
+- [x] Documentación explícita de superficies de confianza (`Filter.raw`, `Query`, fragmentos `db.fn.*`) — Validated in Phase 6 (`docs/trust-boundaries.md`)
 
 **Concurrencia y pool**
 - [x] Reconexión automática o envoltorio de salud para conexiones directas (no-pool) — Validated in Phase 5 (`pre_ping`/`max_connection_lifetime`)
@@ -143,4 +148,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-19 after Phase 5 completion*
+*Last updated: 2026-09-19 after Phase 6 completion*

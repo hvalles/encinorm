@@ -63,8 +63,8 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 - [x] **CFG-01**: `ConnectionRegistry` reemplaza el global `_default_db`, con shims retrocompatibles deprecados
 - [x] **CFG-02**: `SecurityConfig` inmutable y factorías de guards reemplazan los globales mutables `SECRET`/`GET_DB`
-- [ ] **CFG-03**: Los handlers generados con `exec()` se sustituyen por closures/`__signature__` en un refactor que preserva comportamiento, con snapshot OpenAPI antes/después
-- [ ] **CFG-04**: `build_schema` de GraphQL usa un namespace por build y deja de mutar el namespace del módulo
+- [x] **CFG-03**: Los handlers generados con `exec()` se sustituyen por closures/`__signature__` en un refactor que preserva comportamiento, con snapshot OpenAPI antes/después
+- [x] **CFG-04**: `build_schema` de GraphQL usa un namespace por build y deja de mutar el namespace del módulo
 - [x] **CFG-05**: Las fronteras de confianza de `Filter.raw`, `Query` y `db.fn.*` están documentadas explícitamente
 
 ### Performance
@@ -170,8 +170,8 @@ Qué fase cubre cada requisito.
 | RESL-04 | Phase 5 | Complete |
 | CFG-01 | Phase 6 | Complete |
 | CFG-02 | Phase 6 | Complete |
-| CFG-03 | Phase 6 | Pending |
-| CFG-04 | Phase 6 | Pending |
+| CFG-03 | Phase 6 | Complete |
+| CFG-04 | Phase 6 | Complete |
 | CFG-05 | Phase 6 | Complete |
 | PERF-01 | Phase 7 | Pending |
 | PERF-02 | Phase 7 | Pending |
