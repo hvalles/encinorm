@@ -297,7 +297,7 @@ documentándolo.
 | IN-03 | `_measure` captura `gc.isenabled()` y restaura el estado previo en `finally` en vez de `gc.enable()` incondicional. | `8228dc5` |
 | IN-02 | Resuelto por el fix de HR-01 (mensaje con índice de fila). | `edf8318` |
 
-Estado final tras los fixes: `tests/test_transfer.py` + `test_benchmarks.py` + `test_dialect_builders.py` → 138 passed. Revisar CI completo tras push.
+Estado final tras los fixes: `tests/test_transfer.py` + `test_benchmarks.py` + `test_dialect_builders.py` → 138 passed. CI completo tras push: **10/10 jobs verde** en `4a00838` (incluye `Benchmarks (gate 2x)`, `Lint y formato`, `Tipos (mypy)` y `Motores pesados (MSSQL + Oracle)`), docs desplegadas en Pages (`docs.yml` success). Notable: la primera corrida tras los fixes falló solo en mypy (`auto_pk` no estrechado a `str`) y la segunda en ruff S101 (`assert`) — ambos corregidos y verdes en `4a00838`.
 
 ---
 
