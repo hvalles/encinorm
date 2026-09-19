@@ -379,8 +379,8 @@ class PoolDb(Db):
     async def last_id(self):
         """DEPRECADO: usa `PoolDb.execute_insert(qry)`.
 
-        Emite el MISMO `DeprecationWarning` centralizado que `Db.last_id()`
-        (helper de `.base`) y, dentro de una transacción, delega en el id por
+        Emite el MISMO `DeprecationWarning` centralizado que el `last_id()` de
+        `Db` (helper de `.base`) y, dentro de una transacción, delega en el id por
         conexión/tarea del handle retenido; fuera devuelve 0.
         """
         _warn_last_id_deprecated()
