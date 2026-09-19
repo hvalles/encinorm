@@ -4,8 +4,8 @@ milestone: v0.2.6
 milestone_name: milestone
 status: executing
 stopped_at: Phase 8 context gathered
-last_updated: "2026-09-19T20:54:52.509Z"
-last_activity: 2026-09-19 -- Phase 8 planning complete
+last_updated: "2026-09-19T21:02:50.303Z"
+last_activity: 2026-09-19 -- Phase 8 execution started
 progress:
   total_phases: 8
   completed_phases: 6
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-17)
 
 **Core value:** El ORM debe ser confiable en producción sobre cualquiera de los seis motores — correcto bajo concurrencia, seguro frente a inyección y configuraciones erróneas, y predecible en rendimiento.
-**Current focus:** Phase 8 — release 0.3.0
+**Current focus:** Phase 8 — Release 0.3.0
 **Milestone:** encino_orm 0.2.6 → 0.3.0 (production hardening)
 
 ## Current Position
 
-Phase: 8 (pending)
-Plan: Phase 7 complete (4/4)
-Status: Ready to execute
-Last activity: 2026-09-19 -- Phase 8 planning complete
+Phase: 8 (Release 0.3.0) — EXECUTING
+Plan: 1 of 8
+Status: Executing Phase 8
+Last activity: 2026-09-19 -- Phase 8 execution started
 
 Progress: [██████████] 100%
 
