@@ -31,32 +31,46 @@ import pymysql.err
 from encino_orm.base import Db
 
 __all__ = [
+    "FakeReconnectFalla",
     "FakeResilientDb",
     "mssql_disconnect_idle",
     "mssql_disconnect_midquery",
+    "mssql_integrity",
     "mssql_lock",
     "mssql_lock_timeout",
+    "mssql_syntax",
     "mysql_disconnect",
     "mysql_gone_away",
+    "mysql_integrity",
     "mysql_interface",
     "mysql_lock",
     "mysql_lock_timeout",
+    "mysql_operational",
+    "mysql_programming",
     "oracle_disconnect_dpy",
     "oracle_disconnect_ora",
+    "oracle_integrity",
     "oracle_lock",
     "oracle_lock_timeout",
     "oracle_serialization",
+    "oracle_syntax",
     "pg_cached_stmt",
     "pg_disconnect",
+    "pg_integrity",
     "pg_interface",
     "pg_lock",
     "pg_lock_not_available",
+    "pg_operational",
+    "pg_programming",
     "pg_serialization",
     "real_mssql_disconnect",
     "real_oracle_disconnect",
     "sqlite_disconnect",
     "sqlite_disk_io",
+    "sqlite_integrity",
     "sqlite_lock",
+    "sqlite_operational",
+    "sqlite_programming",
 ]
 
 # ---------------------------------------------------------------------------
@@ -83,6 +97,21 @@ def sqlite_lock() -> Exception:
     return aiosqlite.OperationalError("database is locked")
 
 
+def sqlite_integrity() -> Exception:
+    """`sqlite3.IntegrityError` (UNIQUE/NOT NULL/CHECK) → `IntegrityError`."""
+    return aiosqlite.IntegrityError("UNIQUE constraint failed: t.x")
+
+
+def sqlite_programming() -> Exception:
+    """`sqlite3.ProgrammingError` de programación (NO la de conexión cerrada)."""
+    return aiosqlite.ProgrammingError("Incorrect number of bindings supplied")
+
+
+def sqlite_operational() -> Exception:
+    """`sqlite3.OperationalError` genérico (NO lock ni disconnect) → `OperationalError`."""
+    return aiosqlite.OperationalError("no such table: t")
+
+
 def mysql_disconnect() -> Exception:
     """`OperationalError(2013)` de conexión perdida durante una query (KILL real)."""
     return pymysql.err.OperationalError(2013, "Lost connection to MySQL server during query")
@@ -106,6 +135,21 @@ def mysql_lock() -> Exception:
 def mysql_lock_timeout() -> Exception:
     """`OperationalError(1205)` de lock wait timeout: es lock, no disconnect."""
     return pymysql.err.OperationalError(1205, "Lock wait timeout exceeded")
+
+
+def mysql_integrity() -> Exception:
+    """`IntegrityError(1062)` de clave duplicada → `IntegrityError`."""
+    return pymysql.err.IntegrityError(1062, "Duplicate entry 'x' for key 'PRIMARY'")
+
+
+def mysql_programming() -> Exception:
+    """`ProgrammingError(1064)` de sintaxis → `ProgrammingError`."""
+    return pymysql.err.ProgrammingError(1064, "You have an error in your SQL syntax")
+
+
+def mysql_operational() -> Exception:
+    """`OperationalError(2003)` que NO es desconexión (no está en los errnos)."""
+    return pymysql.err.OperationalError(2003, "Can't connect to MySQL server")
 
 
 def pg_disconnect() -> Exception:
@@ -140,6 +184,21 @@ def pg_cached_stmt() -> Exception:
     return asyncpg.exceptions.InvalidCachedStatementError("cached statement plan is invalid")
 
 
+def pg_integrity() -> Exception:
+    """`UniqueViolationError` (subclase de `IntegrityConstraintViolationError`)."""
+    return asyncpg.exceptions.UniqueViolationError("duplicate key value violates unique constraint")
+
+
+def pg_programming() -> Exception:
+    """`UndefinedTableError` (subclase de `SyntaxOrAccessError`) → `ProgrammingError`."""
+    return asyncpg.exceptions.UndefinedTableError('relation "t" does not exist')
+
+
+def pg_operational() -> Exception:
+    """`PostgresError` genérico que no es integridad ni programación."""
+    return asyncpg.exceptions.PostgresError("boom")
+
+
 class _MssqlExc(Exception):
     """Excepción con la MISMA forma de `args` que `pyodbc.Error`.
 
@@ -169,6 +228,16 @@ def mssql_lock() -> Exception:
 def mssql_lock_timeout() -> Exception:
     """Lock request timeout 1222: es lock, no disconnect."""
     return _MssqlExc("HYT00", 1222, "lock request time out")
+
+
+def mssql_integrity() -> Exception:
+    """SQLSTATE 23000 + 2627 (unique) → `IntegrityError`."""
+    return _MssqlExc("23000", 2627, "Violation of UNIQUE KEY constraint")
+
+
+def mssql_syntax() -> Exception:
+    """SQLSTATE 42000 + 102 (syntax) → `ProgrammingError`."""
+    return _MssqlExc("42000", 102, "Incorrect syntax near 'x'")
 
 
 class _OraError:
@@ -209,6 +278,16 @@ def oracle_lock_timeout() -> Exception:
 def oracle_serialization() -> Exception:
     """ORA-08177 serialization: es lock (re-reintentable), no disconnect."""
     return _OraExc(8177, None)
+
+
+def oracle_integrity() -> Exception:
+    """ORA-00001 unique constraint → `IntegrityError`."""
+    return _OraExc(1, None)
+
+
+def oracle_syntax() -> Exception:
+    """ORA-00904 invalid identifier → `ProgrammingError`."""
+    return _OraExc(904, None)
 
 
 # ---------------------------------------------------------------------------
@@ -418,3 +497,22 @@ class FakeResilientDb(Db):
 
     async def migrate_status(self):
         return []
+
+
+class FakeReconnectFalla(FakeResilientDb):
+    """Doble cuyo `connect()` puede fallar para probar el fallo de `_reconnect`.
+
+    La conexión inicial debe tener éxito (fija `_connected_at`/`_connect_kwargs`);
+    después se activa `falla_connect` para que la reconexión lance la excepción de
+    driver de `connect_exc_factory` y `_with_reconnect` tenga que traducirla.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.falla_connect = False
+        self.connect_exc_factory = mysql_disconnect
+
+    async def connect(self, **kwargs):
+        if self.falla_connect:
+            raise self.connect_exc_factory()
+        await super().connect(**kwargs)

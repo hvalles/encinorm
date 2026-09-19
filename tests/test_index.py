@@ -1,9 +1,9 @@
-import sqlite3
 from typing import Annotated, ClassVar
 
 import pytest
 
 from encino_orm import Query
+from encino_orm.exceptions import IntegrityError
 from encino_orm.model import Column, Index, Model
 from encino_orm.model.types import indexes_ddl
 
@@ -171,5 +171,5 @@ class TestCreateTableIndexes:
         await C(connected_db).create_table()
         await C(connected_db, rfc="AAA").insert()
 
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(IntegrityError):
             await C(connected_db, rfc="AAA").insert()

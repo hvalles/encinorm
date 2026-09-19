@@ -3,9 +3,14 @@ import pytest
 from encino_orm.base import Db
 from encino_orm.exceptions import (
     ConnectionError,
+    ConnectionLostError,
     EncinoOrmError,
+    IntegrityError,
     MigrationError,
+    OperationalError,
     PoolExhaustedError,
+    ProgrammingError,
+    QueryError,
 )
 from encino_orm.mysql import MysqlDb
 from encino_orm.query import Query
@@ -29,8 +34,27 @@ class TestDbWait:
 
 class TestDbExceptions:
     def test_exceptions_subclass_encino_orm(self):
-        for exc in (ConnectionError, MigrationError, PoolExhaustedError):
+        for exc in (
+            ConnectionError,
+            ConnectionLostError,
+            IntegrityError,
+            MigrationError,
+            OperationalError,
+            PoolExhaustedError,
+            ProgrammingError,
+        ):
             assert issubclass(exc, EncinoOrmError)
+
+    def test_taxonomia_es_aditiva_y_compatible(self):
+        """RESL-04: los `except` previos siguen capturando lo que capturaban."""
+        assert issubclass(ConnectionLostError, ConnectionError)
+        assert issubclass(OperationalError, QueryError)
+        assert issubclass(IntegrityError, QueryError)
+        assert issubclass(ProgrammingError, QueryError)
+
+    def test_connection_lost_se_captura_como_connection_error(self):
+        with pytest.raises(ConnectionError):
+            raise ConnectionLostError("conexión perdida")
 
 
 class TestDbWithoutConnection:

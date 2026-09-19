@@ -25,37 +25,57 @@ import pytest
 from encino_orm import MariadbDb, MssqlDb, MysqlDb, OracleDb, PostgresDb, SqliteDb
 from encino_orm.base import Db
 from encino_orm.exceptions import ConnectionError as OrmConnectionError
-from encino_orm.exceptions import QueryError
+from encino_orm.exceptions import (
+    ConnectionLostError,
+    IntegrityError,
+    OperationalError,
+    ProgrammingError,
+    QueryError,
+)
 from encino_orm.pool import PoolDb
 from encino_orm.query import Query
 from tests._pool_helpers import FakeDb as PoolFakeDb
 from tests._resilience_helpers import (
+    FakeReconnectFalla,
     FakeResilientDb,
     mssql_disconnect_idle,
     mssql_disconnect_midquery,
+    mssql_integrity,
     mssql_lock,
     mssql_lock_timeout,
+    mssql_syntax,
     mysql_disconnect,
     mysql_gone_away,
+    mysql_integrity,
     mysql_interface,
     mysql_lock,
     mysql_lock_timeout,
+    mysql_operational,
+    mysql_programming,
     oracle_disconnect_dpy,
     oracle_disconnect_ora,
+    oracle_integrity,
     oracle_lock,
     oracle_lock_timeout,
     oracle_serialization,
+    oracle_syntax,
     pg_cached_stmt,
     pg_disconnect,
+    pg_integrity,
     pg_interface,
     pg_lock,
     pg_lock_not_available,
+    pg_operational,
+    pg_programming,
     pg_serialization,
     real_mssql_disconnect,
     real_oracle_disconnect,
     sqlite_disconnect,
     sqlite_disk_io,
+    sqlite_integrity,
     sqlite_lock,
+    sqlite_operational,
+    sqlite_programming,
 )
 from tests.conftest import engine_unavailable
 
@@ -272,7 +292,7 @@ class TestWithReconnect:
         para el futuro, pero relanza sin re-ejecutar (nunca duplica en silencio)."""
         db = await _db_conectada(fail_first=1, exc_factory=mysql_disconnect)
 
-        with pytest.raises(pymysql.err.OperationalError):
+        with pytest.raises(ConnectionLostError):
             await db.execute(Query("UPDATE t SET x = {0}", [1]))
         assert db.connects == 1
         assert db.closes == 1
@@ -282,7 +302,7 @@ class TestWithReconnect:
     async def test_desconexion_dentro_de_tx_relanza_sin_reconectar(self):
         db = await _db_conectada(fail_first=1, tx=True)
 
-        with pytest.raises(pymysql.err.OperationalError):
+        with pytest.raises(ConnectionLostError):
             await db.execute(Query("UPDATE t SET x = {0}", [1]))
         assert db.connects == 0
         assert db.closes == 0
@@ -292,7 +312,7 @@ class TestWithReconnect:
     async def test_fallo_persistente_no_hace_bucle(self):
         db = await _db_conectada(fail_first=99)
 
-        with pytest.raises(pymysql.err.OperationalError):
+        with pytest.raises(ConnectionLostError):
             await db.fetch_one(Query("SELECT 1", []))
         assert db.fetches == 2  # EXACTAMENTE un segundo intento, sin bucle
         assert db.connects == 1
@@ -541,3 +561,93 @@ class TestResilienceLifetime:
             assert capturado == [{"pre_ping": True, "max_connection_lifetime": 30}]
         finally:
             await pool.close()
+
+
+# ---------------------------------------------------------------------------
+# RESL-04: taxonomía pública y traducción driver → librería
+# Selector estable del bloque: `-k translate`.
+# ---------------------------------------------------------------------------
+
+# (adaptador, builder de excepción de driver, excepción de la librería esperada)
+_TRANSLATE_CASES = [
+    (SqliteDb, sqlite_integrity, IntegrityError),
+    (SqliteDb, sqlite_programming, ProgrammingError),
+    (SqliteDb, sqlite_operational, OperationalError),
+    (MysqlDb, mysql_integrity, IntegrityError),
+    (MysqlDb, mysql_programming, ProgrammingError),
+    (MysqlDb, mysql_operational, OperationalError),
+    (MariadbDb, mysql_integrity, IntegrityError),
+    (PostgresDb, pg_integrity, IntegrityError),
+    (PostgresDb, pg_programming, ProgrammingError),
+    (PostgresDb, pg_operational, OperationalError),
+    (MssqlDb, mssql_integrity, IntegrityError),
+    (MssqlDb, mssql_syntax, ProgrammingError),
+    (OracleDb, oracle_integrity, IntegrityError),
+    (OracleDb, oracle_syntax, ProgrammingError),
+]
+
+
+@pytest.mark.parametrize(("db_cls", "exc_factory", "expected"), _TRANSLATE_CASES)
+def test_translate_por_motor(db_cls, exc_factory, expected):
+    """Cada adaptador mapea su driver a la taxonomía (RESL-04)."""
+    translated = db_cls()._translate_exception(exc_factory())
+    assert type(translated) is expected
+
+
+@pytest.mark.parametrize(("db_cls", "lock_factory"), _LOCK_CASES)
+def test_translate_lock_no_se_traduce(db_cls, lock_factory):
+    """Pitfall 3: un lock se devuelve SIN traducir (identidad) para `retry()`."""
+    db = db_cls()
+    lock_exc = lock_factory()
+    assert db._translate_exception(lock_exc) is lock_exc
+
+
+@pytest.mark.parametrize(("db_cls", "disconnect_factory"), _DISCONNECT_CASES)
+def test_translate_disconnect_a_connection_lost(db_cls, disconnect_factory):
+    """Una desconexión se traduce a `ConnectionLostError` (subclase de ConnectionError)."""
+    translated = db_cls()._translate_exception(disconnect_factory())
+    assert type(translated) is ConnectionLostError
+    assert isinstance(translated, OrmConnectionError)
+
+
+def test_translate_encinoorm_error_tal_cual():
+    """Idempotencia: una excepción de la librería no se re-traduce."""
+    db = SqliteDb()
+    exc = QueryError("boom")
+    assert db._translate_exception(exc) is exc
+
+
+@pytest.mark.asyncio
+async def test_translate_with_reconnect_preserva_la_causa():
+    """T-05-04-05: el relanzado usa `from exc` y conserva la causa del driver."""
+    driver_exc = mysql_disconnect()
+    db = await _db_conectada(fail_first=1, tx=True, exc_factory=lambda: driver_exc)
+
+    with pytest.raises(ConnectionLostError) as raised:
+        await db.fetch_one(Query("SELECT 1", []))
+    assert raised.value.__cause__ is driver_exc
+
+
+@pytest.mark.asyncio
+async def test_translate_reconnect_fallido_se_traduce():
+    """Un fallo de `_reconnect()` no escapa crudo: se traduce y encadena la causa."""
+    db = FakeReconnectFalla(fail_first=1)
+    await db.connect()
+    db.falla_connect = True
+
+    with pytest.raises(ConnectionLostError) as raised:
+        await db.fetch_one(Query("SELECT 1", []))
+    assert isinstance(raised.value.__cause__, pymysql.err.OperationalError)
+
+
+@pytest.mark.asyncio
+async def test_translate_sqlite_memory_lanza_connection_lost():
+    """`:memory:` rechaza reconectar con `ConnectionLostError` (subclase compatible)."""
+    db = SqliteDb()
+    await db.connect(database=":memory:")
+    try:
+        with pytest.raises(ConnectionLostError) as raised:
+            await db._reconnect()
+        assert isinstance(raised.value, OrmConnectionError)
+    finally:
+        await db.close()
