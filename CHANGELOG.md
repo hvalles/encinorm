@@ -338,6 +338,49 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   vacía y perdería los datos) lanzando `ConnectionLostError`. Nota de ownership:
   esta entrada es ADITIVA y no prejuzga la enumeración del milestone (`08-04`).
 
+## [0.2.7] - 2026-09-19
+
+### Deprecaciones
+
+Esta línea avisa, sin retirar nada todavía, las rupturas incompatibles que
+`0.3.0` consumará. **Las remociones NO ocurren en 0.2.7**: el comportamiento
+viejo sigue funcionando y emite un `DeprecationWarning` de runtime que nombra el
+reemplazo.
+
+- **`reset_on_release="commit"` (política de liberación del pool).** Se mantiene
+  la política vieja, que confirma el sobrante de una transacción al liberar la
+  conexión, pero `PoolDb(..., reset_on_release="commit")` emite
+  `DeprecationWarning` al construir el pool. Reemplazo: el default `"rollback"`,
+  que revierte el sobrante.
+- **Globales `SECRET`/`GET_DB` (configuración de seguridad).** El fallback a los
+  globales mutables sigue operativo pero emite `DeprecationWarning`; el mensaje
+  nombra los NOMBRES de los globales, nunca sus valores. Reemplazo:
+  `SecurityConfig` inmutable + `security_dependencies(config)`.
+- **`last_id()` post-hoc (captura del id de inserción).** Sigue devolviendo el
+  id cacheado, pero emite `DeprecationWarning`. Reemplazo:
+  `execute_insert(qry)` o el retorno de `Model.insert()`.
+
+### Rupturas fail-closed sin warning posible
+
+Las siguientes rupturas de `0.3.0` **no pueden emitir un `DeprecationWarning`
+previo** porque rechazan el valor antes de aceptarlo (validan y lanzan
+`ValueError`); degradar esa defensa para poder avisar reabriría la superficie de
+inyección. La migración está documentada, no avisada:
+
+- **Identificadores no validados** / `indexes_ddl` hostil:
+  `encino_orm/dialects/identifiers.py` aplica una allowlist estricta fail-closed
+  antes de interpolar cualquier identificador.
+- **`QueryBuilder._table` no identificador**: se valida con la allowlist
+  estricta en el constructor y en `join()` antes de generar SQL.
+- **Contrato de cardinalidad de `Query`**: pasar valores a una plantilla sin
+  `{n}` lanza `ValueError` en vez de descartarlos en silencio.
+
+Nota: la allowlist tolerante a puntos de `encino_orm/sql.py` y
+`encino_orm/model/query_builder.py` es **intencional** (expresiones calificadas
+como `mm.agente`) y no se unifica con la estricta, por lo que **no** se le añade
+un warning. La enumeración completa de cambios incompatibles del milestone sigue
+en `[Unreleased]` y la promueve/publica la propia línea `0.3.0`.
+
 ## [0.2.6] - 2026-09-11
 
 ### Corregido
