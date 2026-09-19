@@ -422,3 +422,11 @@ class TestSqliteParity:
 
         q2 = db.insert("test_parity", {"nombre": "Luis"}, returning="id")
         assert await db.execute_insert(q2) == 2
+
+    @pytest.mark.asyncio
+    async def test_last_id_deprecated(self, connected_db):
+        # Task 3 / B2: la deprecación se prueba sobre un `SqliteDb` REAL, no un
+        # fake que sobrescriba `last_id`. El camino nuevo (`execute_insert`) no
+        # emite warning y ya está cubierto por los tests de arriba.
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            await connected_db.last_id()

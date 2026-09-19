@@ -190,6 +190,25 @@ else:
 `create_db` y `PoolDb` aceptan indistintamente `str` o `Engine`
 (`create_db(Engine.SQLITE, ...)` ≡ `create_db("sqlite", ...)`).
 
+### Capturar el id de una inserción
+
+El id se captura **dentro** de la sentencia que lo produce, por conexión/tarea.
+Usa `execute_insert` (o el retorno de `Model.insert`) en vez del `last_id()`
+post-hoc, que está **deprecado** (emite `DeprecationWarning`):
+
+```python
+q = db.insert("agentes", {"nombre": "Héctor"}, returning="id")
+new_id = await db.execute_insert(q)          # 1
+
+a = Agente(db, agente="Ana")
+new_id = await a.insert()                    # el id sale del propio INSERT
+```
+
+`returning=<col>` es opt-in: sin él el SQL es byte-idéntico al de siempre y
+`execute_insert` devuelve `None`. Un `MERGE` (MSSQL/Oracle con `replace=True`)
+no expone el id en la frontera del driver, así que `execute_insert` devuelve
+`None` y `Model.insert` devuelve `0` sin asignar `self.id`.
+
 ### Funciones SQL portables (`db.fn`)
 
 `db.fn` traduce funciones comunes al dialecto del motor. Devuelve un **fragmento

@@ -391,3 +391,8 @@ class TestMysqlParity:
 
         q2 = db.insert("test_parity", {"nombre": "Luis"}, returning="id")
         assert await db.execute_insert(q2) == 2
+
+    @pytest.mark.asyncio
+    async def test_last_id_deprecated(self, mysql_connected_db):
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            await mysql_connected_db.last_id()

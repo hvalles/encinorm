@@ -420,6 +420,18 @@ class TestPostgresParity:
         assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
+    async def test_last_id_deprecated(self, pg_connected_db):
+        # `_last_id_value` de PostgreSQL usa `lastval()`, que exige un `nextval`
+        # previo en la sesión: se hace un INSERT real antes de pedir el id.
+        db = pg_connected_db
+        await _reset(
+            db, "usuarios", "CREATE TABLE usuarios (id SERIAL PRIMARY KEY, nombre VARCHAR(50))"
+        )
+        await db.execute(db.insert("usuarios", {"nombre": "x"}))
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            await db.last_id()
+
+    @pytest.mark.asyncio
     async def test_model_insert_replace_con_pk_natural(self, pg_connected_db):
         # WR-05: `Model.insert(replace=True)` deriva el objetivo de conflicto de
         # la PK del modelo (aquí `codigo`), no de la primera columna del INSERT.

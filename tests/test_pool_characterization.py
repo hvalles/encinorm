@@ -265,7 +265,10 @@ class TestPoolLastIdScoping:
         qry = Query("INSERT 1", [])
         async with pool.transaction() as db:
             await pool.execute(qry)
-            rid = await pool.last_id()
+            # POOL-03/Task 3: `last_id()` está DEPRECADO y emite warning; sigue
+            # leyendo la conexión retenida para la caracterización del scoping.
+            with pytest.warns(DeprecationWarning, match="deprecado"):
+                rid = await pool.last_id()
 
         assert rid == 42
         assert ("execute", qry) in db.calls
@@ -274,14 +277,16 @@ class TestPoolLastIdScoping:
     async def test_outside_transaction_has_no_pool_cache(self, single_pool):
         # POOL-03: se eliminó el cache de id a nivel de pool; fuera de una
         # transacción no hay conexión/tarea a la que asociar el id (devuelve 0).
-        # La captura por conexión/tarea llega en 04-02 con `execute_insert`.
+        # El reemplazo es `execute_insert`.
         conn = next(iter(single_pool._connections))
         await single_pool.execute(Query("INSERT 1", []))
 
-        assert await single_pool.last_id() == 0
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            assert await single_pool.last_id() == 0
 
         calls_before = list(conn.driver.calls)
-        rid = await single_pool.last_id()
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            rid = await single_pool.last_id()
 
         assert rid == 0
         # `last_id()` fuera de transacción NO consulta la conexión.
@@ -292,30 +297,33 @@ class TestPoolLastIdScoping:
         await single_pool.execute(Query("INSERT 1", []))
 
         async def other_task():
-            return await single_pool.last_id()
+            with pytest.warns(DeprecationWarning, match="deprecado"):
+                return await single_pool.last_id()
 
         stale = await asyncio.create_task(other_task())
         assert stale == 0
 
     async def test_insert_inside_transaction_captures_handle_id(self, single_pool):
-        # POOL-03: el id se captura por conexión/tarea DENTRO de una
-        # transacción; la captura dentro de la sentencia llega en 04-02.
+        # POOL-03: el id se captura por conexión/tarea DENTRO de una transacción.
         async with single_pool.transaction() as db:
             await single_pool.execute(Query("INSERT 1", []))
-            assert await single_pool.last_id() == 42
+            with pytest.warns(DeprecationWarning, match="deprecado"):
+                assert await single_pool.last_id() == 42
         assert ("last_id",) in db.calls
 
     async def test_lowercase_insert_inside_transaction_captures_handle_id(self, single_pool):
         async with single_pool.transaction() as db:
             await single_pool.execute(Query("insert into t values (1)", []))
-            assert await single_pool.last_id() == 42
+            with pytest.warns(DeprecationWarning, match="deprecado"):
+                assert await single_pool.last_id() == 42
         assert ("last_id",) in db.calls
 
     async def test_non_insert_outside_transaction_has_no_id(self, single_pool):
         # POOL-03: sin cache de pool, ninguna sentencia deja un id observable
         # fuera de una transacción.
         await single_pool.execute(Query("SELECT 1", []))
-        assert await single_pool.last_id() == 0
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            assert await single_pool.last_id() == 0
 
 
 class TestPoolReleaseSemantics:

@@ -130,10 +130,25 @@ class MimotorDb(Db):
     # ... resto de métodos ...
 ```
 
-### 2. Implementa `last_id` y el manejo de errores
+### 2. Implementa la captura del id y el manejo de errores
 
-- `last_id()`: usa el mecanismo nativo (`last_insert_rowid()`, `lastrowid`,
-  `lastval()`, …). Devuelve `0` si no aplica (clave no auto-incremental).
+- `execute_insert(qry)`: ejecuta un INSERT y devuelve el id capturado **dentro
+  de la misma sentencia**, o `None` si el motor no lo expone (p. ej. un
+  `MERGE`). El `Query` transporta la metadata `returns_id`/`id_column` que fija
+  `build_insert(returning=<col>)`. Mecanismo por motor:
+  - **SQLite/MySQL/MariaDB:** `cursor.lastrowid` inmediatamente tras el
+    `INSERT` (el SQL no cambia).
+  - **PostgreSQL:** `INSERT ... RETURNING <pk>` + `fetchrow`. `lastval()` **NO
+    es correcto**: es *session-scoped* y devuelve el último `nextval` de la
+    sesión (de cualquier tabla y de cualquier tarea que comparta la conexión).
+  - **MSSQL:** `OUTPUT INSERTED.<pk>` en el MISMO statement. `@@IDENTITY` **NO
+    es correcto** (session-scoped y contaminable por triggers) y
+    `SCOPE_IDENTITY()` en un `execute` separado devuelve `NULL`.
+  - **Oracle:** `RETURNING <pk> INTO :ret_id` (opt-in). `MERGE ... RETURNING`
+    no está soportado (ORA-00933).
+- `last_id()` está **DEPRECADO** (emite `DeprecationWarning`): el id post-hoc es
+  incorrecto bajo concurrencia. Usa `Db.execute_insert(qry)` o el valor de
+  retorno de `Model.insert()`.
 - `is_lock_error(exc)`: opcional; devuelve `True` ante deadlocks/bloqueos
   re-reintentables para que `retry()` funcione.
 

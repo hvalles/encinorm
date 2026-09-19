@@ -113,7 +113,18 @@ la sentencia era ejecutable en ambos motores; no lo era.
 - **Cobertura:** `tests/test_oracle.py::TestOracleParity::test_model_insert_replace_no_rompe_el_merge`
   (caracteriza el fallo restante; ver abajo).
 
-### Oracle — el fallback `merge` actualiza la columna del `ON` (ORA-38104) — PENDIENTE — DUEÑO: Fase 4, plan `04-02` (POOL-03)
+### Oracle — el fallback `merge` actualiza la columna del `ON` (ORA-38104) — CERRADO en 04-02 (POOL-03)
+
+- **ESTADO: RESUELTO por `04-02` (POOL-03).** `builders.build_insert` (rama
+  `merge` con `replace`) ahora excluye las columnas de conflicto del
+  `WHEN MATCHED THEN UPDATE SET` (`update_cols = [c for c in columns if c not in
+  conflict_cols]`, mismo patrón que `build_upsert`), y regenera los snapshots y
+  golden strings de forma visible. `Model.insert(replace=True)` es EJECUTABLE en
+  Oracle (el MERGE sigue sin devolver id: `MERGE ... RETURNING` → ORA-00933).
+  Cobertura invertida: `tests/test_oracle.py::TestOracleParity::test_model_insert_replace_no_rompe_el_merge`
+  y `test_model_insert_replace_no_asigna_id_ajeno` ahora asertan ejecutabilidad;
+  el guard DB-free vive en `tests/test_dialect_builders.py` (`TestMssqlInsert`/
+  `TestOracleInsert`). El texto histórico se conserva abajo como contexto.
 
 - **Síntoma (tras el fix de `FROM dual`):** `ORA-38104: Columns referenced in the
   ON Clause cannot be updated: "DST"."ENABLED"`.

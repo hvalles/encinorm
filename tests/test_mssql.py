@@ -351,6 +351,11 @@ class TestMssqlParity:
         assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
+    async def test_last_id_deprecated(self, mssql_connected_db):
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            await mssql_connected_db.last_id()
+
+    @pytest.mark.asyncio
     async def test_model_insert_replace_no_rompe_el_merge(self, mssql_connected_db):
         # WR-05 / T-02-45b + CR-03: `Model.insert(replace=True)` deja `conflict=None`
         # en `merge`, así que el MERGE usa el fallback `columns[0]` (`enabled`) y NO

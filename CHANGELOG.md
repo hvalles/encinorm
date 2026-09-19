@@ -26,13 +26,27 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ### Corregido
 
-- `Model.update`/`delete` aplican el `scope()` activo al `WHERE` del DML (parámetros
-  ligados): una escritura identificada por una clave no-PK (no única) ya no
-  modifica/borra filas de otro tenant. Antes solo se PRE-comprobaba el `scope` con
-  `load()` y el `UPDATE`/`DELETE` se emitía sin predicado de alcance (SEC-01). Sin
-  `scope()` activo el DML es idéntico al de siempre. Nota de ownership: esta entrada
-  es ADITIVA y no prejuzga la enumeración de cambios incompatibles del milestone,
+- El id de una inserción se captura **dentro** de la sentencia que lo produce y
+  por conexión/tarea: nuevo `Db.execute_insert(qry)` y `Db.insert(...,
+  returning=<col>)` opt-in (`cursor.lastrowid` en SQLite/MySQL/MariaDB,
+  `INSERT ... RETURNING` en PostgreSQL, `OUTPUT INSERTED` en MSSQL,
+  `RETURNING ... INTO` en Oracle). El `last_id()` post-hoc queda **DEPRECADO**
+  (emite `DeprecationWarning`) porque devolvía el id de OTRA fila sin error bajo
+  concurrencia, y el cache de id a nivel de pool se elimina. Antes: PostgreSQL
+  usaba `lastval()` (session-scoped, no transaction-scoped) y MSSQL usaba
+  `@@IDENTITY` (session-scoped y contaminable por triggers). Nota de ownership:
+  esta entrada es ADITIVA y no prejuzga la enumeración completa del milestone,
   que posee la Fase 8 (`08-04`).
+- Oracle: `Model.insert(replace=True)` deja de fallar con **ORA-38104** (el
+  `WHEN MATCHED THEN UPDATE SET` del `MERGE` excluye las columnas del `ON`, como
+  ya hacía `build_upsert` con `update_cols`), de modo que la sentencia es
+  EJECUTABLE. NOTA: sigue **sin devolver id**, porque `MERGE ... RETURNING` no
+  está soportado en Oracle (ORA-00933); `Model.insert` devuelve `0` y no asigna
+  `self.id`.
+- `Model.insert` y `migration._apply` capturan el id con `execute_insert` (el
+  ledger de migraciones ya no depende de un `last_id()` best-effort), y
+  `PoolDb.insert` reenvía `returning` al adaptador subyacente.
+
 - La invalidación post-escritura de `CachedModel` es fail-open incluso cuando una PK
   tiene un valor no hashable (`list`/`dict`, que pydantic y `_from_db` admiten):
   `_union` deduplica por una huella `repr` y la unión de sondas va envuelta en

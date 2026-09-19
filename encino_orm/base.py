@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import ClassVar
@@ -9,6 +10,20 @@ from .dialects.identifiers import check_identifier
 from .query import Query
 
 logger = logging.getLogger("encino_orm")
+
+
+def _warn_last_id_deprecated():
+    """Emite el `DeprecationWarning` CENTRALIZADO de `last_id()`.
+
+    Un único punto de emisión evita seis sitios de warning en los adaptadores y
+    mantiene `filterwarnings = ["error"]` manejable. `stacklevel=2` señala al
+    llamador real (o al `PoolDb.last_id` que delega en este helper).
+    """
+    warnings.warn(
+        "last_id() está deprecado; usa execute_insert(qry) o el retorno de Model.insert()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 
 class Db(ABC):
@@ -143,10 +158,10 @@ class Db(ABC):
         """DEPRECADO: usa `execute_insert(qry)` o el retorno de `Model.insert()`.
 
         El id post-hoc es incorrecto bajo concurrencia (session-scoped en
-        PostgreSQL/MSSQL) y devuelve el id de OTRA fila sin error. Se mantiene
-        como método concreto que delega en `_last_id_value()`; el aviso de
-        deprecación centralizado se habilita en la Task 3 de `04-02`.
+        PostgreSQL/MSSQL) y devuelve el id de OTRA fila sin error. Emite un
+        `DeprecationWarning` centralizado y delega en `_last_id_value()`.
         """
+        _warn_last_id_deprecated()
         return await self._last_id_value()
 
     async def _last_id_value(self) -> int:

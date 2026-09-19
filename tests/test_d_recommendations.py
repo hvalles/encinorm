@@ -81,7 +81,8 @@ class TestD3LastIdStandalone:
         first = await pool.execute_insert(pool.insert("u", {"nombre": "x"}, returning="id"))
         second = await pool.execute_insert(pool.insert("u", {"nombre": "y"}, returning="id"))
         assert (first, second) == (1, 2)
-        assert await pool.last_id() == 0
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            assert await pool.last_id() == 0
 
 
 class TestD5SearchPagination:

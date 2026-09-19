@@ -229,6 +229,11 @@ class TestMariadbParity:
         assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
+    async def test_last_id_deprecated(self, mariadb_connected_db):
+        with pytest.warns(DeprecationWarning, match="deprecado"):
+            await mariadb_connected_db.last_id()
+
+    @pytest.mark.asyncio
     async def test_model_upsert_on_duplicate_key(self, mariadb_connected_db):
         # WR-04: `Model.upsert` debe emitir `ON DUPLICATE KEY UPDATE` (MariaDB no
         # implementa `ON CONFLICT`). El objetivo de conflicto es una clave ÚNICA
