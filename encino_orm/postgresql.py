@@ -57,6 +57,8 @@ class PostgresDb(Db):
     def __init__(self):
         self._connection = None
         self._database = None
+        self._connect_kwargs = None
+        self._connected_at = None
 
     @property
     def is_connected(self) -> bool:
@@ -90,13 +92,17 @@ class PostgresDb(Db):
         )
 
     async def connect(self, **kwargs):
+        # Kwargs ORIGINALES para `_reconnect` (contienen `password`: no loguear).
+        self._connect_kwargs = dict(kwargs)
         self._connection = await asyncpg.connect(**kwargs)
         self._database = kwargs.get("database")
+        self._connected_at = time.monotonic()
 
     async def close(self):
         if self._connection is not None:
             await self._connection.close()
             self._connection = None
+        self._connected_at = None
 
     async def is_alive(self) -> bool:
         if self._connection is None:
@@ -211,7 +217,7 @@ class PostgresDb(Db):
 
     # --- Ejecución / Consulta ---
 
-    async def execute(self, qry: Query) -> int:
+    async def _execute(self, qry: Query) -> int:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -219,7 +225,7 @@ class PostgresDb(Db):
         _log("execute", sql, values, time.monotonic() - t0)
         return _rowcount(status)
 
-    async def execute_insert(self, qry: Query) -> int | None:
+    async def _execute_insert(self, qry: Query) -> int | None:
         """Ejecuta el INSERT y captura el id con `RETURNING` si el `Query` lo pide.
 
         `lastval` de PostgreSQL es SESSION-scoped (devuelve el último `nextval`
@@ -238,7 +244,7 @@ class PostgresDb(Db):
         _log("execute_insert", sql, values, time.monotonic() - t0)
         return None
 
-    async def fetch_all(self, qry: Query) -> list[dict]:
+    async def _fetch_all(self, qry: Query) -> list[dict]:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -246,7 +252,7 @@ class PostgresDb(Db):
         _log("fetch_all", sql, values, time.monotonic() - t0)
         return [dict(row) for row in rows]
 
-    async def fetch_one(self, qry: Query):
+    async def _fetch_one(self, qry: Query):
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -254,7 +260,7 @@ class PostgresDb(Db):
         _log("fetch_one", sql, values, time.monotonic() - t0)
         return dict(row) if row is not None else None
 
-    async def fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
+    async def _fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         sql = sql.rstrip().rstrip(";")

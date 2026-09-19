@@ -46,6 +46,8 @@ class MssqlDb(Db):
         self._connection = None
         self._last_id = 0
         self._in_tx = False
+        self._connect_kwargs = None
+        self._connected_at = None
 
     @property
     def is_connected(self) -> bool:
@@ -113,6 +115,9 @@ class MssqlDb(Db):
 
     # --- ciclo de vida ---
     async def connect(self, **kwargs):
+        # Kwargs ORIGINALES (no el `conn_str`) para `_reconnect`; contienen
+        # `password`: no loguear.
+        self._connect_kwargs = dict(kwargs)
         try:
             import aioodbc
         except ImportError as e:
@@ -137,11 +142,13 @@ class MssqlDb(Db):
         self._connection = await aioodbc.connect(dsn=conn_str)
         self._connection.autocommit = False
         self._in_tx = False
+        self._connected_at = time.monotonic()
 
     async def close(self):
         if self._connection is not None:
             await self._connection.close()
             self._connection = None
+        self._connected_at = None
 
     async def is_alive(self) -> bool:
         if self._connection is None:
@@ -273,7 +280,7 @@ class MssqlDb(Db):
         return build_update(tabla, keys, values, schema=schema)
 
     # --- Ejecución / Consulta ---
-    async def execute(self, qry: Query) -> int:
+    async def _execute(self, qry: Query) -> int:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         # SQL Server exige que `MERGE` termine en `;`. Se añade SOLO al SQL que va
@@ -303,7 +310,7 @@ class MssqlDb(Db):
         finally:
             await cursor.close()
 
-    async def execute_insert(self, qry: Query) -> int | None:
+    async def _execute_insert(self, qry: Query) -> int | None:
         """Ejecuta el INSERT y lee `OUTPUT INSERTED.<col>` si el `Query` lo pide.
 
         `@@IDENTITY`/`SCOPE_IDENTITY()` en un `execute` separado son
@@ -336,7 +343,7 @@ class MssqlDb(Db):
         finally:
             await cursor.close()
 
-    async def fetch_all(self, qry: Query) -> list[dict]:
+    async def _fetch_all(self, qry: Query) -> list[dict]:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -351,7 +358,7 @@ class MssqlDb(Db):
         _log("fetch_all", sql, values, time.monotonic() - t0)
         return _rows_to_dicts(description, rows)
 
-    async def fetch_one(self, qry: Query):
+    async def _fetch_one(self, qry: Query):
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -366,7 +373,7 @@ class MssqlDb(Db):
         _log("fetch_one", sql, values, time.monotonic() - t0)
         return _rows_to_dicts(description, [row])[0] if row is not None else None
 
-    async def fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
+    async def _fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         sql = sql.rstrip().rstrip(";")

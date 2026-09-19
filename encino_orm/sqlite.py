@@ -46,6 +46,8 @@ class SqliteDb(Db):
     def __init__(self):
         self._connection = None
         self._database = None
+        self._connect_kwargs = None
+        self._connected_at = None
 
     @property
     def is_connected(self) -> bool:
@@ -70,16 +72,36 @@ class SqliteDb(Db):
     async def connect(self, **kwargs):
         database = kwargs.get("database", ":memory:")
         self._database = database
+        # Se guarda el default ya resuelto para que `_reconnect` use la MISMA BD.
+        self._connect_kwargs = {"database": database}
         self._connection = await aiosqlite.connect(database)
         self._connection.row_factory = aiosqlite.Row
         await self._connection.execute("PRAGMA journal_mode=WAL")
         await self._connection.execute("PRAGMA foreign_keys=ON")
         await self._connection.commit()
+        self._connected_at = time.monotonic()
 
     async def close(self):
         if self._connection:
             await self._connection.close()
             self._connection = None
+        # Una conexión cerrada a propósito no se resucita: `_is_reconnectable`
+        # exige `_connected_at is not None`.
+        self._connected_at = None
+
+    async def _reconnect(self):
+        """Rechaza reconectar `:memory:` (crearía una base vacía, Pitfall 2).
+
+        En SQLite en memoria, `close()` + `connect(":memory:")` devuelve una base
+        nueva y vacía: todas las tablas desaparecerían sin error. Se lanza la
+        `ConnectionError` de la librería (RESL-04 la refinará a
+        `ConnectionLostError`, subclase, sin romper este contrato).
+        """
+        if self._database == ":memory:":
+            raise ConnectionError(
+                "no se puede reconectar una base SQLite en memoria: se perderían los datos"
+            )
+        await super()._reconnect()
 
     async def is_alive(self) -> bool:
         if not self._connection:
@@ -185,7 +207,7 @@ class SqliteDb(Db):
 
     # --- Ejecución / Consulta ---
 
-    async def execute(self, qry: Query) -> int:
+    async def _execute(self, qry: Query) -> int:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -194,7 +216,7 @@ class SqliteDb(Db):
         _log("execute", sql, values, time.monotonic() - t0)
         return cursor.rowcount
 
-    async def execute_insert(self, qry: Query) -> int | None:
+    async def _execute_insert(self, qry: Query) -> int | None:
         """Ejecuta el INSERT y devuelve `cursor.lastrowid` si el `Query` lo pide.
 
         `lastrowid` se lee INMEDIATAMENTE tras el `execute` y antes de cerrar el
@@ -219,7 +241,7 @@ class SqliteDb(Db):
         _log("execute_insert", sql, values, time.monotonic() - t0)
         return new_id
 
-    async def fetch_all(self, qry: Query) -> list[dict]:
+    async def _fetch_all(self, qry: Query) -> list[dict]:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -229,7 +251,7 @@ class SqliteDb(Db):
         _log("fetch_all", sql, values, time.monotonic() - t0)
         return [dict(row) for row in rows]
 
-    async def fetch_one(self, qry: Query):
+    async def _fetch_one(self, qry: Query):
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -239,7 +261,7 @@ class SqliteDb(Db):
         _log("fetch_one", sql, values, time.monotonic() - t0)
         return dict(row) if row is not None else None
 
-    async def fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
+    async def _fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         sql = sql.rstrip().rstrip(";")

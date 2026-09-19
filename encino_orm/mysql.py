@@ -63,6 +63,8 @@ class MysqlDb(Db):
         self._connection = None
         self._database = None
         self._last_id = 0
+        self._connect_kwargs = None
+        self._connected_at = None
 
     @property
     def is_connected(self) -> bool:
@@ -88,13 +90,17 @@ class MysqlDb(Db):
         return False
 
     async def connect(self, **kwargs):
+        # Kwargs ORIGINALES para `_reconnect` (contienen `password`: no loguear).
+        self._connect_kwargs = dict(kwargs)
         self._connection = await aiomysql.connect(**kwargs)
         self._database = kwargs.get("db")
+        self._connected_at = time.monotonic()
 
     async def close(self):
         if self._connection is not None:
             await self._connection.ensure_closed()
             self._connection = None
+        self._connected_at = None
 
     async def is_alive(self) -> bool:
         if self._connection is None:
@@ -206,7 +212,7 @@ class MysqlDb(Db):
 
     # --- Ejecución / Consulta ---
 
-    async def execute(self, qry: Query) -> int:
+    async def _execute(self, qry: Query) -> int:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -220,7 +226,7 @@ class MysqlDb(Db):
         finally:
             await cursor.close()
 
-    async def execute_insert(self, qry: Query) -> int | None:
+    async def _execute_insert(self, qry: Query) -> int | None:
         """Ejecuta el INSERT y devuelve `cursor.lastrowid` si el `Query` lo pide.
 
         MariaDB hereda este método de `MysqlDb`. `self._last_id` se conserva para
@@ -244,7 +250,7 @@ class MysqlDb(Db):
         finally:
             await cursor.close()
 
-    async def fetch_all(self, qry: Query) -> list[dict]:
+    async def _fetch_all(self, qry: Query) -> list[dict]:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -257,7 +263,7 @@ class MysqlDb(Db):
         finally:
             await cursor.close()
 
-    async def fetch_one(self, qry: Query):
+    async def _fetch_one(self, qry: Query):
         self._ensure_connected()
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
@@ -270,7 +276,7 @@ class MysqlDb(Db):
         finally:
             await cursor.close()
 
-    async def fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
+    async def _fetch_many(self, qry: Query, limit: int, page: int) -> list[dict]:
         self._ensure_connected()
         sql, values = self._prepare(qry)
         sql = sql.rstrip().rstrip(";")
