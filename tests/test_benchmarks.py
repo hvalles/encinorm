@@ -2,7 +2,7 @@
 
 Sin base de datos (sin ruido de driver/CI). Cada unidad tiene un piso numérico
 (= 0.6x de la línea base medida en CI): una regresión >= 1.67x en cualquiera de
-las 5 unidades falla el job `benchmarks`. La calibración de un piso se documenta
+las 6 unidades falla el job `benchmarks`. La calibración de un piso se documenta
 en el MISMO commit que lo cambia.
 
 Los tests de este módulo están marcados `benchmark` y quedan EXCLUIDOS de las
@@ -94,6 +94,13 @@ class _B(Model):
 # to_mysql ~377K, batch_sizing ~10,5M, multi_insert_gen ~1,3K. Pisos = 0.6x de
 # esas líneas base.
 #
+# PRIMERA corrida en CI (2026-09-19, runner ubuntu 2-vCPU): 5 de 6 unidades
+# pasan ≥ sus pisos locales, pero batch_sizing mide ~2,65M (σ 33,9K) frente a
+# 10,5M locales — la unidad es aritmética pura y su throughput escala con la
+# frecuencia del core, no con el ancho de banda Python (resto de unidades).
+# Su piso se recalibra a la medida de CI (2,65M × 0.6 = 1,58M) en el MISMO
+# commit, según la disciplina de calibración del plan 07-02.
+#
 # NOTA de calibracion vs RESEARCH Q3: el RESEARCH media to_mysql ~625K y
 # Query ~236K con plantillas más pequeñas y una granularidad distinta
 # (traducción aislada). El harness real mide la unidad completa
@@ -177,7 +184,8 @@ def test_to_mysql_floor():
     _assert_floor("to_mysql", median, p95, std, 226_000)
 
 
-# 5. Fórmula de tamaño de lote (la misma que insert_many) — ~10,5M medidos.
+# 5. Fórmula de tamaño de lote (la misma que insert_many) — ~2,65M en CI
+#    (2,65M × 0.6 = piso 1,58M; recalibrado en la primera corrida del job).
 def test_batch_sizing_floor():
     result = max(1, min(32767 // max(5, 1), 1000))
     assert result == 1000  # smoke: la fórmula sigue siendo válida
@@ -186,7 +194,7 @@ def test_batch_sizing_floor():
         return max(1, min(32767 // max(5, 1), 1000))
 
     median, p95, std = _measure(_sizing, inner=200_000)
-    _assert_floor("batch_sizing", median, p95, std, 6_300_000)
+    _assert_floor("batch_sizing", median, p95, std, 1_580_000)
 
 
 # 6. Generación multi-VALUES (PERF-01): `build_multi_insert` con el workload del
