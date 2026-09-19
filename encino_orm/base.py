@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from typing import ClassVar
 
 from .dialects.identifiers import check_identifier
+from .exceptions import ConnectionError as OrmConnectionError
 from .query import Query
 
 logger = logging.getLogger("encino_orm")
@@ -37,6 +38,16 @@ class Db(ABC):
     # desde `dialects.strategies.TRANSACTIONAL_DDL`; el runner de migraciones lo
     # lee en runtime para saber si el rollback ya eliminó la fila `pending`.
     transactional_ddl: bool = True
+
+    # Estado de conexión para la auto-reconexión (RESL-02). Cada adaptador los
+    # fija por instancia en `__init__`/`connect()`. `_connect_kwargs` guarda los
+    # kwargs ORIGINALES de `connect(**kwargs)` para poder reconectar in-place y
+    # **puede contener `password`**: nunca debe loguearse. `_connected_at` usa
+    # `time.monotonic()` (nunca el reloj de pared, inmune a saltos de hora) y
+    # vale `None` mientras no haya una conexión viva; `close()` lo limpia para
+    # no resucitar una conexión cerrada a propósito.
+    _connect_kwargs: dict | None = None
+    _connected_at: float | None = None
 
     @property
     def fn(self):
@@ -120,6 +131,94 @@ class Db(ABC):
                 await self.wait()
         raise last_exc
 
+    # --- Resiliencia: auto-reconexión única fuera de transacción (RESL-02) ---
+
+    def _is_reconnectable(self, exc: Exception) -> bool:
+        """Indica si `exc` justifica un intento de reconexión (una sola vez).
+
+        Cubre los DOS caminos reales de una desconexión:
+
+        1. La excepción del driver (`is_disconnect_error`), típica de una caída
+           mid-statement.
+        2. La `ConnectionError` de la librería lanzada por `_ensure_connected()`
+           cuando la conexión murió **en reposo** (Pitfall 1): el driver marca
+           `closed`/`is_closed()` y la sentencia nunca llega a enviarse, así que
+           la excepción es de la librería, no del driver. Exige
+           `_connected_at is not None` para no "reconectar" una conexión que
+           nunca existió.
+
+        Nunca devuelve True para un lock: `is_disconnect_error` es mutuamente
+        excluyente con `is_lock_error` (RESL-01) y `OrmConnectionError` no lo es.
+        """
+        if self.is_disconnect_error(exc):
+            return True
+        return isinstance(exc, OrmConnectionError) and self._connected_at is not None
+
+    async def _reconnect(self) -> None:
+        """Reconecta **in-place** reusando los kwargs originales de `connect()`.
+
+        Es un no-op si nunca hubo una conexión viva (`_connected_at is None`) o
+        si no se guardaron kwargs: no se resucita una conexión que no existió.
+        El `close()` va envuelto en `try/except` (Pitfall 6: defensa barata ante
+        drivers que fallan al cerrar una conexión rota). No reasigna el objeto
+        driver: el handle del pool de Fase 4 debe seguir siendo válido.
+
+        Nunca loguea `_connect_kwargs` (contienen `password`).
+        """
+        kwargs = self._connect_kwargs
+        if self._connected_at is None or kwargs is None:
+            return
+        try:
+            await self.close()
+        except Exception:
+            logger.warning("fallo al cerrar la conexión antes de reconectar", exc_info=True)
+        await self.connect(**kwargs)
+
+    async def _with_reconnect(self, fn, *, retry: bool):
+        """Ejecuta `fn()` y, ante una desconexión fuera de transacción, reconecta.
+
+        Template method (RESL-02) que centraliza la clasificación y la
+        recuperación. `fn` es un callable sin argumentos que devuelve una
+        corrutina. Reglas EXACTAS:
+
+        - Clasifica la excepción **original** con `_is_reconnectable`. Si no es
+          reconectable (p. ej. un error de sintaxis o un lock), la relanza sin
+          tocar la conexión.
+        - Dentro de una transacción (`await self.in_transaction()` True) NUNCA
+          reconecta ni reintenta: relanza. Un write pudo haber llegado al
+          servidor antes de morir el socket; reintentarlo duplicaría datos.
+        - Fuera de transacción reconecta **EXACTAMENTE UNA VEZ**, sin bucle ni
+          backoff, y aplica la política A2:
+          * **Lecturas** (`retry=True`, `fetch_*`): idempotentes → re-ejecuta.
+          * **Escrituras pre-ejecución** (`retry=False` pero `fn` lanzó la
+            `ConnectionError` de la librería): la sentencia nunca llegó al
+            driver, así que re-ejecutar es su PRIMERA ejecución, no un
+            reintento.
+          * **Escrituras mid-statement** (`retry=False` y excepción de driver):
+            el servidor pudo haber aplicado el write → reconecta pero RELANZA
+            el error original, sin re-ejecutar (nunca duplica en silencio).
+
+        El camino de lock queda estrictamente separado: `_with_reconnect` nunca
+        reintenta un lock (eso es de `retry()`, con backoff) y relanza la MISMA
+        instancia para que `retry()` siga reconociéndola. Tampoco traduce la
+        excepción (la taxonomía es de RESL-04).
+        """
+        try:
+            return await fn()
+        except Exception as exc:
+            if not self._is_reconnectable(exc):
+                raise
+            if await self.in_transaction():
+                raise
+            pre_execution = isinstance(exc, OrmConnectionError)
+            await self._reconnect()
+            if retry or pre_execution:
+                try:
+                    return await fn()
+                except Exception as exc2:
+                    raise exc2
+            raise
+
     @abstractmethod
     def insert(
         self,
@@ -139,10 +238,20 @@ class Db(ABC):
     @abstractmethod
     def update(self, tabla: str, keys: dict, values: dict, *, schema: str | None = None): ...
 
-    @abstractmethod
-    async def execute(self, qry: Query): ...
+    # --- Ejecución / Consulta (wrappers concretos → privados del adaptador) ---
+    #
+    # Los públicos son CONCRETOS y envuelven a los privados `_`-prefijados con
+    # `_with_reconnect`. Los privados también son CONCRETOS y lanzan
+    # `NotImplementedError` (NO `@abstractmethod`): los dobles de test que
+    # heredan de `Db` y sobreescriben solo el público siguen instanciándose
+    # (Pitfall 10). `PoolDb` sobreescribe los públicos y nunca entra aquí.
 
-    @abstractmethod
+    async def execute(self, qry: Query):
+        return await self._with_reconnect(lambda: self._execute(qry), retry=False)
+
+    async def _execute(self, qry: Query):
+        raise NotImplementedError("execute() no implementado para este motor")
+
     async def execute_insert(self, qry: Query) -> int | None:
         """Ejecuta un INSERT y devuelve el id capturado en la MISMA sentencia.
 
@@ -152,16 +261,28 @@ class Db(ABC):
         `Query` transporta la metadata `returns_id`/`id_column` que fija
         `build_insert(returning=...)`.
         """
-        ...
+        return await self._with_reconnect(lambda: self._execute_insert(qry), retry=False)
 
-    @abstractmethod
-    async def fetch_all(self, qry: Query): ...
+    async def _execute_insert(self, qry: Query) -> int | None:
+        raise NotImplementedError("execute_insert() no implementado para este motor")
 
-    @abstractmethod
-    async def fetch_one(self, qry: Query): ...
+    async def fetch_all(self, qry: Query):
+        return await self._with_reconnect(lambda: self._fetch_all(qry), retry=True)
 
-    @abstractmethod
-    async def fetch_many(self, qry: Query, limit: int, page: int): ...
+    async def _fetch_all(self, qry: Query):
+        raise NotImplementedError("fetch_all() no implementado para este motor")
+
+    async def fetch_one(self, qry: Query):
+        return await self._with_reconnect(lambda: self._fetch_one(qry), retry=True)
+
+    async def _fetch_one(self, qry: Query):
+        raise NotImplementedError("fetch_one() no implementado para este motor")
+
+    async def fetch_many(self, qry: Query, limit: int, page: int):
+        return await self._with_reconnect(lambda: self._fetch_many(qry, limit, page), retry=True)
+
+    async def _fetch_many(self, qry: Query, limit: int, page: int):
+        raise NotImplementedError("fetch_many() no implementado para este motor")
 
     @abstractmethod
     async def exists(self, qry: Query): ...
