@@ -131,9 +131,12 @@ jobs:
         # skip NO marcado. `--junitxml` alimenta el gate de abajo.
         # `--cov-report=` desactiva el reporte por pata: el combine y el gate de
         # `fail_under` los aplica el job `coverage`.
+        # POOL-07: `--timeout-method=signal` (Linux) permite que la corrida
+        # CONTINÚE tras un timeout; el método *thread* (default en Windows)
+        # mata el proceso y pierde el JUnit XML (Pitfall 7).
         run: >
-          uv run pytest -q -m "not optional_engine" --junitxml=junit.xml
-          --cov=encino_orm --cov-branch --cov-report=
+          uv run pytest -q -m "not optional_engine" --timeout-method=signal
+          --junitxml=junit.xml --cov=encino_orm --cov-branch --cov-report=
 
       - name: Gate — ningún test omitido
         # `if: always()` para que el gate reporte el conteo aunque pytest ya haya
@@ -350,10 +353,12 @@ jobs:
         # (`[tool.coverage.report]`). El piso real lo aplica el job `coverage`
         # sobre la union combinada de todas las patas; sin este override el job
         # falla SIEMPRE por cobertura aunque los 46 tests pasen.
+        # POOL-07: mismo razonamiento que el job `test`: método *signal* en
+        # Linux para que un timeout no mate el proceso ni pierda el XML.
         run: >
           uv run pytest -q tests/test_mssql.py tests/test_oracle.py
-          --junitxml=junit.xml --cov=encino_orm --cov-branch --cov-report=
-          --cov-fail-under=0
+          --timeout-method=signal --junitxml=junit.xml --cov=encino_orm
+          --cov-branch --cov-report= --cov-fail-under=0
 
       - name: Gate — ningún test omitido
         if: always()

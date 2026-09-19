@@ -77,7 +77,17 @@ markers = [
     "optional_engine: motor no requerido en Fase 1 (MariaDB/Redis/MSSQL/Oracle); ver D-02",
     "concurrency: tests de pool/carreras; se excluyen de corridas con xdist",
     "benchmark: medidos por pytest-codspeed; excluidos de corridas normales",
+    # POOL-07: variante de estrés (pytest-repeat). El marker queda inerte hasta
+    # que 04-06 lo use; registrarlo evita que `--strict-markers` falle la
+    # colección al aplicar `@pytest.mark.stress`.
+    "stress: variante de estrés con pytest-repeat; se corre con --count=N",
 ]
+# POOL-07: timeout global DESACTIVADO a propósito. El job `engine-heavy`
+# (Oracle tarda 60-120 s en arrancar) no debe morir por un límite global; el
+# timeout se aplica por marker SOLO a los tests de barrera
+# (`@pytest.mark.timeout(10-20)`), donde un `parties` mal ajustado colgaría la
+# suite para siempre. El método *signal* de CI permite continuar tras el corte.
+timeout = 0
 
 [tool.coverage.run]
 source_pkgs = ["encino_orm"]
@@ -283,4 +293,13 @@ dev = [
     # versión más nueva que reformatee los `.ambr` y romper la suite en un PR no
     # relacionado. Actualizar el pin es un cambio deliberado + `--snapshot-update`.
     "syrupy==6.1.1",
+    # Pin exacto: el plugin mata tests de barrera colgados; una versión más
+    # nueva podría cambiar el comportamiento del método *signal* o su
+    # compatibilidad con pytest y romper la corrida en un PR no relacionado.
+    # Actualizar el pin es un cambio deliberado y revisable (Pitfall 7).
+    "pytest-timeout==2.4.0",
+    # Pin exacto: el conteo de repeticiones de la variante de estrés está
+    # versionado; sin fijar, CI/local podría resolver una versión más nueva
+    # con distinto comportamiento de `--count` y romper un PR no relacionado.
+    "pytest-repeat==0.9.4",
 ]
