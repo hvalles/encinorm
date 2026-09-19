@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md (POOL-03: execute_insert + ORA-38104 + deprecacion de last_id)
-last_updated: "2026-09-19T02:59:15.813Z"
+stopped_at: "Completed 04-03-PLAN.md (POOL-04: reset_on_release + cierre explícito)"
+last_updated: "2026-09-19T03:05:51.289Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 36
-  completed_plans: 33
+  completed_plans: 34
   percent: 38
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 4
-Plan: 3 of 6 (04-05 complete)
+Plan: 4 of 6 (04-05 complete)
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [█████████░] 92%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -88,6 +88,7 @@ Progress: [█████████░] 92%
 | Phase 04 P01 | 7 min | 3 tasks | 5 files |
 | Phase 04 P05 | 25 | 3 tasks | 4 files |
 | Phase 04 P02 | 16 | 3 tasks | 28 files |
+| Phase 04 P03 | 3min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,7 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-02: Query.returns_id/id_column son metadata de ejecucion (excluidas de __eq__/__hash__); build_insert(returning=) es opt-in y el SQL sin returning es byte-identico (snapshots y golden strings regenerados y revisados).
 - [Phase 04]: 04-02: el builder fija returns_id=False en la rama MERGE+replace; MERGE ... RETURNING no existe en Oracle (ORA-00933), asi que el fix ORA-38104 solo da EJECUTABILIDAD y Model.insert(replace=True) sigue devolviendo 0 sin asignar self.id.
 - [Phase 04]: 04-02: el DeprecationWarning de last_id() vive en un unico helper (base._warn_last_id_deprecated) y se habilita en la Task 3, tras migrar los 2 llamadores internos y los 29 call sites de test (B2), para que filterwarnings=['error'] no vea un warning sin migrar.
+- [Phase 04]: POOL-04: orden safety-critical respetado — commit/rollback explícito en execute/_run antes de invertir release() a rollback por defecto — Correction #5; TestPoolAutocommit/TestPoolStandaloneCommit verdes sin editar
 
 ### Pending Todos
 
@@ -212,6 +214,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T02:58:33.942Z
-Stopped at: Completed 04-02-PLAN.md (POOL-03: execute_insert + ORA-38104 + deprecacion de last_id)
+Last session: 2026-09-19T03:05:51.280Z
+Stopped at: Completed 04-03-PLAN.md (POOL-04: reset_on_release + cierre explícito)
 Resume file: None
