@@ -66,7 +66,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Dialect Seam & Engine Parity** - One identifier-validation choke point, shared DML builders, `Query` correctness, and proof that count/paginate/list_tables work on all six engines (completed 2026-09-18)
 - [x] **Phase 3: Data Correctness** - Migration ledger, atomic-or-reconciled `migrate()`, and `CachedModel` write-invalidation (parallel to Phase 2) (completed 2026-09-18)
 - [x] **Phase 4: Pool Correctness & Concurrency** - `PooledConnection` handle, race-free `acquire()`, in-insert `last_id`, explicit release policy, lazy reaper, deterministic stress tests (completed 2026-09-19)
-- [ ] **Phase 5: Resilience** - Classified disconnects, single reconnect outside transactions, `pre_ping`/lifetime for direct connections, public error taxonomy
+- [x] **Phase 5: Resilience** - Classified disconnects, single reconnect outside transactions, `pre_ping`/lifetime for direct connections, public error taxonomy (completed 2026-09-19)
 - [ ] **Phase 6: Config & Optional-Layer Hygiene** - `ConnectionRegistry` + `SecurityConfig` replace mutable globals; `exec()` codegen becomes closures; trust boundaries documented
 - [ ] **Phase 7: Performance & Benchmarks** - Profile first, then batched `copy_table`, a benchmark gate that fails a 2× regression, and bounded tracer/cache structures
 - [ ] **Phase 8: Release 0.3.0** - 0.2.7 deprecation release, OIDC trusted publishing, 0.3.0rc1, complete CHANGELOG + MIGRATION-0.3.md, README pinning guidance
@@ -296,7 +296,7 @@ Plans:
 - [x] 05-01: `is_disconnect_error` per adapter across all six engines — RESL-01
 - [x] 05-02: `Db._with_reconnect` template method that reconnects exactly once and only when `in_transaction()` is false, kept strictly separate from the lock/deadlock retry path — RESL-02
 - [x] 05-03: `pre_ping` + `max_connection_lifetime` policy for direct (non-pooled) connections — RESL-03
-- [ ] 05-04: Public error taxonomy translating driver exceptions into library exceptions — RESL-04
+- [x] 05-04: Public error taxonomy translating driver exceptions into library exceptions — RESL-04
 
 ### Phase 6: Config & Optional-Layer Hygiene
 
@@ -454,7 +454,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
 | 3. Data Correctness | 13/13 | Complete    | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 6/6 | Complete    | 2026-09-19 |
-| 5. Resilience | 3/4 | In Progress|  |
+| 5. Resilience | 4/4 | Complete   | 2026-09-19 |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
 | 8. Release 0.3.0 | 0/5 | Not started | - |

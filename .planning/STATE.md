@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 05-03-PLAN.md (RESL-03: pre_ping + max_connection_lifetime) — Phase 5 en progreso (3/4)"
-last_updated: "2026-09-19T05:17:36.472Z"
+stopped_at: "Completed 05-04-PLAN.md (RESL-04: taxonomia publica y traduccion driver -> libreria) — Fase 5 completa (4/4)"
+last_updated: "2026-09-19T05:29:35.561Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 40
-  completed_plans: 39
-  percent: 50
+  completed_plans: 40
+  percent: 63
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 5
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [██████████] 98%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -95,6 +95,7 @@ Progress: [██████████] 98%
 | Phase 05 P01 | 5 min | 3 tasks | 14 files |
 | Phase 5 P2 | 9 min | 3 tasks | 8 files |
 | Phase 5 P3 | 3min | 3 tasks | 7 files |
+| Phase 5 P4 | 7 min | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -207,6 +208,9 @@ Recent decisions affecting current work:
 - [Phase 05]: 05-01: `FakeResilientDb` define los metodos publicos con un puente `hasattr(Db, "_with_reconnect")`: en 05-01 (publicos aun abstractos) delegan en los privados y en 05-02 reenvian a `super()` para no saltarse el template method. — Satisface el criterio de instanciabilidad de 05-01 y deja el helper operativo para 05-02/03/04 sin editar la infraestructura.
 - [Phase 5]: 05-02: _with_reconnect reconecta exactamente una vez y solo fuera de tx; política A2 (lecturas re-ejecutan, escrituras pre-ejecución ejecutan, mid-statement reconectan y relanzan, dentro de tx relanzan). — Un reintento ciego de una escritura ambigua duplicaría datos en silencio (Core Value); el guard in_transaction() y la distinción pre-ejecución vs mid-statement lo impiden.
 - [Phase 05]: 05-03: `pre_ping`/`max_connection_lifetime` son opt-in (defaults `False`/`None`), se fijan por instancia desde `connect(**kwargs)` y `_resilience_opts` hace pop ANTES de guardarlos/reenviarlos al driver. El reciclado mide EDAD con `time.monotonic()` y `_maybe_recycle` reconecta INMEDIATAMENTE si la sonda falla; el chequeo es perezoso (sin daemon) y `pool.py` queda intacto. — `pre_ping` añade un round-trip por operación, así que su coste debe ser opt-in; la inactividad y el reciclado a nivel de pool son del reaper de Fase 4 / RELI-03 (v2).
+- [Phase 05]: la taxonomia es aditiva y _translate_exception cortocircuita el lock PRIMERO (devuelve el original sin traducir) para que retry() siga reconociendolo; el resto se traduce a ConnectionLostError/OperationalError/IntegrityError/ProgrammingError. — Traducir un lock romperia el reintento por deadlock (Pitfall 3 / T-05-04-01); ConnectionLostError hereda de ConnectionError y los tres QueryError-derived pasan a mapearse a HTTP 400.
+- [Phase 05]: chaining raise ... from exc adoptado como desviacion DELIBERADA de la convencion del repo, documentada en docs/engines.md y CHANGELOG.md. — La traduccion REEMPLAZA el tipo de excepcion; perder la causa del driver destruiria el diagnostico (ASVS V7 / T-05-04-05).
+- [Phase 05]: el ratchet de mypy retira base/oracle/mysql/mssql tras corregir sus residuales sin # type: ignore; encino_orm.pool queda intacto. — base:109 (last_exc) y mysql:69 (args) se arreglaron en Task 1; oracle out.getvalue() se corrige con guard out is not None en Task 3; pool es residual de Fase 4.
 
 ### Pending Todos
 
@@ -231,6 +235,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T05:17:33.308Z
-Stopped at: Completed 05-03-PLAN.md (RESL-03: pre_ping + max_connection_lifetime) — Phase 5 en progreso (3/4)
+Last session: 2026-09-19T05:29:35.539Z
+Stopped at: Completed 05-04-PLAN.md (RESL-04: taxonomia publica y traduccion driver -> libreria) — Fase 5 completa (4/4)
 Resume file: None
