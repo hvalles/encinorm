@@ -1,0 +1,53 @@
+argv=['benchmarks/profile_workload.py', '--mode=cprofile', '--scale=1']
+fecha=2026-09-19
+plataforma=windows
+python=3.13.7
+
+         3325250 function calls (3296148 primitive calls) in 3.740 seconds
+
+   Ordered by: cumulative time
+   List reduced from 405 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    25335    0.124    0.000    4.657    0.000 {built-in method _overlapped.GetQueuedCompletionStatus}
+      5/4    0.007    0.001    2.606    0.651 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\threading.py:1000(_bootstrap)
+    25336    0.019    0.000    1.803    0.000 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py:87(_run)
+    25336    0.050    0.000    1.753    0.000 {method 'run' of '_contextvars.Context' objects}
+     8445    0.004    0.000    1.508    0.000 C:\Users\Hector\projects\db\benchmarks\profile_workload.py:191(_run_cprofile)
+    43472    0.418    0.000    1.325    0.000 C:\Users\Hector\projects\db\encino_orm\query.py:69(__init__)
+        1    0.037    0.037    1.132    1.132 C:\Users\Hector\projects\db\benchmarks\profile_workload.py:112(_query_translation)
+    46948    0.451    0.000    0.900    0.000 {method 'sub' of 're.Pattern' objects}
+16889/8552    0.113    0.000    0.885    0.000 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py:1970(_run_once)
+       54    0.058    0.001    0.827    0.015 C:\Users\Hector\projects\db\encino_orm\model\model.py:569(insert_many)
+       66    0.009    0.000    0.592    0.009 C:\Users\Hector\projects\db\benchmarks\profile_workload.py:125(_fetch_loop)
+    20000    0.045    0.000    0.586    0.000 C:\Users\Hector\projects\db\encino_orm\query.py:150(with_params)
+    10951    0.012    0.000    0.406    0.000 C:\Users\Hector\projects\db\encino_orm\base.py:319(_with_reconnect)
+16889/8552    0.015    0.000    0.357    0.000 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\asyncio\windows_events.py:444(select)
+     4278    0.011    0.000    0.356    0.000 C:\Users\Hector\projects\db\benchmarks\profile_workload.py:52(_crud_sqlite)
+   370282    0.264    0.000    0.342    0.000 C:\Users\Hector\projects\db\encino_orm\query.py:92(<lambda>)
+     4054    0.002    0.000    0.336    0.000 C:\Users\Hector\projects\db\benchmarks\profile_workload.py:92(_copy_table_rowwise)
+    12003    0.031    0.000    0.323    0.000 {method 'extend' of 'list' objects}
+16889/8552    0.214    0.000    0.309    0.000 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\asyncio\windows_events.py:762(_poll)
+     7347    0.004    0.000    0.297    0.000 C:\Users\Hector\projects\db\encino_orm\base.py:410(execute)
+    84000    0.059    0.000    0.291    0.000 C:\Users\Hector\projects\db\encino_orm\model\model.py:624(<genexpr>)
+     7347    0.015    0.000    0.280    0.000 C:\Users\Hector\projects\db\encino_orm\sqlite.py:232(_execute)
+     4010    0.018    0.000    0.246    0.000 C:\Users\Hector\projects\db\encino_orm\transfer.py:129(copy_table)
+     8445    0.017    0.000    0.237    0.000 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py:876(call_soon_threadsafe)
+    76250    0.105    0.000    0.226    0.000 C:\Users\Hector\projects\db\encino_orm\model\model.py:34(_serialize)
+       51    0.005    0.000    0.220    0.004 C:\Users\Hector\projects\db\benchmarks\profile_workload.py:77(_insert_many_chunked)
+     3476    0.004    0.000    0.205    0.000 C:\Users\Hector\projects\db\encino_orm\sqlite.py:166(_prepare)
+     3476    0.003    0.000    0.200    0.000 C:\Users\Hector\projects\db\encino_orm\sqlite.py:36(_to_positional)
+    43472    0.196    0.000    0.196    0.000 {method 'findall' of 're.Pattern' objects}
+     8445    0.008    0.000    0.162    0.000 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py:819(_write_to_self)
+     8446    0.014    0.000    0.137    0.000 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py:791(_loop_self_reading)
+     8445    0.135    0.000    0.135    0.000 {method 'send' of '_socket.socket' objects}
+     2504    0.004    0.000    0.128    0.000 C:\Users\Hector\projects\db\encino_orm\sqlite.py:200(insert)
+     3664    0.004    0.000    0.125    0.000 C:\Users\Hector\projects\db\encino_orm\model\model.py:439(_transactional)
+     2504    0.020    0.000    0.124    0.000 C:\Users\Hector\projects\db\encino_orm\dialects\builders.py:81(build_insert)
+     2000    0.010    0.000    0.123    0.000 C:\Users\Hector\projects\db\encino_orm\model\model.py:692(load)
+     2000    0.008    0.000    0.123    0.000 C:\Users\Hector\projects\db\encino_orm\model\model.py:493(insert)
+     3664    0.002    0.000    0.118    0.000 C:\Users\Hector\projects\db\encino_orm\base.py:134(retry)
+     8446    0.025    0.000    0.118    0.000 C:\Users\Hector\AppData\Local\Programs\Python\Python313\Lib\asyncio\windows_events.py:483(recv)
+     3664    0.007    0.000    0.116    0.000 C:\Users\Hector\projects\db\encino_orm\model\model.py:442(attempt)
+
+

@@ -1,0 +1,6 @@
+Sección | iteraciones | total s | ops/s
+crud_sqlite | 500 | 0.3390 | 1,475
+insert_many_chunked | 5000 | 0.0506 | 98,720
+copy_table_rowwise | 2000 | 0.2421 | 8,260
+query_translation | 20000 | 0.2682 | 74,570
+fetch_loop | 5000 | 0.0449 | 111,419
