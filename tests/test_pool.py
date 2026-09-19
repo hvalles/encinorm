@@ -323,6 +323,62 @@ class TestPoolReaper:
         await p.close()
 
 
+class TestPoolCloseIdempotent:
+    """POOL-06: `close()` idempotente que respeta al tenedor."""
+
+    @pytest.mark.asyncio
+    async def test_close_closes_idle_only(self, fake_engine):
+        p = PoolDb("fake", min_size=2, max_size=5)
+        await p.connect()
+        held = await p.acquire()
+        idle_handles = [h for h in p._connections if h is not held]
+        assert idle_handles
+
+        await p.close()
+
+        assert held.driver.closed is False
+        assert all(h.driver.closed is True for h in idle_handles)
+        assert p._size == 1
+        assert held in p._connections
+
+        await p.release(held)
+        assert held.driver.closed is True
+        assert held not in p._connections
+        assert p._size == 0
+
+    @pytest.mark.asyncio
+    async def test_release_after_close_closes_driver(self, fake_engine):
+        p = PoolDb("fake", min_size=0, max_size=2)
+        await p.connect()
+        held = await p.acquire()
+
+        await p.close()
+        assert held.driver.closed is False
+
+        await p.release(held)
+
+        assert held.driver.closed is True
+        assert p._idle.empty()
+        assert held not in p._connections
+
+    @pytest.mark.asyncio
+    async def test_stale_generation_handle_is_closed_on_release(self, fake_engine):
+        p = PoolDb("fake", min_size=1, max_size=2)
+        await p.connect()
+        stale = await p.acquire()
+
+        # Ciclo close/reconnect: `close()` incrementa la generación y `connect()`
+        # reabre el pool; el handle viejo queda obsoleto (A6).
+        await p.close()
+        await p.connect()
+
+        await p.release(stale)
+
+        assert stale.driver.closed is True
+        assert stale not in p._connections
+        await p.close()
+
+
 class TestPoolTransactionScope:
     @pytest.mark.asyncio
     async def test_operations_use_held_connection(self, pool):

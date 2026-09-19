@@ -5,12 +5,12 @@ pendientes — y son la red de seguridad de la Fase 4: el refactor del pool
 (POOL-01…POOL-07) ACTUALIZA (nunca borra) cada aserción que invierte. Cada
 aserción que se espera invertir nombra el requisito POOL que la cambia.
 
-Estado en 04-03: POOL-01 (handle `PooledConnection`), POOL-02 (admisión sin
+Estado en 04-04: POOL-01 (handle `PooledConnection`), POOL-02 (admisión sin
 carrera y `release()` con ownership), POOL-03 (id por conexión/tarea con
-`execute_insert`) y POOL-04 (cierre explícito en `execute`/`_run` y política
-`reset_on_release` con rollback por defecto) ya están implementados e
-invertidos. POOL-05/06 (reaper y `close()`) siguen pendientes y conservan su
-baseline.
+`execute_insert`), POOL-04 (cierre explícito en `execute`/`_run` y política
+`reset_on_release` con rollback por defecto) y POOL-05/06 (reaper perezoso y
+`close()` idempotente que no cierra lo retenido) ya están implementados e
+invertidos.
 
 Restricciones (D-09 + Research Correction 4): no se "arregla" ningún resultado
 sorprendente, no se suaviza ninguna aserción de estado privado y no se
@@ -453,14 +453,17 @@ class TestPoolClose:
         assert len(pool._connections) == 0
         # POOL-06: baseline de idempotencia.
 
-    async def test_close_closes_held_connection(self, pool):
+    async def test_close_does_not_close_held_connection(self, pool):
         held = await pool.acquire()  # NO se libera
 
         await pool.close()
 
-        # POOL-06: defecto caracterizado. `close()` cierra una conexión que un
-        # llamador aún mantiene. Fase 4 exige que nunca cierre una conexión en
-        # uso, así que esta aserción se espera INVERTIR (`held.driver.closed is False`).
+        # POOL-06: aserción INVERTIDA (antes: `held.driver.closed is True`).
+        # `close()` solo cierra las ociosas; la conexión que un llamador aún
+        # mantiene sigue viva y se cierra al liberarse.
+        assert held.driver.closed is False
+
+        await pool.release(held)
         assert held.driver.closed is True
 
     async def test_close_never_connected_pool_does_not_raise(self, fake_engine):

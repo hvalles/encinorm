@@ -126,6 +126,7 @@ class PoolDb(Db):
         self._size = 0
         self._generation = 0
         self._connected = False
+        self._closed = False
         self._stats = {"acquires": 0, "waits": 0, "timeouts": 0, "creates": 0}
 
     @property
@@ -169,6 +170,10 @@ class PoolDb(Db):
         }
 
     async def connect(self):
+        # Un `connect()` posterior a un `close()` reabre el pool: los handles
+        # de la generación anterior quedan obsoletos (su `generation` ya no
+        # coincide) y se cerrarán al liberarse en vez de reencolarse (A6).
+        self._closed = False
         for _ in range(self._min_size):
             handle = await self._create_connection()
             self._connections.add(handle)
@@ -300,7 +305,16 @@ class PoolDb(Db):
         # las ociosas. Se invoca ANTES de encolar este handle (recién tocado,
         # así que nunca se reapea a sí mismo).
         await self._reap()
-        await self._idle.put(handle)
+        # POOL-06/A6: un handle liberado con el pool cerrado (o de una
+        # generación anterior, tras un ciclo close/reconnect) se CIERRA en vez
+        # de volver a la cola; así nadie lo reutiliza por error.
+        if self._closed or handle.generation != self._generation:
+            self._connections.discard(handle)
+            if self._size > 0:
+                self._size -= 1
+            await handle.driver.close()
+        else:
+            await self._idle.put(handle)
 
     def _as_handle(self, conn) -> PooledConnection:
         """Normaliza un `PooledConnection` o un `Db` crudo al handle del pool."""
@@ -312,14 +326,32 @@ class PoolDb(Db):
         return conn
 
     async def close(self):
+        """Cierra el pool de forma idempotente, respetando al tenedor (POOL-06).
+
+        La segunda llamada es un no-op (no lanza). Solo se cierran las
+        conexiones OCIOSAS: las que un llamador mantiene (`_checked_out`) siguen
+        vivas y se cerrarán al liberarse (rama `_closed` de `release()`), de modo
+        que `close()` nunca rompe la atomicidad de un tercero. Incrementa la
+        generación para invalidar los handles vivos (A6). `_stats` NO se resetea.
+        """
+        if self._closed:
+            return
+        self._closed = True
         self._connected = False
-        while not self._idle.empty():
-            self._idle.get_nowait()
-        for handle in list(self._connections):
+        self._generation += 1
+        to_close: list[PooledConnection] = []
+        while True:
+            try:
+                handle = self._idle.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            self._connections.discard(handle)
+            to_close.append(handle)
+        for handle in to_close:
             await handle.driver.close()
-        self._connections.clear()
-        self._checked_out.clear()
-        self._size = 0
+        # Las conexiones retenidas siguen en `_connections`; `_size` refleja
+        # cuántas quedan vivas hasta que se liberen.
+        self._size = len(self._checked_out)
 
     @asynccontextmanager
     async def transaction(self):
