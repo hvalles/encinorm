@@ -43,6 +43,10 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - ✓ El id se captura DENTRO del INSERT por conexión/tarea (`Db.execute_insert`, `returning=` opt-in: `lastrowid`/`RETURNING`/`OUTPUT INSERTED`/`RETURNING INTO`); `last_id()` post-hoc deprecado; MERGE de Oracle ejecutable (ORA-38104) — Validated in Phase 4
 - ✓ `reset_on_release` (rollback por defecto, `"commit"` deprecado con warning) con commit/rollback explícito en `execute`/`_run`; `close()` idempotente que respeta al tenedor; reaper perezoso por encima de `min_size` — Validated in Phase 4
 - ✓ Tests de concurrencia/estrés deterministas (barrera `asyncio.Event`, piso 3.10) con `pytest-timeout`/`pytest-repeat` — Validated in Phase 4
+- ✓ RESL-01: cada adaptador clasifica desconexiones (`is_disconnect_error`) sin solaparse con lock/deadlock (`is_lock_error`) — Validated in Phase 5
+- ✓ RESL-02: `_with_reconnect` reconecta exactamente una vez y solo fuera de transacción (lecturas re-ejecutan; escritura pre-ejecución ejecuta; escritura mid-statement reconecta y relanza para no duplicar) — Validated in Phase 5
+- ✓ RESL-03: conexiones directas con `pre_ping` y `max_connection_lifetime` (reaper perezoso, sin daemon; nunca dentro de una transacción) — Validated in Phase 5
+- ✓ RESL-04: taxonomía pública de errores (`ConnectionLostError`/`OperationalError`/`IntegrityError`/`ProgrammingError`) con traducción única que preserva `__cause__` y no toca los locks — Validated in Phase 5
 
 ### Active
 
@@ -57,7 +61,7 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - [ ] Documentación explícita de superficies de confianza (`Filter.raw`, `Query`, fragmentos `db.fn.*`)
 
 **Concurrencia y pool**
-- [ ] Reconexión automática o envoltorio de salud para conexiones directas (no-pool)
+- [x] Reconexión automática o envoltorio de salud para conexiones directas (no-pool) — Validated in Phase 5 (`pre_ping`/`max_connection_lifetime`)
 - [ ] (Residual menor documentado) `connect()` sin `close()` intermedio puede duplicar el lote; endurecer con guard de idempotencia en una pasada de calidad del pool
 
 **Calidad y CI**
@@ -139,4 +143,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-19 after Phase 4 completion*
+*Last updated: 2026-09-19 after Phase 5 completion*
