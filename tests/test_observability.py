@@ -1,6 +1,9 @@
+from collections import deque
+
 import pytest
 
 from encino_orm.observability import (
+    MAX_LATENCY_SAMPLES,
     OtelQueryTracer,
     QueryTracer,
     current_trace_id,
@@ -69,6 +72,39 @@ class TestLatencyHistogram:
         t = QueryTracer(collect_metrics=False)
         t.record("sqlite", "fetch_all", "SELECT 1", [], 0.01)
         assert t.latency_stats == {"count": 0}
+
+
+class TestLatencyWindow:
+    def test_ventana_acotada(self):
+        t = QueryTracer(collect_metrics=True, latency_window=8)
+        for i in range(20):
+            t.record("sqlite", "fetch_all", "SELECT", [], 0.001 * i)
+        s = t.latency_stats
+        assert s["count"] == 8
+        assert s["min"] == 0.001 * 12
+        assert isinstance(t._latencies, deque)
+        assert t._latencies.maxlen == 8
+
+    def test_default_ventana_1024(self):
+        t = QueryTracer(collect_metrics=True)
+        assert t._latencies.maxlen == 1024
+        assert MAX_LATENCY_SAMPLES == 1024
+
+    def test_reset_conserva_la_ventana(self):
+        t = QueryTracer(collect_metrics=True, latency_window=4)
+        t.record("sqlite", "fetch_all", "SELECT", [], 0.001)
+        t.record("sqlite", "fetch_all", "SELECT", [], 0.002)
+        t.reset()
+        assert t.latency_stats == {"count": 0}
+        assert t._latencies.maxlen == 4
+        for i in range(5):
+            t.record("sqlite", "fetch_all", "SELECT", [], 0.001 * i)
+        assert t.latency_stats["count"] == 4
+
+    @pytest.mark.parametrize("bad", [0, -1, -100])
+    def test_ventana_invalida(self, bad):
+        with pytest.raises(ValueError):
+            QueryTracer(collect_metrics=True, latency_window=bad)
 
 
 class TestOtelQueryTracer:

@@ -204,3 +204,32 @@ class TestValidate:
         object.__setattr__(a, "monto", -5.0)  # viola ge=0 (soft)
         with pytest.raises(ValidationError):
             await a.insert()
+
+
+def test_caches_weak_no_retenen_clases_de_modelo():
+    """PERF-04 / MEM-02: si _FIELD_ADAPTERS o _COLUMN_MAPS volvieran a ser dicts
+    fuertes, cada clase de modelo definida en un test (o reload) quedaría
+    retenida para siempre."""
+    import gc
+    import weakref
+
+    from encino_orm.model.model import _COLUMN_MAPS, _FIELD_ADAPTERS
+    from encino_orm.model.model import Model as ModelCls  # el módulo, no el barrel
+
+    assert isinstance(_FIELD_ADAPTERS, weakref.WeakKeyDictionary)
+    assert isinstance(_COLUMN_MAPS, weakref.WeakKeyDictionary)
+
+    class Gato(ModelCls):
+        _table = "gatos"
+        nombre: str
+
+    Gato._column_map()  # puebla _COLUMN_MAPS[Gato]
+    Gato._field_adapter("nombre")  # puebla _FIELD_ADAPTERS[Gato]
+    assert Gato in _FIELD_ADAPTERS
+    assert Gato in _COLUMN_MAPS
+
+    del Gato
+    gc.collect()
+
+    assert not any(k.__name__ == "Gato" for k in _FIELD_ADAPTERS)
+    assert not any(k.__name__ == "Gato" for k in _COLUMN_MAPS)

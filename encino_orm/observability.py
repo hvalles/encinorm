@@ -3,9 +3,14 @@ puente opcional a OpenTelemetry."""
 
 import contextvars
 import logging
+from collections import deque
 from contextlib import contextmanager
 
 _trace_id_var = contextvars.ContextVar("encino_orm_trace_id", default=None)
+
+# PERF-04: ventana de latencia acotada por tracer. El resumen (`latency_stats`)
+# describe solo los últimos N queries; cap de memoria independiente del volumen.
+MAX_LATENCY_SAMPLES = 1024
 
 
 @contextmanager
@@ -63,12 +68,21 @@ class QueryTracer:
     ```
     """
 
-    def __init__(self, logger=None, *, level=logging.DEBUG, collect_metrics=True):
+    def __init__(
+        self,
+        logger=None,
+        *,
+        level=logging.DEBUG,
+        collect_metrics=True,
+        latency_window: int = MAX_LATENCY_SAMPLES,
+    ):
         self.logger = logger or logging.getLogger("encino_orm")
         self.level = level
         self.collect_metrics = collect_metrics
         self._counters = {"queries": 0, "errors": 0, "rows": 0}
-        self._latencies = []
+        if latency_window < 1:
+            raise ValueError(f"latency_window debe ser >= 1: {latency_window!r}")
+        self._latencies: deque[float] = deque(maxlen=latency_window)
 
     def record(self, engine, method, sql, params, elapsed, error=None, rows=None):
         if self.collect_metrics:
