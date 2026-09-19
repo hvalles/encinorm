@@ -384,26 +384,35 @@ get a release candidate, then a documented 0.3.0 — with no way to publish past
   3. `CHANGELOG.md` enumerates every breaking change with old and new behavior, and `MIGRATION-0.3.md` shows before/after examples
   4. The README documents `~=0.2.6` pinning, warns that dev credentials are dev-only, and the `prompts/` link no longer 404s
 
-**Plans**: 5 plans
+**Plans**: 8 plans
 **Research**: not needed — SemVer deprecation guidance and PyPI trusted publishing are official, stable and fully sourced
 
 Plans:
 
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — 0.2.7 `DeprecationWarning`s para cada ruptura 0.3.0 (implicit commit on release, unvalidated identifiers — el que faltaba, mutable `SECRET`/`GET_DB`, post-hoc `last_id()`), versión + CHANGELOG `[0.2.7]` + dry-run de build, y checkpoint de publicación del tag `v0.2.7` — REL-01
+- [ ] 08-01-PLAN.md — 0.2.7 `DeprecationWarning`s para cada ruptura 0.3.0 que puede avisar (implicit commit on release, mutable `SECRET`/`GET_DB`, post-hoc `last_id()`), justificación escrita de la ruptura fail-closed (identificadores) y guard de la allowlist tolerante a puntos, versión + CHANGELOG `[0.2.7]` (debajo de `[Unreleased]`) + dry-run de build, y checkpoint de publicación del tag `v0.2.7` — REL-01
 
 **Wave 2** *(independientes entre sí; 08-04 comparte `CHANGELOG.md` con 08-01, ya en wave 1)*
 
 - [ ] 08-02-PLAN.md — OIDC trusted publishing (`id-token: write`, `uv publish --trusted-publishing always`) en ambos workflows, entorno `pypi` protegido, eliminación de `PYPI_API_TOKEN` y validación en TestPyPI — REL-03
 - [ ] 08-04-PLAN.md — `CHANGELOG.md` con cada ruptura en viejo/nuevo y `docs/MIGRATION-0.3.md` con pares Antes/Después, registrada en la nav de MkDocs, con guard de fuente — REL-04
 
-**Wave 3** *(08-03 depende de 08-02 y 08-04; 08-05 es docs-only con ficheros disjuntos)*
+**Wave 3** *(08-05, 08-06 y 08-07 son docs/código con ficheros disjuntos; 08-06 documenta todas las retiradas)*
+
+- [ ] 08-05-PLAN.md — README con pinning `~=0.2.6` (no `>=`), aviso de credenciales solo-desarrollo y `.env.example` rastreado, con guard de higiene del README — REL-05
+- [ ] 08-06-PLAN.md — Retirada de APIs deprecadas: `set_default_db`/`get_default_db`, globales mutables `SECRET`/`GET_DB` y fallback legacy; documentación de todas las retiradas (`### Eliminado`) en CHANGELOG + MIGRATION-0.3 y resolución de la nota de ownership — REL-01, REL-04
+- [ ] 08-07-PLAN.md — Limpieza de enlaces muertos a `prompts/` en `docs/**` y guard parametrizado de enlaces — REL-05
+
+**Wave 4** *(08-08 retira `last_id()`; depende de 08-06 para no dejar pines de warning obsoletos)*
+
+- [ ] 08-08-PLAN.md — Retirada de la API post-hoc `Db.last_id()`/`PoolDb.last_id()` y del helper de warning, con actualización de los tests de pool y motores — REL-01
+
+**Wave 5** *(publicación final; depende de todas las retiradas)*
 
 - [ ] 08-03-PLAN.md — Verificación del gate CI + entorno `pypi`, corte y publicación de 0.3.0rc1, y promoción a 0.3.0 — REL-02
-- [ ] 08-05-PLAN.md — README con pinning `~=0.2.6` (no `>=`), aviso de credenciales solo-desarrollo + `.env.example` rastreado, y eliminación de los enlaces muertos a `prompts/` — REL-05
 
-**Waves:** 1 → `08-01`; 2 → `08-02`, `08-04`; 3 → `08-03`, `08-05`. La cadena de publicación es estricta (0.2.7 → 0.3.0rc1 → 0.3.0) y `CHANGELOG.md`/`README.md` son ficheros compartidos, de modo que las olas quedan determinadas por esos dos hechos. `08-01`, `08-02` y `08-03` son no autónomos: D-04 exige un checkpoint humano por publicación real. `08-03` lleva 4 tareas (dos checkpoints de publicación) por la misma razón.
+**Waves:** 1 → `08-01`; 2 → `08-02`, `08-04`; 3 → `08-05`, `08-06`, `08-07`; 4 → `08-08`; 5 → `08-03`. La cadena de publicación es estricta (0.2.7 → retiradas → 0.3.0rc1 → 0.3.0) y `CHANGELOG.md`/`docs/MIGRATION-0.3.md` son ficheros compartidos, de modo que las olas quedan determinadas por esos dos hechos. `08-01`, `08-02` y `08-03` son no autónomos: D-04 exige un checkpoint humano por publicación real. `08-03` lleva 4 tareas (dos checkpoints de publicación) por la misma razón.
 
 ## Research Corrections Carried Into This Roadmap
 
