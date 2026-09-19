@@ -1,5 +1,8 @@
 """Generador de rutas CRUD tipadas por modelo (`register_crud`)."""
 
+from inspect import Parameter, Signature
+from typing import Annotated
+
 from encino_orm.model import DEFAULT_LIMIT, MAX_LIMIT, Model, Records
 from encino_orm.model.types import _base_type
 
@@ -23,55 +26,68 @@ def _path_suffix(model) -> str:
 
 
 def _build_path_handler(model, get_db, op):
-    """Construye un handler `get`/`put`/`delete` con la firma derivada de la PK."""
+    """Construye un handler `get`/`put`/`delete` con la firma derivada de la PK.
+
+    Sustituye la generación con `exec()` por closures con una `inspect.Signature`
+    explícita en `__signature__`: FastAPI la lee tal cual (`inspect.signature`
+    devuelve `__signature__`) y deriva de ella los path params, la validación y
+    el `operationId`. Los nombres (`model`, `HTTPException`, `Depends`,
+    `get_db`) se resuelven por cierre, sin `__globals__` frágil ni `S102`.
+    """
     from fastapi import Depends, HTTPException
 
     pk = list(model._primary_key)
-    sig = ", ".join(f"{f}: {_path_type(model, f).__name__}" for f in pk)
-    kwargs = ", ".join(f"{f}={f}" for f in pk)
-    pk_dict = "{" + ", ".join(f"{f!r}: {f}" for f in pk) + "}"
 
     if op == "get":
-        decl = f"async def handler({sig}, db=Depends(get_db)):"
-        body = (
-            f"    obj = await _cursor(model, db, {kwargs}).load()\n"
-            "    if not obj._exists:\n"
-            "        raise HTTPException(404, detail='no encontrado')\n"
-            "    return obj\n"
-        )
-    elif op == "put":
-        decl = f"async def handler({sig}, data: model, db=Depends(get_db)):"
-        body = (
-            f"    obj = await _cursor(model, db, {kwargs}).load()\n"
-            "    if not obj._exists:\n"
-            "        raise HTTPException(404, detail='no encontrado')\n"
-            "    for k, v in data.model_dump(exclude_unset=True).items():\n"
-            "        if k in ('id', 'enabled', 'created_at', 'updated_at'):\n"
-            "            continue\n"
-            "        setattr(obj, k, v)\n"
-            "    await obj.update()\n"
-            f"    return await _cursor(model, db, {kwargs}).load()\n"
-        )
-    else:  # delete
-        decl = f"async def handler({sig}, physical: bool = False, db=Depends(get_db)):"
-        body = (
-            f"    obj = await _cursor(model, db, {kwargs}).load()\n"
-            "    if not obj._exists:\n"
-            "        raise HTTPException(404, detail='no encontrado')\n"
-            "    await obj.delete(physical=physical)\n"
-            f"    return {{**{pk_dict}, 'deleted': True}}\n"
-        )
 
-    src = f"{decl}\n{body}"
-    ns = {
-        "_cursor": _cursor,
-        "model": model,
-        "HTTPException": HTTPException,
-        "Depends": Depends,
-        "get_db": get_db,
-    }
-    exec(src, ns)
-    return ns["handler"]
+        async def handler(**kwargs):
+            db = kwargs.pop("db")
+            obj = await _cursor(model, db, **kwargs).load()
+            if not obj._exists:
+                raise HTTPException(404, detail="no encontrado")
+            return obj
+
+    elif op == "put":
+
+        async def handler(data, **kwargs):
+            db = kwargs.pop("db")
+            obj = await _cursor(model, db, **kwargs).load()
+            if not obj._exists:
+                raise HTTPException(404, detail="no encontrado")
+            for k, v in data.model_dump(exclude_unset=True).items():
+                if k in ("id", "enabled", "created_at", "updated_at"):
+                    continue
+                setattr(obj, k, v)
+            await obj.update()
+            return await _cursor(model, db, **kwargs).load()
+
+    else:  # delete
+
+        async def handler(physical: bool = False, **kwargs):
+            db = kwargs.pop("db")
+            obj = await _cursor(model, db, **kwargs).load()
+            if not obj._exists:
+                raise HTTPException(404, detail="no encontrado")
+            await obj.delete(physical=physical)
+            return {**kwargs, "deleted": True}
+
+    params = [
+        Parameter(f, Parameter.POSITIONAL_OR_KEYWORD, annotation=_path_type(model, f)) for f in pk
+    ]
+    if op == "put":
+        params.append(Parameter("data", Parameter.POSITIONAL_OR_KEYWORD, annotation=model))
+    elif op == "delete":
+        params.append(
+            Parameter("physical", Parameter.POSITIONAL_OR_KEYWORD, default=False, annotation=bool)
+        )
+    # `db` como DEPENDENCIA: `default=Depends(...)` y SIN `annotation` (Pitfall 5).
+    params.append(Parameter("db", Parameter.POSITIONAL_OR_KEYWORD, default=Depends(get_db)))
+    handler.__signature__ = Signature(params)
+    # El nombre preserva el `operationId` de OpenAPI (`generate_unique_id` usa
+    # `endpoint.__name__`); ver Pitfall 3.
+    handler.__name__ = "handler"
+    handler.__qualname__ = "handler"
+    return handler
 
 
 def register_crud(router, model: type[Model], prefix: str, *, get_db) -> None:
@@ -84,7 +100,7 @@ def register_crud(router, model: type[Model], prefix: str, *, get_db) -> None:
     from fastapi import Depends, Query
 
     @router.post(prefix + "/", response_model=model, status_code=201)
-    async def create(data: model, db=Depends(get_db)) -> model:
+    async def create(data: model, db: Annotated[object, Depends(get_db)]) -> model:
         obj = model(db, **data.model_dump(exclude_unset=True))
         await obj.insert()
         return await _cursor(model, db, **{f: getattr(obj, f) for f in model._primary_key}).load()
@@ -95,7 +111,7 @@ def register_crud(router, model: type[Model], prefix: str, *, get_db) -> None:
         page: int = Query(1, ge=1),
         sort_by: str = "",
         filter: str = "",
-        db=Depends(get_db),
+        db: Annotated[object, Depends(get_db)] = None,
     ):
         return await _cursor(model, db).paginate(
             filter=filter_from_str(filter),
