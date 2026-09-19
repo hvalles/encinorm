@@ -9,7 +9,12 @@ from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
 from .dialects.identifiers import check_identifier
 from .dialects.strategies import LIMITS, MYSQL_INSERT, TRANSACTIONAL_DDL, InsertStrategy
-from .exceptions import ConnectionError
+from .exceptions import (
+    ConnectionError,
+    IntegrityError,
+    OperationalError,
+    ProgrammingError,
+)
 from .introspection.types import ColumnSpec, _normalize
 from .migration import MIGRATIONS_TABLE, _apply, reconcile_migrations
 from .observability import current_trace_id
@@ -72,8 +77,10 @@ class MysqlDb(Db):
 
     def is_lock_error(self, exc: Exception) -> bool:
         # 1213 deadlock, 1205 lock wait timeout
-        code = getattr(exc, "args", None)
-        return bool(code) and code[0] in (1205, 1213)
+        args = getattr(exc, "args", ())
+        if not args:
+            return False
+        return args[0] in (1205, 1213)
 
     def is_disconnect_error(self, exc: Exception) -> bool:
         """Clasifica la pérdida de conexión por tipo/errno de PyMySQL.
@@ -88,6 +95,20 @@ class MysqlDb(Db):
             errno = exc.args[0] if exc.args else None
             return errno in _DISCONNECT_ERRNOS
         return False
+
+    def _translate_error(self, exc: Exception) -> Exception:
+        """Traduce `aiomysql`/`PyMySQL` a la taxonomía (RESL-04).
+
+        Los `OperationalError` de desconexión (2006/2013/2055) y los
+        `InterfaceError` ya los intercepta `is_disconnect_error` antes de llegar
+        aquí; un 1213/1205 lo cortocircuita `is_lock_error`. MariaDB hereda este
+        hook de `MysqlDb` (mismo protocolo `aiomysql`).
+        """
+        if isinstance(exc, aiomysql.IntegrityError):
+            return IntegrityError(str(exc))
+        if isinstance(exc, aiomysql.ProgrammingError):
+            return ProgrammingError(str(exc))
+        return OperationalError(str(exc))
 
     async def connect(self, **kwargs):
         # Las opciones de resiliencia (RESL-03) se consumen aquí y NO se reenvían

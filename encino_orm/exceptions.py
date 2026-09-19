@@ -6,7 +6,23 @@ class ConnectionError(EncinoOrmError):
     pass
 
 
+class ConnectionLostError(ConnectionError):
+    pass
+
+
 class QueryError(EncinoOrmError):
+    pass
+
+
+class OperationalError(QueryError):
+    pass
+
+
+class IntegrityError(QueryError):
+    pass
+
+
+class ProgrammingError(QueryError):
     pass
 
 

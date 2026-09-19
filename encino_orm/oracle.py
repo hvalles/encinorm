@@ -6,7 +6,12 @@ from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
 from .dialects.identifiers import check_identifier
 from .dialects.strategies import LIMITS, ORACLE_INSERT, TRANSACTIONAL_DDL, InsertStrategy
-from .exceptions import ConnectionError
+from .exceptions import (
+    ConnectionError,
+    IntegrityError,
+    OperationalError,
+    ProgrammingError,
+)
 from .introspection.types import ColumnSpec, _normalize
 from .migration import MIGRATIONS_TABLE, _apply, reconcile_migrations
 from .observability import current_trace_id
@@ -102,6 +107,21 @@ class OracleDb(Db):
         if getattr(err, "code", None) in _ORA_DISCONNECT_CODES:
             return True
         return getattr(err, "full_code", None) in _ORA_DISCONNECT_DPY
+
+    def _translate_error(self, exc: Exception) -> Exception:
+        """Traduce `oracledb` a la taxonomía (RESL-04).
+
+        Reutiliza `_ora_code` y `is_unique_violation`. Las desconexiones
+        (incluido DPY-4011, que trae `code == 0`) y los locks ya los interceptan
+        `is_disconnect_error`/`is_lock_error`. ORA-02290 (check) aparece en ambos
+        conjuntos: la integridad gana porque se evalúa primero.
+        """
+        code = self._ora_code(exc)
+        if self.is_unique_violation(exc) or code in (1, 2290, 2291, 2292, 1400):
+            return IntegrityError(str(exc))
+        if code in (904, 942, 1722, 1747, 1843, 2290):
+            return ProgrammingError(str(exc))
+        return OperationalError(str(exc))
 
     # --- ciclo de vida ---
     async def connect(self, **kwargs):

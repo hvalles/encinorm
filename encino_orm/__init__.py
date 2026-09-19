@@ -12,9 +12,13 @@ from .engine import (
 )
 from .exceptions import (
     ConnectionError,
+    ConnectionLostError,
     EncinoOrmError,
+    IntegrityError,
     MigrationError,
+    OperationalError,
     PoolExhaustedError,
+    ProgrammingError,
     QueryError,
     UnsupportedEngineError,
 )
@@ -40,20 +44,24 @@ from .sqlite import SqliteDb
 
 __all__ = [
     "ConnectionError",
+    "ConnectionLostError",
     "Db",
     "EncinoOrmError",
     "Engine",
+    "IntegrityError",
     "MariadbDb",
     "Migration",
     "MigrationError",
     "MssqlDb",
     "MysqlDb",
+    "OperationalError",
     "OracleDb",
     "OtelQueryTracer",
     "PoolDb",
     "PoolExhaustedError",
     "PooledConnection",
     "PostgresDb",
+    "ProgrammingError",
     "Query",
     "QueryError",
     "QueryTracer",

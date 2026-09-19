@@ -6,7 +6,12 @@ from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
 from .dialects.identifiers import check_identifier
 from .dialects.strategies import LIMITS, MSSQL_INSERT, TRANSACTIONAL_DDL, InsertStrategy
-from .exceptions import ConnectionError
+from .exceptions import (
+    ConnectionError,
+    IntegrityError,
+    OperationalError,
+    ProgrammingError,
+)
 from .introspection.types import ColumnSpec, _normalize
 from .migration import MIGRATIONS_TABLE, _apply, reconcile_migrations
 from .observability import current_trace_id
@@ -112,6 +117,24 @@ class MssqlDb(Db):
                 )
             )
         return False
+
+    def _translate_error(self, exc: Exception) -> Exception:
+        """Traduce ODBC/`pyodbc` a la taxonomía (RESL-04).
+
+        Reutiliza `is_unique_violation` (SQLSTATE 23000 + 2601/2627) y el
+        SQLSTATE de `args[0]`; no importa `pyodbc` (clasifica por la forma de
+        `args`, igual que `is_disconnect_error`). Las desconexiones ya las
+        intercepta `is_disconnect_error` antes de llegar aquí.
+        """
+        if self.is_unique_violation(exc):
+            return IntegrityError(str(exc))
+        try:
+            sqlstate = exc.args[0]
+        except (IndexError, TypeError):
+            sqlstate = None
+        if sqlstate in ("42000", "42S02", "42S22", "23000"):
+            return ProgrammingError(str(exc))
+        return OperationalError(str(exc))
 
     # --- ciclo de vida ---
     async def connect(self, **kwargs):

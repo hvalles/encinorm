@@ -8,7 +8,12 @@ from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
 from .dialects.identifiers import check_identifier
 from .dialects.strategies import LIMITS, POSTGRES_INSERT, TRANSACTIONAL_DDL, InsertStrategy
-from .exceptions import ConnectionError
+from .exceptions import (
+    ConnectionError,
+    IntegrityError,
+    OperationalError,
+    ProgrammingError,
+)
 from .introspection.types import ColumnSpec, _normalize
 from .migration import MIGRATIONS_TABLE, _apply, reconcile_migrations
 from .observability import current_trace_id
@@ -90,6 +95,27 @@ class PostgresDb(Db):
                 asyncpg.InterfaceError,
             ),
         )
+
+    def _translate_error(self, exc: Exception) -> Exception:
+        """Traduce `asyncpg` a la taxonomía (RESL-04).
+
+        Las desconexiones y los locks ya los interceptan `is_disconnect_error`/
+        `is_lock_error` antes de llegar aquí. `InvalidCachedStatementError` (que
+        NO es disconnect ni lock) degrada a `OperationalError`.
+        """
+        if isinstance(exc, asyncpg.exceptions.IntegrityConstraintViolationError):
+            return IntegrityError(str(exc))
+        if isinstance(
+            exc,
+            (
+                asyncpg.exceptions.SyntaxOrAccessError,
+                asyncpg.exceptions.UndefinedTableError,
+                asyncpg.exceptions.UndefinedColumnError,
+                asyncpg.exceptions.InvalidNameError,
+            ),
+        ):
+            return ProgrammingError(str(exc))
+        return OperationalError(str(exc))
 
     async def connect(self, **kwargs):
         # Las opciones de resiliencia (RESL-03) se consumen aquí y NO se reenvían

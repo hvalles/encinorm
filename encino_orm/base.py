@@ -9,6 +9,11 @@ from typing import ClassVar
 
 from .dialects.identifiers import check_identifier
 from .exceptions import ConnectionError as OrmConnectionError
+from .exceptions import (
+    ConnectionLostError,
+    EncinoOrmError,
+    OperationalError,
+)
 from .query import Query
 
 logger = logging.getLogger("encino_orm")
@@ -129,7 +134,7 @@ class Db(ABC):
     async def retry(self, coro, tries: int | None = None):
         """Reintenta una coroutine ante errores de bloqueo (deadlock)."""
         max_tries = tries if tries is not None else self.MAX_TRIES
-        last_exc = None
+        last_exc: Exception | None = None
         for attempt in range(max_tries):
             try:
                 return await coro()
@@ -140,7 +145,47 @@ class Db(ABC):
                 if attempt + 1 >= max_tries:
                     break
                 await self.wait()
+        if last_exc is None:
+            raise RuntimeError("retry() no ejecutó ningún intento")
         raise last_exc
+
+    # --- Resiliencia: traducción de excepciones de driver (RESL-04) ---
+
+    def _translate_error(self, exc: Exception) -> Exception:
+        """Hook por adaptador: mapea la excepción de su driver a la taxonomía.
+
+        El default no conoce drivers (contrato de importación diferida) y degrada
+        a `OperationalError`. Cada adaptador lo sobreescribe reutilizando sus
+        helpers de clasificación (`is_unique_violation`, `_native_code`,
+        `_ora_code`). NO construye SQL ni interpola valores; el mensaje incluye
+        `str(exc)` del driver y **nunca** `_connect_kwargs` (contienen `password`).
+        """
+        return OperationalError(str(exc))
+
+    def _translate_exception(self, exc: Exception) -> Exception:
+        """Punto ÚNICO de traducción driver → taxonomía de la librería.
+
+        Orden EXACTO (el cortocircuito de lock es lo PRIMERO):
+
+        1. `is_lock_error(exc)` → devuelve `exc` SIN traducir: `retry()` clasifica
+           sobre el ORIGINAL y traducirlo rompería el reintento por deadlock
+           (Pitfall 3 / T-05-04-01).
+        2. Ya es `EncinoOrmError` → devuelve `exc` tal cual (idempotente: no se
+           re-traduce una excepción de la librería).
+        3. `is_disconnect_error(exc)` → `ConnectionLostError`.
+        4. En otro caso → `self._translate_error(exc)` (hook del adaptador).
+
+        NO traga la excepción: devuelve la instancia a lanzar; `_with_reconnect`
+        es quien relanza con `raise ... from exc` para preservar la causa del
+        driver (desviación deliberada de la convención "sin chaining", ASVS V7).
+        """
+        if self.is_lock_error(exc):
+            return exc
+        if isinstance(exc, EncinoOrmError):
+            return exc
+        if self.is_disconnect_error(exc):
+            return ConnectionLostError(str(exc))
+        return self._translate_error(exc)
 
     # --- Resiliencia: auto-reconexión única fuera de transacción (RESL-02) ---
 
@@ -275,8 +320,14 @@ class Db(ABC):
 
         El camino de lock queda estrictamente separado: `_with_reconnect` nunca
         reintenta un lock (eso es de `retry()`, con backoff) y relanza la MISMA
-        instancia para que `retry()` siga reconociéndola. Tampoco traduce la
-        excepción (la taxonomía es de RESL-04).
+        instancia (sin traducir) para que `retry()` siga reconociéndola.
+
+        Todo relanzado pasa por `_translate_exception` (RESL-04) y usa
+        `raise ... from exc` para preservar la causa del driver: es una
+        DESVIACIÓN DELIBERADA de la convención "sin chaining" del repo,
+        justificada por ASVS V7 (diagnóstico del error de driver) y registrada en
+        `docs/engines.md`/`CHANGELOG.md`. El fallo de `_reconnect()` también se
+        traduce para que no escape una excepción de driver cruda.
 
         Antes del `try` se ejecuta `_maybe_recycle()`: un chequeo PROACTIVO,
         PEREZOSO (sin daemon) y opt-in de `pre_ping`/`max_connection_lifetime`
@@ -288,17 +339,20 @@ class Db(ABC):
             return await fn()
         except Exception as exc:
             if not self._is_reconnectable(exc):
-                raise
+                raise self._translate_exception(exc) from exc
             if await self.in_transaction():
-                raise
+                raise self._translate_exception(exc) from exc
             pre_execution = isinstance(exc, OrmConnectionError)
-            await self._reconnect()
+            try:
+                await self._reconnect()
+            except Exception as rexc:
+                raise self._translate_exception(rexc) from rexc
             if retry or pre_execution:
                 try:
                     return await fn()
                 except Exception as exc2:
-                    raise exc2
-            raise
+                    raise self._translate_exception(exc2) from exc2
+            raise self._translate_exception(exc) from exc
 
     @abstractmethod
     def insert(

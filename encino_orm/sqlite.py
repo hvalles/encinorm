@@ -7,7 +7,13 @@ from .base import Db, logger
 from .dialects.builders import build_delete, build_insert, build_update
 from .dialects.identifiers import check_identifier
 from .dialects.strategies import LIMITS, SQLITE_INSERT, TRANSACTIONAL_DDL, InsertStrategy
-from .exceptions import ConnectionError
+from .exceptions import (
+    ConnectionError,
+    ConnectionLostError,
+    IntegrityError,
+    OperationalError,
+    ProgrammingError,
+)
 from .introspection.types import ColumnSpec, _normalize
 from .migration import MIGRATIONS_TABLE, _apply, reconcile_migrations
 from .observability import current_trace_id
@@ -69,6 +75,19 @@ class SqliteDb(Db):
             return "disk I/O error" in text or "unable to open database file" in text
         return False
 
+    def _translate_error(self, exc: Exception) -> Exception:
+        """Traduce `sqlite3`/`aiosqlite` a la taxonomía (RESL-04).
+
+        `ProgrammingError` de "closed database" y los `OperationalError` de E/S
+        ya los intercepta `is_disconnect_error` antes de llegar aquí. El resto
+        degrada a `OperationalError` (el driver no expone más estructura).
+        """
+        if isinstance(exc, aiosqlite.IntegrityError):
+            return IntegrityError(str(exc))
+        if isinstance(exc, aiosqlite.ProgrammingError):
+            return ProgrammingError(str(exc))
+        return OperationalError(str(exc))
+
     async def connect(self, **kwargs):
         # Las opciones de resiliencia (RESL-03) se consumen aquí y NO se reenvían
         # al driver; `_connect_kwargs` queda con los kwargs ya limpios.
@@ -96,12 +115,12 @@ class SqliteDb(Db):
         """Rechaza reconectar `:memory:` (crearía una base vacía, Pitfall 2).
 
         En SQLite en memoria, `close()` + `connect(":memory:")` devuelve una base
-        nueva y vacía: todas las tablas desaparecerían sin error. Se lanza la
-        `ConnectionError` de la librería (RESL-04 la refinará a
-        `ConnectionLostError`, subclase, sin romper este contrato).
+        nueva y vacía: todas las tablas desaparecerían sin error. Se lanza
+        `ConnectionLostError` (subclase de `ConnectionError`, RESL-04), de modo
+        que `except ConnectionError` sigue capturándolo.
         """
         if self._database == ":memory:":
-            raise ConnectionError(
+            raise ConnectionLostError(
                 "no se puede reconectar una base SQLite en memoria: se perderían los datos"
             )
         await super()._reconnect()
