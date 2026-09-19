@@ -228,21 +228,13 @@ jobs:
         run: uv lock --check
 
       - name: Auditar dependencias (uv audit, feed OSV)
-        # PyJWT 2.12.1: 5 avisos (9 entradas OSV), todos con fix en 2.13.0.
-        # El proyecto mantiene el cap `PyJWT>=2.8,<2.13` (CONCERNS.md), que
-        # bloquea esas correcciones. Se aceptan de forma TEMPORAL: ampliar el
-        # cap es un cambio de dependencia que puede romper la capa `security`
-        # y queda fuera del alcance de 01-02 (fase de red de seguridad, cero
-        # cambio de comportamiento). Se levantaran al revalidar la capa de
-        # seguridad y ampliar el cap en la Fase 6 (CFG-02).
-        # La lista de ignores es explicita y revisable; el gate es bloqueante.
-        run: |
-          uv audit \
-            --ignore GHSA-993g-76c3-p5m4 \
-            --ignore GHSA-fhv5-28vv-h8m8 \
-            --ignore GHSA-jq35-7prp-9v3f \
-            --ignore GHSA-w7vc-732c-9m39 \
-            --ignore GHSA-xgmm-8j9v-c9wx
+        # Cap `PyJWT>=2.8,<2.15`: la version fijada (2.14.0) incluye el fix de
+        # los avisos que bloqueaba el cap anterior `<2.13`. En 06-05 (CFG-02) se
+        # subio el cap en un commit aislado y se retiraron las excepciones de
+        # auditoria tras verificar `uv audit` (feed OSV) y `pip-audit` (feed
+        # PyPA) limpios SIN ignores, con `tests/test_security.py` verde. El gate
+        # sigue siendo bloqueante: si aparece un aviso nuevo, CI falla.
+        run: uv audit
 
       - name: Cross-check (pip-audit sobre uv export, feed PyPA)
         # pip-audit no lee uv.lock (verificado: `--locked .` -> "no lockfiles

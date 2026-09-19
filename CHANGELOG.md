@@ -29,7 +29,10 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   el comportamiento**. El fallback a los globales emite `DeprecationWarning` y las
   firmas legacy `get_current_user(...)`/`require(...)` siguen funcionando. Viejo:
   un secreto global de proceso mutado por la app; nuevo: config inmutable por
-  aplicación. Cap de `PyJWT`: PENDIENTE_BUMP. Nota de ownership: esta entrada es
+  aplicación. Cap de `PyJWT` subido de `>=2.8,<2.13` a `>=2.8,<2.15` (resuelto a
+  2.14.0), con `uv audit` (feed OSV) y `pip-audit` (feed PyPA) verdes **sin
+  ignores** y `tests/test_security.py` verde; en consecuencia se retiraron los 5
+  `--ignore GHSA-*` del job `deps` de `ci.yml`. Nota de ownership: esta entrada es
   ADITIVA y no prejuzga la enumeración de cambios incompatibles del milestone, que
   posee la Fase 8 (`08-04`).
 - **CFG-03 (codegen sin `exec()`).** Los handlers REST `get`/`put`/`delete` y los

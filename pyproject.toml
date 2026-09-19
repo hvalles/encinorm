@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-security = ["fastapi>=0.110", "PyJWT>=2.8,<2.13"]
+security = ["fastapi>=0.110", "PyJWT>=2.8,<2.15"]
 http = ["fastapi>=0.110"]
 graphql = ["strawberry-graphql>=0.200"]
 cache = ["redis>=5.0"]
