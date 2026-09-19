@@ -1,14 +1,18 @@
 """Conexión por defecto / ambiente para `Model` sin `db` explícito.
 
-Proporciona un "singleton" de conexión (por proceso) y un enlace ambiente por
-tarea/contexto (`contextvars`), de modo que los `Model` puedan resolver su
-conexión de forma implícita. El orden de resolución es:
+Proporciona un `ConnectionRegistry` inyectable (el "default" de la aplicación) y
+un enlace ambiente por tarea/contexto (`contextvars`), de modo que los `Model`
+puedan resolver su conexión de forma implícita. El orden de resolución es:
 
 1. `db` explícito (constructor/método).
 2. transacción activa del pool (`_current_connection`).
 3. `bind()` / `session()` (ambiente).
-4. `set_default_db()` (proceso).
+4. default del `ConnectionRegistry` (explícito o el `_registry` de módulo).
 5. error `ConnectionError`.
+
+El default ya NO es un global mutable de proceso: vive en el estado de instancia
+de un `ConnectionRegistry`, de modo que dos aplicaciones/tenants en el mismo
+proceso pueden resolver a bases de datos distintas sin pisarse.
 """
 
 import contextvars
@@ -16,22 +20,74 @@ from contextlib import contextmanager
 
 from .exceptions import ConnectionError
 
-# Conexión/pool por defecto de TODO el proceso (el "singleton").
-_default_db = None
-
-# Conexión ambiente por tarea/contexto (bind / session).
+# Conexión ambiente por tarea/contexto (bind / session). Es estado ambiente, no
+# un global mutable de configuración: se conserva como nivel de precedencia.
 _ambient_db = contextvars.ContextVar("encino_orm_ambient_db", default=None)
 
 
+class ConnectionRegistry:
+    """Holder inyectable de la conexión por defecto de una aplicación.
+
+    El estado es de instancia (`_default_db`), no de módulo: dos registries en
+    el mismo proceso resuelven a sus propias bases de datos. La precedencia
+    ambiente (`bind`/`session`/transacción del pool) sigue ganando al default.
+    """
+
+    __slots__ = ("_default_db",)
+
+    def __init__(self, default_db=None):
+        self._default_db = default_db
+
+    def set_default(self, db) -> None:
+        """Registra la conexión o pool por defecto de este registry."""
+        self._default_db = db
+
+    def get_default(self):
+        """Devuelve la conexión/pool por defecto de este registry, o `None`."""
+        return self._default_db
+
+    def resolve(self):
+        """Resuelve la conexión actual. Lanza `ConnectionError` si no hay ninguna."""
+        # Import perezoso dentro del método: `pool` importa `context`, así que
+        # un import a nivel de módulo crearía un ciclo. `from . import pool`
+        # mantiene el mismo contrato diferido sin adquirir dependencia dura.
+        from . import pool
+
+        conn = pool._current_connection.get()  # 1. transacción activa del pool
+        if isinstance(conn, pool.PooledConnection):
+            # El contextvar guarda el handle del pool; `Model`/`engine_of` esperan
+            # un `Db` (con `.dialect` y los métodos de CRUD), así que se desenvaina.
+            return conn.driver
+        if conn is not None:
+            return conn
+        ambient = _ambient_db.get()  # 2. bind()/session()
+        if ambient is not None:
+            return ambient
+        if self._default_db is not None:  # 3. default del registry
+            return self._default_db
+        raise ConnectionError(
+            "Sin conexión: pasa `db`, usa `bind()`, `session()` o el default del registry"
+        )
+
+
+# Registry por defecto del proceso: único punto que guarda el default implícito.
+_registry = ConnectionRegistry()
+
+
 def set_default_db(db) -> None:
-    """Registra la conexión o pool por defecto del proceso."""
-    global _default_db
-    _default_db = db
+    """Registra la conexión o pool por defecto del proceso.
+
+    Deprecado: usa un `ConnectionRegistry` explícito y su método `set_default()`.
+    """
+    _registry.set_default(db)
 
 
 def get_default_db():
-    """Devuelve la conexión/pool por defecto del proceso, o `None`."""
-    return _default_db
+    """Devuelve la conexión/pool por defecto del proceso, o `None`.
+
+    Deprecado: usa `ConnectionRegistry.get_default()` sobre un registry explícito.
+    """
+    return _registry.get_default()
 
 
 @contextmanager
@@ -44,20 +100,11 @@ def bind(db):
         _ambient_db.reset(token)
 
 
-def resolve_db():
-    """Resuelve la conexión actual. Lanza `ConnectionError` si no hay ninguna."""
-    from .pool import PooledConnection, _current_connection  # lazy: evita import circular
+def resolve_db(registry: ConnectionRegistry | None = None):
+    """Resuelve la conexión actual. Lanza `ConnectionError` si no hay ninguna.
 
-    conn = _current_connection.get()  # 1. transacción activa del pool
-    if isinstance(conn, PooledConnection):
-        # El contextvar guarda el handle del pool; `Model`/`engine_of` esperan
-        # un `Db` (con `.dialect` y los métodos de CRUD), así que se desenvaina.
-        return conn.driver
-    if conn is not None:
-        return conn
-    ambient = _ambient_db.get()  # 2. bind()/session()
-    if ambient is not None:
-        return ambient
-    if _default_db is not None:  # 3. set_default_db()
-        return _default_db
-    raise ConnectionError("Sin conexión: pasa `db`, usa `bind()`, `set_default_db()` o `session()`")
+    Sin argumentos usa el `_registry` de módulo, conservando el comportamiento
+    histórico. Pasa `registry` para resolver contra un `ConnectionRegistry`
+    explícito (aislamiento por aplicación/tenant).
+    """
+    return (registry or _registry).resolve()

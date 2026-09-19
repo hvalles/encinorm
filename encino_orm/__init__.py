@@ -1,5 +1,5 @@
 from .base import Db
-from .context import bind, get_default_db, resolve_db, set_default_db
+from .context import ConnectionRegistry, bind, get_default_db, resolve_db, set_default_db
 from .engine import (
     Engine,
     engine_of,
@@ -45,6 +45,7 @@ from .sqlite import SqliteDb
 __all__ = [
     "ConnectionError",
     "ConnectionLostError",
+    "ConnectionRegistry",
     "Db",
     "EncinoOrmError",
     "Engine",
