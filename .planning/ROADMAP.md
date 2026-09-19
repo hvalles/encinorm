@@ -326,7 +326,7 @@ Plans:
 **Wave 2** *(parallel, disjoint: `http/routes.py` vs `graphql/schema.py`; blocked on Wave 1 so public signatures change once)*
 
 - [x] 06-03-PLAN.md — Replace `exec()`-generated REST handlers with closures/`__signature__` as a behavior-preserving refactor, guarded by an OpenAPI snapshot taken **before** the rewrite — CFG-03 (HTTP)
-- [ ] 06-04-PLAN.md — Replace the GraphQL `_pk_resolver` `exec()` with closures/`__signature__` (guarded by an SDL snapshot taken before the rewrite) **and** make `build_schema` use a per-build namespace — CFG-03 (GraphQL) + CFG-04
+- [x] 06-04-PLAN.md — Replace the GraphQL `_pk_resolver` `exec()` with closures/`__signature__` (guarded by an SDL snapshot taken before the rewrite) **and** make `build_schema` use a per-build namespace — CFG-03 (GraphQL) + CFG-04
 
 **Wave 3** *(blocked on Waves 1–2; single owner of the shared files)*
 

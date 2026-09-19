@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 06-03-PLAN.md (CFG-03: HTTP codegen) — Fase 6 en curso (3/5)"
-last_updated: "2026-09-19T06:56:32.000Z"
+stopped_at: "Completed 06-04-PLAN.md (CFG-03 GraphQL + CFG-04) — Fase 6 en curso (4/5)"
+last_updated: "2026-09-19T07:05:17.000Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 45
-  completed_plans: 43
-  percent: 95
+  completed_plans: 44
+  percent: 98
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 6
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [█████████░] 95%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -100,6 +100,7 @@ Progress: [█████████░] 95%
 | Phase 06 P01 | 6 min | 2 tasks | 4 files |
 | Phase 06 P02 | 4 min | 2 tasks | 4 files |
 | Phase 06 P03 | 2 min | 3 tasks | 3 files |
+| Phase 06 P04 | 7 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -225,6 +226,11 @@ Recent decisions affecting current work:
 - [Phase 06]: El snapshot OpenAPI (tests/__snapshots__/test_http_openapi.ambr) se captura y commitea CONTRA el exec() vigente (ca20a32) ANTES del rewrite (fa76bcf); Task 2 corre sin --snapshot-update y exige diff cero — Un snapshot capturado despues bendice la regresion y vacia el Criterio de Exito 3 (T-06-03-01/Pitfall 2)
 - [Phase 06]: _build_path_handler construye closures get/put/delete con inspect.Signature en __signature__ (PK -> data/physical -> db=Depends(get_db) sin annotation); handler.__name__/__qualname__ = 'handler' preserva el operationId — FastAPI lee __signature__ tal cual; sin exec() no hay S102 ni __globals__ fragil (Pitfalls 3/4/5)
 - [Phase 06]: create/list_ migran a Annotated[object, Depends(get_db)] (list_ con default None por seguir a parametros con default) — Elimina los 2 B008 de routes.py que 06-05 retirara; el OpenAPI byte-identico lo cubre el snapshot
+- [Phase 06]: La SDL GraphQL (tests/__snapshots__/test_graphql_namespace.ambr) se captura y commitea CONTRA el exec() vigente (e1fbcd3) ANTES del rewrite (66671d0/d98ca92); las Tasks 2/3 corren sin --snapshot-update y exigen diff cero — Un snapshot capturado despues bendice la regresion y vacia el guardian de CFG-03 GraphQL (T-06-04-01/Pitfall 2)
+- [Phase 06]: _pk_resolver construye closures get/update/delete con inspect.Signature en __signature__ (info + PKs + data para update); resolver.__name__/__qualname__ = 'resolver' y la coercion id=int(id) va en el cuerpo (_cast) — Strawberry deriva los argumentos GraphQL de la firma; sin exec() no hay S102 ni __globals__ fragil
+- [Phase 06]: build_schema registra un modulo sintetico por build (types.ModuleType + sys.modules) y ya no muta el namespace de encino_orm.graphql.schema con setattr — Dos builds sucesivos dejan de acumular tipos y de apuntar al tipo del ultimo build (Success Criterion 4)
+- [Phase 06]: El modulo sintetico por build NO se borra en un finally: los filtros autorreferentes resuelven sus LazyType en EJECUCION (LazyType.resolve_type no cachea), asi que se libera con weakref.finalize cuando el schema se recolecta — El del sys.modules del plan rompia { agentes(filter: ...) } con ModuleNotFoundError; el fallback autorizado (conservar el modulo) se endurece atando su vida al schema (evidencia en 06-04-SUMMARY)
+- [Phase 06]: El test de no-mutacion del namespace usa un modelo sonda (Sonda) que ningun otro build registra — Con [Region, Agente] la asercion pasaba en vacio porque tests previos ya habian mutado el modulo (orden de ejecucion)
 
 ### Pending Todos
 
@@ -249,6 +255,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T06:56:32.000Z
-Stopped at: Completed 06-03-PLAN.md (CFG-03: HTTP codegen) — Fase 6 en curso (3/5)
+Last session: 2026-09-19T07:05:17.000Z
+Stopped at: Completed 06-04-PLAN.md (CFG-03 GraphQL + CFG-04) — Fase 6 en curso (4/5)
 Resume file: None
