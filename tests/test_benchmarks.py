@@ -95,10 +95,10 @@ class _B(Model):
 # esas líneas base.
 #
 # PRIMERA corrida en CI (2026-09-19, runner ubuntu 2-vCPU): 5 de 6 unidades
-# pasan ≥ sus pisos locales, pero batch_sizing mide ~2,65M (σ 33,9K) frente a
+# pasan ≥ sus pisos locales, pero batch_sizing mide ~2,65M (sigma 33,9K) frente a
 # 10,5M locales — la unidad es aritmética pura y su throughput escala con la
 # frecuencia del core, no con el ancho de banda Python (resto de unidades).
-# Su piso se recalibra a la medida de CI (2,65M × 0.6 = 1,58M) en el MISMO
+# Su piso se recalibra a la medida de CI (2,65M x 0.6 = 1,58M) en el MISMO
 # commit, según la disciplina de calibración del plan 07-02.
 #
 # NOTA de calibracion vs RESEARCH Q3: el RESEARCH media to_mysql ~625K y
@@ -185,7 +185,7 @@ def test_to_mysql_floor():
 
 
 # 5. Fórmula de tamaño de lote (la misma que insert_many) — ~2,65M en CI
-#    (2,65M × 0.6 = piso 1,58M; recalibrado en la primera corrida del job).
+#    (2,65M x 0.6 = piso 1,58M; recalibrado en la primera corrida del job).
 def test_batch_sizing_floor():
     result = max(1, min(32767 // max(5, 1), 1000))
     assert result == 1000  # smoke: la fórmula sigue siendo válida
