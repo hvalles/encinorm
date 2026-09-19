@@ -92,6 +92,18 @@ class Db(ABC):
         """Indica si `exc` corresponde a un error de bloqueo/deadlock re-reintentable."""
         return False
 
+    def is_disconnect_error(self, exc: Exception) -> bool:
+        """Indica si `exc` corresponde a una pérdida de conexión (RESL-01).
+
+        Hook por defecto: `False`; cada adaptador lo sobreescribe con los
+        códigos/tipos de su driver. **Nunca** puede solaparse con
+        `is_lock_error`: un lock se reintenta con `retry()` (con backoff),
+        mientras que una desconexión no se reintenta ciegamente (evita duplicar
+        una escritura en silencio). Un error de lock clasificado aquí rompería
+        el reintento por deadlock.
+        """
+        return False
+
     async def retry(self, coro, tries: int | None = None):
         """Reintenta una coroutine ante errores de bloqueo (deadlock)."""
         max_tries = tries if tries is not None else self.MAX_TRIES

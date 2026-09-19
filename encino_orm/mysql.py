@@ -17,6 +17,11 @@ from .query import Query
 
 _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
 
+# Errnos de desconexión del protocolo MySQL (PyMySQL/aiomysql):
+#   2006 gone away / 2013 lost during query / 2055 lost at handshake.
+# 1213 (deadlock) y 1205 (lock wait timeout) quedan FUERA: son de `is_lock_error`.
+_DISCONNECT_ERRNOS = (2006, 2013, 2055)
+
 
 def _log(method, sql, values, elapsed):
     logger.debug(
@@ -67,6 +72,20 @@ class MysqlDb(Db):
         # 1213 deadlock, 1205 lock wait timeout
         code = getattr(exc, "args", None)
         return bool(code) and code[0] in (1205, 1213)
+
+    def is_disconnect_error(self, exc: Exception) -> bool:
+        """Clasifica la pérdida de conexión por tipo/errno de PyMySQL.
+
+        `InterfaceError` siempre es de conexión; `OperationalError` solo si su
+        errno está en `_DISCONNECT_ERRNOS`. MariaDB hereda este método de
+        `MysqlDb` (mismo protocolo `aiomysql`).
+        """
+        if isinstance(exc, aiomysql.InterfaceError):
+            return True
+        if isinstance(exc, aiomysql.OperationalError):
+            errno = exc.args[0] if exc.args else None
+            return errno in _DISCONNECT_ERRNOS
+        return False
 
     async def connect(self, **kwargs):
         self._connection = await aiomysql.connect(**kwargs)

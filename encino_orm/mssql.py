@@ -70,6 +70,47 @@ class MssqlDb(Db):
         code = self._native_code(exc)
         return sqlstate == "23000" and code in (2601, 2627)
 
+    def is_disconnect_error(self, exc: Exception) -> bool:
+        """Clasifica la pérdida de conexión por SQLSTATE de ODBC.
+
+        - `08xxx` (clase de error de conexión) → disconnect.
+        - `HY000`/`40001` NO-lock → disconnect solo si el mensaje trae una firma
+          verificada. Pitfall 7: un KILL en mitad de query llega como `HY000`
+          genérico, NO como `08xxx`.
+        - 1205/1222 (deadlock/lock timeout) quedan FUERA: son de `is_lock_error`.
+
+        NO importa `pyodbc`: clasifica por la forma de `args` del driver
+        (drivers opcionales fuera del job `test` de CI).
+        """
+        if self._native_code(exc) in (1205, 1222):
+            return False
+        try:
+            sqlstate = exc.args[0]
+        except (IndexError, TypeError):
+            return False
+        if not isinstance(sqlstate, str):
+            return False
+        if sqlstate.startswith("08"):
+            return True
+        if sqlstate in ("HY000", "40001"):
+            try:
+                native = exc.args[1]
+            except (IndexError, TypeError):
+                native = None
+            if isinstance(native, (tuple, list)) and len(native) > 1:
+                message = str(native[1])
+            else:
+                message = str(exc)
+            return any(
+                marker in message
+                for marker in (
+                    "Communication link failure",
+                    "terminated by the server",
+                    "session is in the kill state",
+                )
+            )
+        return False
+
     # --- ciclo de vida ---
     async def connect(self, **kwargs):
         try:

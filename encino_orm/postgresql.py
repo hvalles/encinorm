@@ -72,6 +72,23 @@ class PostgresDb(Db):
             ),
         )
 
+    def is_disconnect_error(self, exc: Exception) -> bool:
+        """Clasifica la pérdida de conexión por tipo de `asyncpg`.
+
+        `PostgresConnectionError` cubre la jerarquía (`ConnectionDoesNotExistError`
+        es subclase suya, verificado por MRO) y `InterfaceError` es operar sobre
+        una conexión cerrada. `InvalidCachedStatementError` **NO** es disconnect:
+        es invalidación del statement cache, no pérdida de conexión.
+        """
+        return isinstance(
+            exc,
+            (
+                asyncpg.exceptions.ConnectionDoesNotExistError,
+                asyncpg.exceptions.PostgresConnectionError,
+                asyncpg.InterfaceError,
+            ),
+        )
+
     async def connect(self, **kwargs):
         self._connection = await asyncpg.connect(**kwargs)
         self._database = kwargs.get("database")

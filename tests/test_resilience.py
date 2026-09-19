@@ -99,13 +99,13 @@ def test_db_default_is_disconnect_error_false():
     assert Db.is_disconnect_error(None, Exception("x")) is False
 
 
-@pytest.mark.parametrize("db_cls, exc_factory", _DISCONNECT_CASES)
+@pytest.mark.parametrize(("db_cls", "exc_factory"), _DISCONNECT_CASES)
 def test_is_disconnect_error(db_cls, exc_factory):
     db = db_cls()
     assert db.is_disconnect_error(exc_factory()) is True
 
 
-@pytest.mark.parametrize("db_cls, exc_factory", _LOCK_CASES)
+@pytest.mark.parametrize(("db_cls", "exc_factory"), _LOCK_CASES)
 def test_lock_no_es_disconnect(db_cls, exc_factory):
     db = db_cls()
     exc = exc_factory()
@@ -121,7 +121,7 @@ def test_invalid_cached_statement_no_es_disconnect_ni_lock():
     assert db.is_lock_error(exc) is False
 
 
-@pytest.mark.parametrize("db_cls, disconnect_factory, lock_factory", _ENGINE_CASES)
+@pytest.mark.parametrize(("db_cls", "disconnect_factory", "lock_factory"), _ENGINE_CASES)
 def test_disconnect_y_lock_son_excluyentes(db_cls, disconnect_factory, lock_factory):
     """Exclusión mutua por motor: un lock NUNCA se clasifica como disconnect."""
     db = db_cls()

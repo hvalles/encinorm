@@ -54,6 +54,19 @@ class SqliteDb(Db):
     def is_lock_error(self, exc: Exception) -> bool:
         return "locked" in str(exc) or "busy" in str(exc)
 
+    def is_disconnect_error(self, exc: Exception) -> bool:
+        """SQLite es embebido y no tiene socket: su "desconexión" es operar
+        sobre una conexión ya cerrada o perder el fichero de E/S.
+
+        `locked`/`busy` pertenecen a `is_lock_error` y quedan FUERA.
+        """
+        if isinstance(exc, aiosqlite.ProgrammingError):
+            return "closed database" in str(exc)
+        if isinstance(exc, aiosqlite.OperationalError):
+            text = str(exc)
+            return "disk I/O error" in text or "unable to open database file" in text
+        return False
+
     async def connect(self, **kwargs):
         database = kwargs.get("database", ":memory:")
         self._database = database

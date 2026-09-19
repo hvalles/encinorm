@@ -20,6 +20,11 @@ _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
 # `Model.upsert()` fallan en Oracle con ORA-00923.
 _MERGE_USING_RE = re.compile(r"USING \(SELECT (.+?)\) src")
 
+# Códigos ORA de desconexión: sesión matada, EOF, red caída, etc.
+_ORA_DISCONNECT_CODES = (28, 1012, 1080, 2396, 3113, 3114, 3135, 12537, 12541, 12547)
+# `full_code` es obligatorio: DPY-4011 (sesión matada) trae `code == 0`.
+_ORA_DISCONNECT_DPY = ("DPY-4011", "DPY-6005", "DPY-6001", "DPY-6003")
+
 
 def _log(method, sql, values, elapsed):
     logger.debug(
@@ -77,6 +82,24 @@ class OracleDb(Db):
     def is_unique_violation(self, exc: Exception) -> bool:
         # ORA-00001 unique constraint violated
         return self._ora_code(exc) == 1
+
+    def is_disconnect_error(self, exc: Exception) -> bool:
+        """Clasifica la pérdida de conexión por `code`/`full_code` de Oracle.
+
+        `full_code` es OBLIGATORIO: DPY-4011 (sesión matada) trae `code == 0`,
+        así que `_ora_code` no lo vería (Pitfall 8). La rama `InterfaceError`
+        solo puede disparar tras `connect()` (cuando `self._oracledb` está
+        fijado); NO se importa `oracledb` a nivel de módulo.
+        """
+        if self._oracledb is not None and isinstance(exc, self._oracledb.InterfaceError):
+            return True
+        try:
+            err = exc.args[0]
+        except (IndexError, TypeError):
+            return False
+        if getattr(err, "code", None) in _ORA_DISCONNECT_CODES:
+            return True
+        return getattr(err, "full_code", None) in _ORA_DISCONNECT_DPY
 
     # --- ciclo de vida ---
     async def connect(self, **kwargs):
