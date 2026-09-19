@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: in_progress
-stopped_at: Completed 05-01 (RESL-01) — Phase 5 in progress (1/4)
-last_updated: 2026-09-19T04:52:00.000Z
+status: executing
+stopped_at: "Completed 05-02-PLAN.md (RESL-02: _with_reconnect + politica A2) — Phase 5 en progreso (2/4)"
+last_updated: "2026-09-19T05:12:45.663Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 40
-  completed_plans: 37
+  completed_plans: 38
   percent: 50
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 5
-Plan: 1 of 4
-Status: In progress
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [██████████] 100%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -93,6 +93,7 @@ Progress: [██████████] 100%
 | Phase 04 P04 | 8min | 3 tasks | 5 files |
 | Phase 04 P06 | 20 min | 3 tasks | 1 files |
 | Phase 05 P01 | 5 min | 3 tasks | 14 files |
+| Phase 5 P2 | 9 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -203,6 +204,7 @@ Recent decisions affecting current work:
 - [Phase 05]: 05-01: `is_disconnect_error` por adaptador con senal TIPADA (errno/SQLSTATE/tipo/`.full_code`); el substring solo refuerza el caso MSSQL `HY000`. Los codigos de lock (1213/1205, 1205/1222, ORA-60/54/8177, `locked`/`busy`) quedan explicitamente FUERA para no romper `retry()`; la exclusion mutua se prueba por motor (Success Criterion 1). — Una clasificacion cruzada romperia el reintento por deadlock y expondria el Core Value a duplicar una escritura.
 - [Phase 05]: 05-01: MSSQL extrae el mensaje aceptando `args[1]` tupla (dobles) o string (pyodbc real); Oracle usa `from oracledb import exceptions` dentro de `real_oracle_disconnect` porque `oracledb.exceptions` no se expone como atributo tras `import oracledb`. — Ambas formas reales verificadas contra los drivers instalados; los drivers opcionales siguen sin importarse a nivel de modulo.
 - [Phase 05]: 05-01: `FakeResilientDb` define los metodos publicos con un puente `hasattr(Db, "_with_reconnect")`: en 05-01 (publicos aun abstractos) delegan en los privados y en 05-02 reenvian a `super()` para no saltarse el template method. — Satisface el criterio de instanciabilidad de 05-01 y deja el helper operativo para 05-02/03/04 sin editar la infraestructura.
+- [Phase 5]: 05-02: _with_reconnect reconecta exactamente una vez y solo fuera de tx; política A2 (lecturas re-ejecutan, escrituras pre-ejecución ejecutan, mid-statement reconectan y relanzan, dentro de tx relanzan). — Un reintento ciego de una escritura ambigua duplicaría datos en silencio (Core Value); el guard in_transaction() y la distinción pre-ejecución vs mid-statement lo impiden.
 
 ### Pending Todos
 
@@ -227,6 +229,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T04:52:00.000Z
-Stopped at: Completed 05-01-PLAN.md (RESL-01: `is_disconnect_error` por adaptador) — Phase 5 en progreso (1/4)
+Last session: 2026-09-19T05:12:45.651Z
+Stopped at: Completed 05-02-PLAN.md (RESL-02: _with_reconnect + politica A2) — Phase 5 en progreso (2/4)
 Resume file: None
