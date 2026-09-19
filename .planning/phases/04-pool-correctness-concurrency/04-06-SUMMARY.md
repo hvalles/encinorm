@@ -78,7 +78,7 @@ Each task was committed atomically:
 
 ## Files Created/Modified
 
-- `tests/test_pool_concurrency.py` (NUEVO) — 224 líneas. Cabecera en español con las restricciones duras (piso 3.10, sin dobles automáticos, determinismo, timeout por marker); 6 tests + 1 fixture `sqlite_pool(tmp_path)`. No toca `tests/test_pool.py` ni `tests/test_pool_characterization.py` (verificado: `git diff --numstat` vacío).
+- `tests/test_pool_concurrency.py` (NUEVO) — 223 líneas. Cabecera en español con las restricciones duras (piso 3.10, sin dobles automáticos, determinismo, timeout por marker); 6 tests + 1 fixture `sqlite_pool(tmp_path)`. No toca `tests/test_pool.py` ni `tests/test_pool_characterization.py` (verificado: `git diff --numstat` vacío).
 
 ## Verification (gates de fin de plan)
 
