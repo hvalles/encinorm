@@ -9,6 +9,7 @@ import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
+from .dialects import build_multi_insert, strategy_for
 from .dialects.identifiers import check_identifier
 from .engine import Engine, engine_of
 from .query import Query
@@ -146,16 +147,53 @@ async def copy_table(
 
     rows = await src.fetch_all(Query(f"SELECT * FROM {table}", []))
     total = 0
+
+    def _serialize(row) -> dict:
+        data = {}
+        for col in target_cols:
+            canonical = _normalize_value(row[col.name], col.datatype)
+            data[col.name] = _serialize_for_target(canonical, col.datatype, dialect)
+        return data
+
     async with dst.transaction():
         if truncate:
             await dst.execute(Query(f"DELETE FROM {table}", []))
-        for row in rows:
-            data = {}
-            for col in target_cols:
-                canonical = _normalize_value(row[col.name], col.datatype)
-                data[col.name] = _serialize_for_target(canonical, col.datatype, dialect)
-            await dst.execute(dst.insert(table, data))
-            total += 1
+        if target_cols:
+            max_params = getattr(dst, "MAX_PARAMS", 500)
+            max_rows = getattr(dst, "MAX_ROWS", 1000)
+            chunk = max(1, min(max_params // max(len(target_cols), 1), max_rows))
+            batch = []
+            for row in rows:
+                batch.append(_serialize(row))
+                if len(batch) >= chunk:
+                    # La lista de columnas se toma de la PRIMERA fila del lote y es
+                    # estable dentro del lote: todas las filas serializan el mismo
+                    # `target_cols`, así que `batch` comparte `keys()`.
+                    qry = build_multi_insert(
+                        table,
+                        list(batch[0].keys()),
+                        [list(d.values()) for d in batch],
+                        strategy=strategy_for(dialect),
+                    )
+                    await dst.execute(qry)
+                    total += len(batch)
+                    batch = []
+            if batch:
+                qry = build_multi_insert(
+                    table,
+                    list(batch[0].keys()),
+                    [list(d.values()) for d in batch],
+                    strategy=strategy_for(dialect),
+                )
+                await dst.execute(qry)
+                total += len(batch)
+        else:
+            # Tabla con una única columna PK autoincremental y preserve_ids=False:
+            # `target_cols == []` y el multi-VALUES sin columnas no existe en ningún
+            # dialecto. Se conserva el camino fila a fila (degradado, explícito).
+            for row in rows:
+                await dst.execute(dst.insert(table, _serialize(row)))
+                total += 1
     return total
 
 

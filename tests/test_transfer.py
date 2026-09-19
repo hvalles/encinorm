@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
@@ -6,6 +7,8 @@ import pytest
 
 from encino_orm import Query
 from encino_orm.cli import main
+from encino_orm.dialects import build_insert, strategy_for
+from encino_orm.introspection import columns_of
 from encino_orm.introspection.types import ColumnSpec
 from encino_orm.sqlite import SqliteDb
 from encino_orm.transfer import (
@@ -21,6 +24,46 @@ def _col(name, datatype, pk=False):
     return ColumnSpec(
         name=name, raw_type=datatype, datatype=datatype, nullable=True, primary_key=pk
     )
+
+
+class FakeDb:
+    """Doble del DESTINO que espié `copy_table`: registra cada `execute`.
+
+    Simula los atributos de límites de los adaptadores reales (MAX_PARAMS /
+    MAX_ROWS) y el ciclo de transacción (commit en éxito, rollback en fallo).
+    `execute` puede fallar en el N-ésimo intento (`fail_at`) para probar la
+    propagación de errores sin transacción colgada.
+    """
+
+    def __init__(self, *, dialect="sqlite", max_params=500, max_rows=1000, fail_at=None):
+        self.dialect = dialect
+        self.MAX_PARAMS = max_params
+        self.MAX_ROWS = max_rows
+        self.executes = []
+        self.insert_calls = []
+        self.events = []
+        self.fail_at = fail_at
+
+    @asynccontextmanager
+    async def transaction(self):
+        self.events.append("begin")
+        try:
+            yield self
+            self.events.append("commit")
+        except BaseException:
+            self.events.append("rollback")
+            raise
+
+    async def execute(self, qry):
+        if self.fail_at is not None and len(self.executes) + 1 == self.fail_at:
+            raise RuntimeError("fallo simulado")
+        self.executes.append(qry)
+        return 1
+
+    def insert(self, tabla, data):
+        qry = build_insert(tabla, data, strategy=strategy_for(self.dialect))
+        self.insert_calls.append(qry)
+        return qry
 
 
 class TestBuildDdl:
@@ -189,6 +232,142 @@ class TestCopyTable:
         rows = await dst.fetch_all(Query("SELECT * FROM t", []))
         assert len(rows) == 1
         assert rows[0]["v"] == "x"
+
+    @pytest.mark.asyncio
+    async def test_copy_table_por_lotes_equivale_fila_a_fila(self, src, dst):
+        # 4 columnas de datos (str/int/float/bool + datetime como TEXT), mismo
+        # criterio de tipos que el resto de tests de transfer.
+        await src.execute(
+            Query(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "nombre TEXT, edad INTEGER, monto REAL, activo INTEGER, creado TEXT)",
+                [],
+            )
+        )
+        for i in range(2_500):
+            await src.execute(
+                Query(
+                    "INSERT INTO users (nombre, edad, monto, activo, creado) "
+                    "VALUES ({0},{1},{2},{3},{4})",
+                    [
+                        f"usuario-{i}",
+                        i % 90,
+                        i / 10.0,
+                        i % 2,
+                        f"2026-09-{i % 28 + 1:02d} 10:00:00",
+                    ],
+                )
+            )
+        # MAX_PARAMS de sqlite es 32766 y MAX_ROWS 1000: 4 columnas → chunk 1000,
+        # así que la copia va en 3 lotes multi-VALUES (y sigue siendo correcta).
+        assert await copy_table(src, dst, "users", create=True, truncate=True) == 2_500
+
+        src_rows = await src.fetch_all(Query("SELECT * FROM users ORDER BY id", []))
+        dst_rows = await dst.fetch_all(Query("SELECT * FROM users ORDER BY id", []))
+        assert len(dst_rows) == 2_500
+        cols = await columns_of(src, "users")
+        for s, d in zip(src_rows, dst_rows, strict=True):
+            for col in cols:
+                assert _normalize_value(d[col.name], col.datatype) == _normalize_value(
+                    s[col.name], col.datatype
+                )
+        # ids preservados con preserve_ids=True (default).
+        assert [r["id"] for r in dst_rows] == [r["id"] for r in src_rows]
+
+    @pytest.mark.asyncio
+    async def test_lotes_respetan_MAX_PARAMS(self, src):
+        await src.execute(
+            Query(
+                "CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, a TEXT, b INTEGER, c TEXT)",
+                [],
+            )
+        )
+        for i in range(25):
+            await src.execute(
+                Query(
+                    "INSERT INTO t (a, b, c) VALUES ({0},{1},{2})",
+                    [f"fila-{i}", i, f"x{i}"],
+                )
+            )
+        spy = FakeDb(dialect="sqlite", max_params=8, max_rows=1_000_000)
+        assert await copy_table(src, spy, "t", preserve_ids=False) == 25
+
+        inserts = [q for q in spy.executes if q.sql_template.startswith("INSERT")]
+        assert len(inserts) == _ceil(25 / 2)  # chunk = 8 // 3 = 2
+        for q in inserts:
+            # El lote tiene <= 2 filas → <= 6 parámetros (3 columnas por fila).
+            assert len(q.params) <= 6
+        assert sum(len(q.params) // 3 for q in inserts) == 25
+        # Orden de filas preservado en el encadenado de params.
+        passthrough = [v for q in inserts for v in q.fields]
+        assert passthrough == [v for i in range(25) for v in (f"fila-{i}", i, f"x{i}")]
+
+    @pytest.mark.asyncio
+    async def test_lotes_respetan_MAX_ROWS(self, src):
+        await src.execute(
+            Query(
+                "CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, a TEXT, b INTEGER, c TEXT)",
+                [],
+            )
+        )
+        for i in range(10):
+            await src.execute(
+                Query(
+                    "INSERT INTO t (a, b, c) VALUES ({0},{1},{2})",
+                    [f"fila-{i}", i, f"x{i}"],
+                )
+            )
+        spy = FakeDb(dialect="sqlite", max_params=1_000_000, max_rows=3)
+        assert await copy_table(src, spy, "t", preserve_ids=False) == 10
+
+        inserts = [q for q in spy.executes if q.sql_template.startswith("INSERT")]
+        assert len(inserts) == 4  # ceil(10 / 3)
+        assert all(len(q.params) <= 9 for q in inserts)  # <= 3 filas x 3 cols
+        assert sum(len(q.params) // 3 for q in inserts) == 10
+
+    @pytest.mark.asyncio
+    async def test_copy_table_vacia(self, src):
+        await src.execute(
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", [])
+        )
+        spy = FakeDb()
+        assert await copy_table(src, spy, "t") == 0
+        inserts = [q for q in spy.executes if q.sql_template.startswith("INSERT")]
+        assert inserts == []
+
+    @pytest.mark.asyncio
+    async def test_tabla_solo_auto_pk(self, src):
+        # `target_cols == []` (solo PK autoincremental y preserve_ids=False): el
+        # multi-VALUES sin columnas no existe, así que se conserva el camino fila
+        # a fila original y la copia sigue funcionando.
+        await src.execute(Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT)", []))
+        for _i in range(3):
+            await src.execute(Query("INSERT INTO t DEFAULT VALUES", []))
+        spy = FakeDb()
+        assert await copy_table(src, spy, "t", preserve_ids=False) == 3
+        # El camino fila a fila ejecuta un `insert` simple (con keys vacías) por fila.
+        assert len(spy.insert_calls) == 3
+        assert len(spy.executes) == 3
+        assert all(q.sql_template.startswith("INSERT INTO t ()") for q in spy.executes)
+
+    @pytest.mark.asyncio
+    async def test_error_propagado(self, src):
+        await src.execute(
+            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)", [])
+        )
+        for i in range(3):
+            await src.execute(Query("INSERT INTO t (v) VALUES ({0})", [f"v{i}"]))
+        spy = FakeDb(fail_at=2)  # falla en el primer INSERT (el execute 1 es el DELETE)
+        with pytest.raises(RuntimeError, match="fallo simulado"):
+            await copy_table(src, spy, "t", truncate=True)
+        assert "begin" in spy.events
+        assert "rollback" in spy.events
+        assert "commit" not in spy.events
+
+
+def _ceil(x):
+    """Entero más pequeño >= x (evita `import math` para un solo uso)."""
+    return int(x) if x == int(x) else int(x) + 1
 
 
 class TestCopyDatabase:
