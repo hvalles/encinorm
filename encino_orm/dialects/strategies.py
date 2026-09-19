@@ -33,6 +33,12 @@ class InsertStrategy:
     # `SCOPE_IDENTITY()` en un `execute` separado devuelve NULL (verificado), y
     # `@@IDENTITY` es session-scoped y contaminable por triggers. Opt-in.
     output_inserted: bool = False
+    # Discrimina el render multi-fila de `build_multi_insert`: `True` produce el
+    # multi-VALUES (`... VALUES (...),(...),...`); `False` produce el `INSERT ALL
+    # ... SELECT 1 FROM DUAL` de Oracle. NO es un discriminador del render de
+    # fila única (`kind` lo es), y MSSQL (output_inserted=True) soporta
+    # multi-VALUES, así que `multi_values` es un campo propio.
+    multi_values: bool = True
 
 
 SQLITE_INSERT = InsertStrategy(kind="prefix")
@@ -48,6 +54,12 @@ ORACLE_INSERT = InsertStrategy(
     merge_alias_keyword="",
     carries_ignore_duplicated=True,
     returning_id=True,
+    # Oracle no admite la sintaxis multi-VALUES (`INSERT INTO t (a,b)
+    # VALUES (...),(...)`): lanza ORA-00938 en la compilación. La forma lote es
+    # `INSERT ALL INTO t ... VALUES (...) INTO t ... VALUES (...) SELECT 1 FROM
+    # DUAL` (verificado en RESEARCH Q5), que es la que `build_multi_insert`
+    # emite cuando `multi_values=False`.
+    multi_values=False,
 )
 
 # Tipo de UPSERT por dialecto. MariaDB NO implementa `ON CONFLICT` (sintaxis de

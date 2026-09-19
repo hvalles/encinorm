@@ -23,6 +23,7 @@ from encino_orm.dialects import (
     UPSERT_KINDS,
     build_delete,
     build_insert,
+    build_multi_insert,
     build_update,
     build_upsert,
     strategy_for,
@@ -947,6 +948,110 @@ class TestModelInsertMergeNoConsumeIdObsoleto:
         obj = _ModelPkAuto(db, nombre="Zoe", monto=5.0)
         assert await obj.insert() == 1
         assert obj.id == 1
+
+
+class TestBuildMultiInsert:
+    """`build_multi_insert` byte a byte: multi-VALUES vs `INSERT ALL` de Oracle."""
+
+    def test_sqlite_plano_dos_filas(self):
+        qry = build_multi_insert("t", ["a", "b"], [[1, "x"], [2, "y"]], strategy=SQLITE_INSERT)
+        assert qry.sql_template == "INSERT INTO t (a,b) VALUES ({0},{1}),({2},{3})"
+        assert qry.fields == [1, "x", 2, "y"]
+
+    def test_sqlite_ignore_duplicated(self):
+        qry = build_multi_insert(
+            "t", ["a"], [[1], [2]], strategy=SQLITE_INSERT, ignore_duplicated=True
+        )
+        assert qry.sql_template == "INSERT OR IGNORE INTO t (a) VALUES ({0}),({1})"
+
+    def test_mysql_ignore_duplicated(self):
+        qry = build_multi_insert(
+            "t", ["a"], [[1], [2]], strategy=MYSQL_INSERT, ignore_duplicated=True
+        )
+        assert qry.sql_template == "INSERT IGNORE INTO t (a) VALUES ({0}),({1})"
+
+    def test_mariadb_reutiliza_la_estrategia_mysql(self):
+        qry = build_multi_insert(
+            "t", ["a"], [[1], [2]], strategy=strategy_for("mariadb"), ignore_duplicated=True
+        )
+        assert qry.sql_template == "INSERT IGNORE INTO t (a) VALUES ({0}),({1})"
+        assert strategy_for("mariadb") is MYSQL_INSERT
+
+    def test_postgresql_plano_sin_clausula(self):
+        qry = build_multi_insert("t", ["a", "b"], [[1, "x"], [2, "y"]], strategy=POSTGRES_INSERT)
+        assert qry.sql_template == "INSERT INTO t (a,b) VALUES ({0},{1}),({2},{3})"
+        assert "ON CONFLICT" not in qry.sql_template
+
+    def test_postgresql_ignore_duplicated(self):
+        qry = build_multi_insert(
+            "t", ["a"], [[1], [2]], strategy=POSTGRES_INSERT, ignore_duplicated=True
+        )
+        assert qry.sql_template == "INSERT INTO t (a) VALUES ({0}),({1}) ON CONFLICT DO NOTHING"
+
+    def test_mssql_ignore_duplicated_no_anade_clausula(self):
+        qry = build_multi_insert(
+            "t", ["a"], [[1], [2]], strategy=MSSQL_INSERT, ignore_duplicated=True
+        )
+        assert qry.ignore_duplicated is True
+        assert "IGNORE" not in qry.sql_template
+        assert "CONFLICT" not in qry.sql_template
+        assert qry.sql_template == "INSERT INTO t (a) VALUES ({0}),({1})"
+
+    def test_oracle_insert_all(self):
+        qry = build_multi_insert("t", ["a", "b"], [[1, "x"], [2, "y"]], strategy=ORACLE_INSERT)
+        assert qry.sql_template == (
+            "INSERT ALL INTO t (a,b) VALUES ({0},{1}) INTO t (a,b) VALUES ({2},{3}) "
+            "SELECT 1 FROM DUAL"
+        )
+        assert qry.fields == [1, "x", 2, "y"]
+        # Sin comas entre las tuplas de valores: cada `INTO` va pegado al anterior.
+        assert "),(" not in qry.sql_template
+
+    def test_oracle_una_fila(self):
+        qry = build_multi_insert("t", ["a"], [[7]], strategy=ORACLE_INSERT)
+        assert qry.sql_template == "INSERT ALL INTO t (a) VALUES ({0}) SELECT 1 FROM DUAL"
+
+    def test_oracle_ignore_duplicated_no_anade_clausula(self):
+        qry = build_multi_insert(
+            "t", ["a"], [[1], [2]], strategy=ORACLE_INSERT, ignore_duplicated=True
+        )
+        assert qry.ignore_duplicated is True
+        assert "IGNORE" not in qry.sql_template
+        assert qry.sql_template.endswith("VALUES ({1}) SELECT 1 FROM DUAL")
+
+    def test_schema_cualificado(self):
+        qry = build_multi_insert("t", ["a"], [[1]], strategy=SQLITE_INSERT, schema="s")
+        assert qry.sql_template == "INSERT INTO s.t (a) VALUES ({0})"
+
+    def test_maliciosos_rechazados(self):
+        for nombre in MALICIOSOS:
+            with pytest.raises(ValueError):
+                build_multi_insert(nombre, ["a"], [[1]], strategy=SQLITE_INSERT)
+            with pytest.raises(ValueError):
+                build_multi_insert("t", [nombre], [[1]], strategy=SQLITE_INSERT)
+            with pytest.raises(ValueError):
+                build_multi_insert("t", ["a"], [[1]], strategy=SQLITE_INSERT, schema=nombre)
+
+    def test_rows_vacio_lanza(self):
+        with pytest.raises(ValueError):
+            build_multi_insert("t", ["a"], [], strategy=SQLITE_INSERT)
+
+    def test_columnas_vacias_lanzan(self):
+        with pytest.raises(ValueError):
+            build_multi_insert("t", [], [[1]], strategy=SQLITE_INSERT)
+
+    def test_params_igual_a_filas_por_columnas(self):
+        qry = build_multi_insert(
+            "t", ["a", "b", "c"], [[1, 2, 3], [4, 5, 6], [7, 8, 9]], strategy=SQLITE_INSERT
+        )
+        assert len(qry.params) == 3 * 3
+        assert qry.fields == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    def test_valores_van_como_params_no_interpolados(self):
+        qry = build_multi_insert("t", ["a"], [["x; DROP TABLE t"]], strategy=SQLITE_INSERT)
+        assert "{0}" in qry.sql_template
+        assert "x; DROP" not in qry.sql_template
+        assert qry.params["parameter_0000"] == "x; DROP TABLE t"
 
     @pytest.mark.asyncio
     async def test_suffix_replace_consume_execute_insert(self):

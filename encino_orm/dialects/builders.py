@@ -29,6 +29,10 @@ def _placeholders(count: int) -> str:
     return ",".join(f"{{{i}}}" for i in range(count))
 
 
+def _placeholders_from(start: int, count: int) -> str:
+    return ",".join(f"{{{start + i}}}" for i in range(count))
+
+
 def _merge_sql(
     qualified: str,
     strategy: InsertStrategy,
@@ -192,6 +196,71 @@ def build_insert(
     )
 
 
+def build_multi_insert(
+    table: str,
+    columns: list[str],
+    rows: list[list],
+    *,
+    strategy: InsertStrategy,
+    ignore_duplicated: bool = False,
+    schema: str | None = None,
+) -> Query:
+    """Construye el INSERT multi-fila del dialecto descrito por `strategy`.
+
+    `columns` o `rows` vacíos lanzan `ValueError` (un lote no puede ser vacío ni
+    sin columnas: el INSERT multi-fila sin columnas no existe). Valida table,
+    schema y cada columna fail-closed con `check_identifier`; los valores viajan
+    SIEMPRE como parámetros `{n}` encadenados en orden fila a fila, nunca
+    interpolados.
+
+    `strategy.multi_values` discrimina el render: `True` genera el multi-VALUES
+    `(...),(...),...`; `False` (Oracle, que no soporta multi-VALUES) genera un
+    `INSERT ALL ... SELECT 1 FROM DUAL`. `ignore_duplicated` replica el
+    comportamiento por kind de `build_insert`: prefijo (`INSERT OR IGNORE` /
+    `INSERT IGNORE`), sufijo (`ON CONFLICT DO NOTHING`) o flag de `Query`
+    cuando `carries_ignore_duplicated` (MSSQL/Oracle). Nunca emite
+    `OUTPUT INSERTED`/`RETURNING`: la captura de ids es opt-in y de fila única
+    (`build_insert`); `copy_table` no la necesita.
+    """
+    if not rows:
+        raise ValueError(f"rows vacío: {rows!r}")
+    if not columns:
+        raise ValueError(f"columnas vacías: {columns!r}")
+
+    qualified = _qualified(table, schema)
+    for col in columns:
+        check_identifier(col, "columna")
+
+    n_rows = len(rows)
+    n_cols = len(columns)
+    values = [v for row in rows for v in row]
+
+    if strategy.multi_values:
+        tuples = ",".join(
+            f"({_placeholders_from(offset, n_cols)})"
+            for offset in range(0, n_rows * n_cols, n_cols)
+        )
+        if strategy.kind == "prefix":
+            keyword = strategy.ignore_prefix if ignore_duplicated else "INSERT"
+            sql = f"{keyword} INTO {qualified} ({','.join(columns)}) VALUES {tuples}"
+        else:
+            sql = f"INSERT INTO {qualified} ({','.join(columns)}) VALUES {tuples}"
+            if strategy.kind == "suffix" and ignore_duplicated:
+                sql += " ON CONFLICT DO NOTHING"
+    else:
+        into_parts = " ".join(
+            f"INTO {qualified} ({','.join(columns)}) VALUES ({_placeholders_from(offset, n_cols)})"
+            for offset in range(0, n_rows * n_cols, n_cols)
+        )
+        sql = f"INSERT ALL {into_parts} SELECT 1 FROM DUAL"
+
+    return Query(
+        sql,
+        values,
+        ignore_duplicated=bool(strategy.carries_ignore_duplicated and ignore_duplicated),
+    )
+
+
 def build_update(table: str, keys: dict, values: dict, *, schema: str | None = None) -> Query:
     """Construye `UPDATE tabla SET ... WHERE ...`."""
     qualified = _qualified(table, schema)
@@ -294,4 +363,4 @@ def build_upsert(
     return Query(sql, insert_vals + list(update_values or []))
 
 
-__all__ = ["build_delete", "build_insert", "build_update", "build_upsert"]
+__all__ = ["build_delete", "build_insert", "build_multi_insert", "build_update", "build_upsert"]
