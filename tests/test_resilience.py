@@ -389,3 +389,155 @@ class TestWithReconnect:
             assert pool.reconnect_calls == 0  # PoolDb no se envuelve a sí mismo
         finally:
             await pool.close()
+
+
+# ---------------------------------------------------------------------------
+# RESL-03: `pre_ping` / `max_connection_lifetime` (conexiones directas)
+# Selector estable del bloque: `-k lifetime`.
+# ---------------------------------------------------------------------------
+
+
+class TestResilienceLifetime:
+    """RESL-03: reciclado opt-in para conexiones DIRECTAS (no-pool).
+
+    Patrón obligatorio (W4): en TODOS los tests de reciclado se llama PRIMERO
+    `await fake.connect()` — es lo que fija `_connect_kwargs` y `_connected_at` —
+    y DESPUÉS se muta `_connected_at`/`_connected` para simular edad o caída.
+    Sin ese `connect()` previo, `_connected_at is None` y `_maybe_recycle` es
+    no-op. Sin temporizadores reales ni pausas: el envejecimiento se hace por
+    asignación directa sobre `_connected_at`.
+    """
+
+    def test_defaults_off(self):
+        """Defaults conservadores: sin opt-in no hay sonda ni reciclado."""
+        assert Db.pre_ping is False
+        assert Db.max_connection_lifetime is None
+        assert SqliteDb()._should_recycle() is False
+
+    @pytest.mark.asyncio
+    async def test_pre_ping_no_sondea_por_defecto(self):
+        """Con `pre_ping=False` NO se llama `is_alive()` en el camino caliente."""
+        db = FakeResilientDb(fail_first=0)
+        await db.connect()
+
+        assert await db.fetch_one(Query("SELECT 1", [])) == {"ok": 1}
+        assert db.is_alive_calls == 0
+
+    @pytest.mark.asyncio
+    async def test_pre_ping_reconecta_cuando_is_alive_es_falso(self):
+        """Pitfall 5: sonda muerta ⇒ reconectar INMEDIATAMENTE, no solo anotar."""
+        db = FakeResilientDb(fail_first=0)
+        await db.connect()  # fija _connect_kwargs/_connected_at (W4)
+        db.pre_ping = True
+        db._connected = False  # la sonda `is_alive()` devolverá False
+
+        assert await db.fetch_one(Query("SELECT 1", [])) == {"ok": 1}
+        assert db.is_alive_calls == 1
+        assert db.connects == 2  # connect inicial + reconexión
+        assert db.closes == 1
+
+    @pytest.mark.asyncio
+    async def test_max_lifetime_recicla_conexion_vieja(self):
+        """Una conexión con edad >= lifetime se recicla antes de la operación."""
+        db = FakeResilientDb(fail_first=0)
+        await db.connect()  # fija _connect_kwargs/_connected_at (W4)
+        db.max_connection_lifetime = 10.0
+        db._connected_at -= 11  # envejece sin temporizador real
+
+        assert await db.fetch_one(Query("SELECT 1", [])) == {"ok": 1}
+        assert db.connects == 2
+        assert db.closes == 1
+
+    @pytest.mark.asyncio
+    async def test_max_lifetime_no_recicla_conexion_joven(self):
+        """Una conexión recién abierta NO se recicla."""
+        db = FakeResilientDb(fail_first=0)
+        await db.connect()
+        db.max_connection_lifetime = 10.0
+
+        assert await db.fetch_one(Query("SELECT 1", [])) == {"ok": 1}
+        assert db.connects == 1
+        assert db.closes == 0
+
+    @pytest.mark.asyncio
+    async def test_maybe_recycle_noop_si_nunca_conecto(self):
+        """Nunca se recicla una conexión que no existió (`_connected_at is None`)."""
+        db = FakeResilientDb(fail_first=0)
+        db.pre_ping = True
+        db.max_connection_lifetime = 1.0
+
+        assert db._connected_at is None
+        await db._maybe_recycle()
+        assert db.connects == 0
+        assert db.is_alive_calls == 0
+
+    def test_resilience_opts_extrae_y_valida(self):
+        """`_resilience_opts` hace pop, normaliza y falla cerrado con `<= 0`."""
+        db = SqliteDb()
+        limpio = db._resilience_opts({"pre_ping": True, "max_connection_lifetime": 5, "db": "x"})
+        assert limpio == {"db": "x"}
+        assert db.pre_ping is True
+        assert db.max_connection_lifetime == 5.0
+
+        with pytest.raises(ValueError, match="max_connection_lifetime"):
+            SqliteDb()._resilience_opts({"max_connection_lifetime": 0})
+
+        db_none = SqliteDb()
+        assert db_none._resilience_opts({"max_connection_lifetime": None}) == {}
+        assert db_none.max_connection_lifetime is None
+
+    @pytest.mark.asyncio
+    async def test_sqlite_fichero_sobrevive_a_lifetime(self, tmp_path):
+        """SQLite real: el reciclado por edad reconecta y NO pierde la fila."""
+        db = SqliteDb()
+        await db.connect(database=str(tmp_path / "lifetime.db"), max_connection_lifetime=10)
+        try:
+            assert db.max_connection_lifetime == 10.0
+            assert "max_connection_lifetime" not in db._connect_kwargs
+            await db.execute(Query("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)", []))
+            await db.commit()
+            await db.execute(db.insert("t", {"v": "hola"}))
+            await db.commit()
+
+            viejo = db._connected_at
+            db._connected_at = viejo - 11  # envejece sin temporizador real
+            assert await db.fetch_one(Query("SELECT v FROM t", [])) == {"v": "hola"}
+            assert db._connected_at >= viejo  # se refrescó al reconectar
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_sqlite_memory_no_se_recicla_por_lifetime(self):
+        """`:memory:` con lifetime vencido relanza en vez de crear una base vacía."""
+        db = SqliteDb()
+        await db.connect(database=":memory:", max_connection_lifetime=10)
+        try:
+            db._connected_at -= 11
+            with pytest.raises(OrmConnectionError):
+                await db.fetch_one(Query("SELECT 1", []))
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_pool_pasa_opciones_a_cada_conexion_fisica(self, monkeypatch):
+        """A6: las opciones llegan al `connect()` de cada conexión FÍSICA.
+
+        No se asserta reciclado a nivel de pool: eso es RELI-03 (v2); `pool.py`
+        no se modifica.
+        """
+        import encino_orm.pool as pool_module
+
+        capturado = []
+
+        class _DriverEspia(PoolFakeDb):
+            async def connect(self, **kwargs):
+                capturado.append(kwargs)
+                await super().connect(**kwargs)
+
+        monkeypatch.setitem(pool_module._ENGINES, "fake", _DriverEspia)
+        pool = PoolDb("fake", min_size=1, max_size=1, pre_ping=True, max_connection_lifetime=30)
+        await pool.connect()
+        try:
+            assert capturado == [{"pre_ping": True, "max_connection_lifetime": 30}]
+        finally:
+            await pool.close()
