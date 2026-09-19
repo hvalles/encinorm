@@ -177,3 +177,47 @@ async def test_execute_insert_inside_transaction_uses_held_connection(sqlite_poo
 
     rows = await sqlite_pool.fetch_all(Query("SELECT nombre, id FROM t ORDER BY id", []))
     assert [r["nombre"] for r in rows] == ["a", "b"]
+
+
+# --- Task 3: variante de estrés `pytest-repeat` (marker `stress`) ---
+
+
+@pytest.mark.stress
+@pytest.mark.repeat(5)
+async def test_no_overshoot_repeated(monkeypatch):
+    """Misma comprobación de admisión que Task 1, sin barrera y repetida.
+
+    El soak real es `uv run pytest -m stress --count=100` (local, opcional); en
+    la corrida normal `repeat(5)` la ejecuta 5 veces. NO se añade a `ci.yml` en
+    este plan (T-04-06-04).
+    """
+    monkeypatch.setitem(pool_module._ENGINES, "fake", helpers.FakeDb)
+    p = PoolDb("fake", min_size=0, max_size=2)
+    await p.connect()
+    try:
+
+        async def worker():
+            handle = await p.acquire()
+            await asyncio.sleep(0)
+            await p.release(handle)
+
+        await asyncio.gather(*(worker() for _ in range(5)))
+
+        assert p._size <= p._max_size
+        assert p._size == p._max_size
+    finally:
+        await p.close()
+
+
+async def test_event_barrier_is_single_use():
+    """`EventBarrier` NO es reutilizable por diseño.
+
+    La primera liberación deja el `Event` activado para siempre, así que todo
+    `wait()` posterior retorna de inmediato. Por eso el soak crea una barrera
+    NUEVA por ciclo; no se reutiliza una instancia entre generaciones de tareas.
+    """
+    barrier = helpers.EventBarrier(parties=2)
+    assert await asyncio.gather(barrier.wait(), barrier.wait()) == [None, None]
+
+    # Segunda generación con la MISMA instancia: ya no bloquea.
+    assert await asyncio.wait_for(barrier.wait(), timeout=0.5) is None
