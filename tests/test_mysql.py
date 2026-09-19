@@ -4,6 +4,12 @@ import pytest
 
 from encino_orm import MysqlDb, Query
 from encino_orm.model import Filter, Model
+from tests._resilience_helpers import (
+    mysql_disconnect,
+    mysql_gone_away,
+    mysql_interface,
+    mysql_lock,
+)
 from tests.conftest import engine_unavailable
 
 # Todas las clases de este modulo necesitan un MySQL vivo (D-08): el marker se
@@ -396,3 +402,16 @@ class TestMysqlParity:
     async def test_last_id_deprecated(self, mysql_connected_db):
         with pytest.warns(DeprecationWarning, match="deprecado"):
             await mysql_connected_db.last_id()
+
+
+def test_is_disconnect_error():
+    """RESL-01: MySQL clasifica los errnos 2006/2013/2055 y `InterfaceError`."""
+    db = MysqlDb()
+    assert db.is_disconnect_error(mysql_disconnect()) is True
+    assert db.is_disconnect_error(mysql_gone_away()) is True
+    assert db.is_disconnect_error(mysql_interface()) is True
+
+    lock = mysql_lock()
+    assert db.is_lock_error(lock) is True
+    assert db.is_disconnect_error(lock) is False
+    assert not (db.is_disconnect_error(lock) and db.is_lock_error(lock))

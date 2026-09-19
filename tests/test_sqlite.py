@@ -2,6 +2,7 @@ import pytest
 
 from encino_orm.model import Filter, Model
 from encino_orm.query import Query
+from tests._resilience_helpers import sqlite_disconnect, sqlite_disk_io, sqlite_lock
 
 
 class _ParityModel(Model):
@@ -462,3 +463,14 @@ class TestInsertIgnoreDuplicado:
 
         filas = await db.fetch_all(Query("SELECT nombre FROM test_unico", []))
         assert [f["nombre"] for f in filas] == ["uno"]
+
+
+def test_is_disconnect_error(db):
+    """RESL-01: SQLite clasifica la conexión cerrada / E/S, no el lock."""
+    assert db.is_disconnect_error(sqlite_disconnect()) is True
+    assert db.is_disconnect_error(sqlite_disk_io()) is True
+
+    lock = sqlite_lock()
+    assert db.is_lock_error(lock) is True
+    assert db.is_disconnect_error(lock) is False
+    assert not (db.is_disconnect_error(lock) and db.is_lock_error(lock))

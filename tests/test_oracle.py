@@ -8,6 +8,7 @@ from encino_orm.introspection.types import _normalize
 from encino_orm.model import Filter, Model
 from encino_orm.model.types import ddl_type
 from encino_orm.oracle import _to_oracle
+from tests._resilience_helpers import oracle_disconnect_dpy, oracle_disconnect_ora, oracle_lock
 from tests.conftest import engine_unavailable
 
 ORACLE_CONFIG = {
@@ -92,6 +93,17 @@ class TestOracleInternal:
         assert db.is_lock_error(_FakeExc(54)) is True  # ORA-00054 lock timeout
         assert db.is_lock_error(_FakeExc(8177)) is True  # ORA-08177 serialization
         assert db.is_lock_error(_FakeExc(1)) is False
+
+    def test_is_disconnect_error(self):
+        """RESL-01: Oracle lee `full_code` (DPY-4011 trae `code == 0`)."""
+        db = OracleDb()
+        assert db.is_disconnect_error(oracle_disconnect_dpy()) is True
+        assert db.is_disconnect_error(oracle_disconnect_ora()) is True
+
+        lock = oracle_lock()
+        assert db.is_lock_error(lock) is True
+        assert db.is_disconnect_error(lock) is False
+        assert not (db.is_disconnect_error(lock) and db.is_lock_error(lock))
 
     def test_normalize_new_types(self):
         assert _normalize("varchar2(255)") == ("str", 255, False)

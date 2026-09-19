@@ -7,6 +7,7 @@ import pytest
 from encino_orm import PostgresDb, Query
 from encino_orm.model import Filter, Model
 from encino_orm.postgresql import _rowcount, _to_postgres
+from tests._resilience_helpers import pg_cached_stmt, pg_disconnect, pg_interface, pg_lock
 from tests.conftest import engine_unavailable
 
 POSTGRES_CONFIG = {
@@ -57,6 +58,19 @@ class TestPostgresInternal:
         sql, values = db._prepare(db.update("t", {"id": 1}, {"nombre": "mod"}))
         assert sql == "UPDATE t SET nombre = $1 WHERE id = $2"
         assert values == ["mod", 1]
+
+    def test_is_disconnect_error(self):
+        """RESL-01: PostgreSQL clasifica por tipo asyncpg, no por substring."""
+        db = PostgresDb()
+        assert db.is_disconnect_error(pg_disconnect()) is True
+        assert db.is_disconnect_error(pg_interface()) is True
+        # Invalidación de statement cache: NI disconnect NI lock.
+        assert db.is_disconnect_error(pg_cached_stmt()) is False
+
+        lock = pg_lock()
+        assert db.is_lock_error(lock) is True
+        assert db.is_disconnect_error(lock) is False
+        assert not (db.is_disconnect_error(lock) and db.is_lock_error(lock))
 
 
 @pytest.fixture

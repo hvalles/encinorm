@@ -5,6 +5,7 @@ import pytest
 from encino_orm import MariadbDb, Query
 from encino_orm.model import Filter, Model
 from encino_orm.model.types import ddl_type
+from tests._resilience_helpers import mysql_disconnect, mysql_lock
 from tests.conftest import engine_unavailable
 
 MARIADB_CONFIG = {
@@ -27,6 +28,22 @@ def test_mariadb_ddl_map_matches_mysql():
     assert ddl_type("pk", "mariadb") == "INT AUTO_INCREMENT PRIMARY KEY"
     assert ddl_type("str", "mariadb") == "VARCHAR(255)"
     assert ddl_type("json", "mariadb") == "JSON"
+
+
+def test_is_disconnect_error():
+    """RESL-01: MariaDB HEREDA el clasificador de `MysqlDb` (no lo duplica)."""
+    from encino_orm.mysql import MysqlDb
+
+    assert MariadbDb.is_disconnect_error is MysqlDb.is_disconnect_error
+    assert MariadbDb.is_lock_error is MysqlDb.is_lock_error
+
+    db = MariadbDb()
+    assert db.is_disconnect_error(mysql_disconnect()) is True
+
+    lock = mysql_lock()
+    assert db.is_lock_error(lock) is True
+    assert db.is_disconnect_error(lock) is False
+    assert not (db.is_disconnect_error(lock) and db.is_lock_error(lock))
 
 
 @pytest.fixture

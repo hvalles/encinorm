@@ -9,6 +9,11 @@ from encino_orm.introspection.types import _normalize
 from encino_orm.model import Filter, Model
 from encino_orm.model.types import ddl_type
 from encino_orm.mssql import _to_mssql
+from tests._resilience_helpers import (
+    mssql_disconnect_idle,
+    mssql_disconnect_midquery,
+    mssql_lock,
+)
 from tests.conftest import engine_unavailable
 
 MSSQL_CONFIG = {
@@ -108,6 +113,17 @@ class TestMssqlInternal:
         e2 = Exception()
         e2.args = ("HYT00", (1222, "lock timeout"))
         assert db.is_lock_error(e2) is True
+
+    def test_is_disconnect_error(self):
+        """RESL-01: MSSQL acepta 08xxx o el HY000 mid-query (Pitfall 7)."""
+        db = MssqlDb()
+        assert db.is_disconnect_error(mssql_disconnect_midquery()) is True
+        assert db.is_disconnect_error(mssql_disconnect_idle()) is True
+
+        lock = mssql_lock()
+        assert db.is_lock_error(lock) is True
+        assert db.is_disconnect_error(lock) is False
+        assert not (db.is_disconnect_error(lock) and db.is_lock_error(lock))
 
     def test_normalize_new_types(self):
         assert _normalize("nvarchar(100)") == ("str", 100, False)
