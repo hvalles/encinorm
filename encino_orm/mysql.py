@@ -216,7 +216,10 @@ class MysqlDb(Db):
             with _suppress_mysql_warnings():
                 await cursor.execute(sql, values)
             self._last_id = cursor.lastrowid
-            new_id = cursor.lastrowid if qry.returns_id else None
+            # `INSERT IGNORE` sin inserción deja `lastrowid` en 0 (o en el de otra
+            # fila): no es el id de una fila insertada por ESTA sentencia y
+            # asignarlo haría que `update()` tocara otra fila (CR-02).
+            new_id = cursor.lastrowid if qry.returns_id and cursor.rowcount != 0 else None
             _log("execute_insert", sql, values, time.monotonic() - t0)
             return new_id
         finally:

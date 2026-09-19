@@ -594,6 +594,32 @@ class TestPoolResetOnRelease:
         with pytest.raises(ValueError):
             PoolDb("fake", min_size=0, max_size=2, reset_on_release="none")
 
+    def test_pool_rechaza_tamanos_incoherentes(self, fake_engine):
+        # WR-02: `connect()` crea `min_size` conexiones, así que un
+        # `min_size > max_size` (o un `max_size < 1`) rompería el invariante
+        # `_size <= max_size`; se falla cerrado en construcción.
+        with pytest.raises(ValueError):
+            PoolDb("fake", min_size=5, max_size=2)
+        with pytest.raises(ValueError):
+            PoolDb("fake", min_size=0, max_size=0)
+        with pytest.raises(ValueError):
+            PoolDb("fake", min_size=-1, max_size=2)
+
+    @pytest.mark.asyncio
+    async def test_release_de_otra_tarea_no_libera(self, fake_engine):
+        # WR-01: solo la tarea que adquirió puede liberar. Sin la comprobación de
+        # ownership, otra tarea con una referencia al handle podría devolver al
+        # pool una conexión aún en uso.
+        p = PoolDb("fake", min_size=1, max_size=2)
+        await p.connect()
+        handle = await p.acquire()
+
+        await asyncio.create_task(p.release(handle))
+
+        assert handle in p._checked_out
+        await p.release(handle)
+        await p.close()
+
     @pytest.mark.asyncio
     async def test_select_leftover_does_not_warn(self, fake_engine):
         # El warning se engancha a la POLÍTICA "commit", no a `in_transaction()`:

@@ -533,10 +533,13 @@ class Model(BaseModel):
             if strategy.kind == "suffix":
                 conflict = [self._col(k) for k in type(self)._pk_fields()]
 
-        # `returning` es opt-in: solo la PK autoincremental puede capturarse. El
+        # `returning` es opt-in: solo la PK autoincremental puede capturarse. Se
+        # usa la COLUMNA FÍSICA (`_col("id")`), no el nombre del campo: un modelo
+        # con `Column(name="legacy_id")` emite `RETURNING id`/`OUTPUT INSERTED.id`
+        # contra una columna inexistente si se interpola el campo (CR-01). El
         # render `merge` (MSSQL/Oracle) no emite captura, así que `execute_insert`
         # devuelve `None` y `self.id` queda intacto.
-        returning = "id" if auto else None
+        returning = self._col("id") if auto else None
 
         async def do_insert():
             qry = self._get_db().insert(

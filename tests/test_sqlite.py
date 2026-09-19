@@ -430,3 +430,35 @@ class TestSqliteParity:
         # emite warning y ya está cubierto por los tests de arriba.
         with pytest.warns(DeprecationWarning, match="deprecado"):
             await connected_db.last_id()
+
+
+class _Unico(Model):
+    _table = "test_unico"
+    codigo: str | None = None
+    nombre: str | None = None
+
+
+_UNICO_DDL = (
+    "CREATE TABLE test_unico (id INTEGER PRIMARY KEY AUTOINCREMENT, codigo TEXT UNIQUE, "
+    "nombre TEXT, enabled INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)"
+)
+
+
+class TestInsertIgnoreDuplicado:
+    @pytest.mark.asyncio
+    async def test_insert_ignorado_no_asigna_el_id_ajeno(self, connected_db):
+        """CR-02: un `INSERT OR IGNORE` ignorado no debe devolver el `lastrowid`
+        de la inserción ANTERIOR (apuntaría a otra fila) ni asignarlo a `self.id`."""
+        db = connected_db
+        await db.execute(Query("DROP TABLE IF EXISTS test_unico", []))
+        await db.execute(Query(_UNICO_DDL, []))
+
+        primero = _Unico(db, codigo="A", nombre="uno")
+        assert await primero.insert() == 1
+
+        duplicado = _Unico(db, codigo="A", nombre="dos")
+        assert await duplicado.insert(ignore_duplicated=True) == 0
+        assert duplicado.id is None
+
+        filas = await db.fetch_all(Query("SELECT nombre FROM test_unico", []))
+        assert [f["nombre"] for f in filas] == ["uno"]

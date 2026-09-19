@@ -100,6 +100,13 @@ class PoolDb(Db):
                 f"reset_on_release inválido: {reset_on_release!r}; "
                 "usa 'rollback' (default) o 'commit'"
             )
+        # Tamaños coherentes (WR-02): `connect()` crea `min_size` conexiones, así
+        # que un `min_size > max_size` rompería el invariante `_size <= max_size`
+        # desde el arranque. Se falla cerrado en construcción.
+        if min_size < 0 or max_size < 1 or min_size > max_size:
+            raise ValueError(
+                f"tamaños de pool inválidos: min_size={min_size!r}, max_size={max_size!r}"
+            )
         if isinstance(engine, Engine):
             engine = engine.value
         self._engine = engine
@@ -228,7 +235,14 @@ class PoolDb(Db):
                 # `get_nowait()` y el bucle nunca vaciaría la cola.
                 keep.append(handle)
         for handle in keep:
-            self._idle.put_nowait(handle)
+            if self._closed:
+                # `close()` corrió durante el `await` de cierre de las ociosas:
+                # la cola ya se drenó y `_size` quedó fijado. Reencolar aquí
+                # dejaría conexiones vivas y sin contar (WR-03); se cierran.
+                self._connections.discard(handle)
+                await handle.driver.close()
+            else:
+                self._idle.put_nowait(handle)
         for handle in to_close:
             await handle.driver.close()
 
@@ -283,9 +297,14 @@ class PoolDb(Db):
 
     async def release(self, conn):
         handle = self._as_handle(conn)
-        if handle not in self._checked_out:
-            # Liberación ajena o duplicada: no se reencola (POOL-02).
-            logger.warning("release() de una conexión que no está en uso: %r", handle)
+        current = asyncio.current_task()
+        # Ownership (POOL-02/WR-01): solo la tarea que adquirió puede liberar.
+        # Sin esta comprobación, cualquier tarea con una referencia al handle
+        # podría devolver al pool una conexión EN USO por otra, y una tarea hija
+        # (`asyncio.create_task` copia el contextvar) podría intercalar sentencias
+        # en la conexión del padre.
+        if handle not in self._checked_out or handle.owner_task is not current:
+            logger.warning("release() de una conexión ajena, duplicada o no en uso: %r", handle)
             return
         self._checked_out.discard(handle)
         handle.checked_out = False
@@ -295,11 +314,16 @@ class PoolDb(Db):
         # dejó abierto. En MSSQL/Oracle `in_transaction()` puede ser True tras un
         # SELECT, así que revertir una lectura es inocuo y NO emite warning
         # (Pitfall 4): el warning vive en la política "commit" (constructor).
-        if await handle.driver.in_transaction():
-            if self._reset_on_release == "commit":
-                await handle.driver.commit()
-            else:
-                await handle.driver.rollback()
+        # El sondeo va guardado (WR-06): en una conexión rota `in_transaction()`
+        # puede lanzar y enmascarar el error que provocó la liberación.
+        try:
+            if await handle.driver.in_transaction():
+                if self._reset_on_release == "commit":
+                    await handle.driver.commit()
+                else:
+                    await handle.driver.rollback()
+        except Exception:
+            logger.warning("no se pudo cerrar el sobrante al liberar %r", handle, exc_info=True)
         handle.touch()
         # Reaper perezoso (POOL-05): una liberación puede disparar el reaping de
         # las ociosas. Se invoca ANTES de encolar este handle (recién tocado,
@@ -418,9 +442,16 @@ class PoolDb(Db):
         except BaseException:
             # `BaseException` (no solo `Exception`): ni una cancelación debe
             # dejar la transacción abierta al devolver la conexión al pool. Se
-            # re-lanza siempre el error raíz, sin enmascararlo.
-            if await handle.driver.in_transaction():
-                await handle.driver.rollback()
+            # re-lanza siempre el error raíz, sin enmascararlo: el sondeo y el
+            # rollback van guardados (WR-06) porque en una conexión rota
+            # `in_transaction()` puede lanzar.
+            try:
+                if await handle.driver.in_transaction():
+                    await handle.driver.rollback()
+            except Exception:
+                logger.warning(
+                    "no se pudo revertir el sobrante al liberar %r", handle, exc_info=True
+                )
             raise
         else:
             # Cierre EXPLÍCITO antes de liberar: SQLite/MySQL no autocommitan,
@@ -460,26 +491,9 @@ class PoolDb(Db):
         return await self._run_scoped("save_point", name)
 
     async def execute(self, qry):
-        handle = _current_connection.get()
-        if handle is not None:
-            return await handle.driver.execute(qry)
-        handle = await self.acquire()
-        try:
-            result = await handle.driver.execute(qry)
-        except BaseException:
-            # Cierre explícito en error (ver `_run`): revierte el sobrante y
-            # re-lanza el error raíz sin enmascararlo.
-            if await handle.driver.in_transaction():
-                await handle.driver.rollback()
-            raise
-        else:
-            # Cierre explícito en éxito (ver `_run`): hace visible la escritura
-            # entre conexiones antes de devolver el handle al pool.
-            if await handle.driver.in_transaction():
-                await handle.driver.commit()
-            return result
-        finally:
-            await self.release(handle)
+        # Delegación única en `_run` (IN-02): evita que las dos copias del
+        # early-return del contextvar y del cierre commit/rollback se separen.
+        return await self._run("execute", qry)
 
     async def execute_insert(self, qry):
         """Ejecuta un INSERT capturando el id por conexión/tarea (POOL-03).
@@ -553,9 +567,16 @@ async def session(db):
         try:
             with bind(handle.driver):
                 yield handle.driver
-        except Exception:
-            if await handle.driver.in_transaction():
-                await handle.driver.rollback()
+        except BaseException:
+            # `BaseException` como en `_run`/`execute` (WR-07): una cancelación
+            # debe revertir, no saltarse el cierre y dejar el sobrante abierto.
+            try:
+                if await handle.driver.in_transaction():
+                    await handle.driver.rollback()
+            except Exception:
+                logger.warning(
+                    "no se pudo revertir el sobrante de la sesión %r", handle, exc_info=True
+                )
             raise
         else:
             if await handle.driver.in_transaction():

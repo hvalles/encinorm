@@ -71,6 +71,23 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 - `Model.insert` y `migration._apply` capturan el id con `execute_insert` (el
   ledger de migraciones ya no depende de un `last_id()` best-effort), y
   `PoolDb.insert` reenvía `returning` al adaptador subyacente.
+- **CAMBIO DE COMPORTAMIENTO (`PoolDb.acquire()`).** `acquire()` devuelve ahora un
+  `PooledConnection` (handle con `driver`, `last_used`, `generation`, `checked_out`
+  y `owner_task`), no un `Db`. Usa `handle.driver` para el `Db` crudo; `release()`
+  acepta tanto el handle como el `Db`. El handle se re-exporta desde
+  `encino_orm` (`from encino_orm import PooledConnection`). Antes `acquire()`
+  devolvía directamente el `Db` y el estado por conexión vivía repartido. Nota de
+  ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
+  que posee la Fase 8 (`08-04`).
+- **CAMBIO DE COMPORTAMIENTO (MSSQL `replace=True` con una sola columna de
+  datos).** El arreglo de ORA-38104 excluye las columnas del `ON` del
+  `WHEN MATCHED THEN UPDATE SET` y **falla cerrado** si no queda ninguna columna
+  actualizable; en un modelo de PK autoincremental con una única columna de datos
+  (`{"nombre": ...}`), `Model.insert(replace=True)` ahora lanza
+  `ValueError("MERGE sin columnas actualizables...")` en MSSQL (antes emitía un
+  MERGE de sintaxis válida pero sin columnas que actualizar). Oracle ya lo
+  rechazaba. Nota de ownership: esta entrada es ADITIVA y no prejuzga la
+  enumeración del milestone, que posee la Fase 8 (`08-04`).
 
 - La invalidación post-escritura de `CachedModel` es fail-open incluso cuando una PK
   tiene un valor no hashable (`list`/`dict`, que pydantic y `_from_db` admiten):

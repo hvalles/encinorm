@@ -193,7 +193,15 @@ class SqliteDb(Db):
         sql, values = self._prepare(qry)
         t0 = time.monotonic()
         cursor = await self._connection.execute(sql, values)
-        new_id = cursor.lastrowid if qry.returns_id else None
+        if not qry.returns_id:
+            new_id = None
+        elif cursor.rowcount == 0:
+            # `INSERT OR IGNORE` no insertó (fila duplicada): `lastrowid` sigue
+            # apuntando a la inserción ANTERIOR de esta conexión, así que
+            # devolverlo asignaría a la instancia el id de OTRA fila (CR-02).
+            new_id = None
+        else:
+            new_id = cursor.lastrowid
         await cursor.close()
         _log("execute_insert", sql, values, time.monotonic() - t0)
         return new_id

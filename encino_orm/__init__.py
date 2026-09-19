@@ -32,7 +32,7 @@ from .mssql import MssqlDb
 from .mysql import MysqlDb
 from .observability import OtelQueryTracer, QueryTracer, current_trace_id, trace_id
 from .oracle import OracleDb
-from .pool import PoolDb, create_db, session
+from .pool import PoolDb, PooledConnection, create_db, session
 from .postgresql import PostgresDb
 from .query import Query
 from .sql import SqlFunctions, Weekday
@@ -52,6 +52,7 @@ __all__ = [
     "OtelQueryTracer",
     "PoolDb",
     "PoolExhaustedError",
+    "PooledConnection",
     "PostgresDb",
     "Query",
     "QueryError",

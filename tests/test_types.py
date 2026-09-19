@@ -1,9 +1,11 @@
+from contextlib import asynccontextmanager
 from typing import Annotated, ClassVar
 
 import pytest
 from pydantic import Field
 
 from encino_orm.model import Column, Model, ddl_type, to_ddl
+from encino_orm.query import Query
 
 
 class Agente(Model):
@@ -18,6 +20,56 @@ class Legacy(Model):
     _fields_disabled: ClassVar[list] = ["enabled", "created_at", "updated_at"]
     id: Annotated[int, Column(name="legacy_id")] = None
     nota: str | None = None
+
+
+class Renombrado(Model):
+    """PK autoincremental renombrada en la BD (regresión CR-01)."""
+
+    _table = "renombrado"
+    id: Annotated[int | None, Column(name="legacy_id")] = None
+    nota: str | None = None
+
+
+class _CapturingDb:
+    """`Db` mínimo que captura el `returning` que `Model.insert` pide."""
+
+    def __init__(self):
+        self.returning = "unset"
+
+    async def retry(self, coro):
+        return await coro()
+
+    @asynccontextmanager
+    async def transaction(self):
+        yield
+
+    def insert(
+        self,
+        tabla,
+        data,
+        ignore_duplicated=False,
+        replace=False,
+        conflict=None,
+        *,
+        schema=None,
+        returning=None,
+    ):
+        self.returning = returning
+        return Query("INSERT INTO renombrado (nota) VALUES ({0})", [data.get("nota")])
+
+    async def execute_insert(self, qry):
+        return 7
+
+
+async def test_insert_usa_la_columna_fisica_de_la_pk_auto():
+    """CR-01: `Model.insert` pide `RETURNING <columna FÍSICA>` de la PK, no el
+    nombre del campo `id`; con una PK renombrada el SQL apuntaba a una columna
+    inexistente en PostgreSQL/MSSQL/Oracle."""
+    db = _CapturingDb()
+    obj = Renombrado(db=db, nota="x")
+    new_id = await obj.insert()
+    assert db.returning == "legacy_id"
+    assert new_id == 7
 
 
 def test_to_ddl_sqlite():
