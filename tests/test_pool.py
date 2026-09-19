@@ -606,6 +606,22 @@ class TestPoolResetOnRelease:
             PoolDb("fake", min_size=-1, max_size=2)
 
     @pytest.mark.asyncio
+    async def test_reconectar_con_retenidas_no_supera_max_size(self, fake_engine):
+        # POOL-02: un `close()` deja VIVAS las conexiones retenidas; al
+        # reconectar, esas conexiones cuentan para el cupo y no se arranca por
+        # encima de `max_size`.
+        p = PoolDb("fake", min_size=1, max_size=2)
+        await p.connect()
+        h1 = await p.acquire()
+        h2 = await p.acquire()
+        await p.close()
+        await p.connect()
+        assert p._size <= p._max_size
+        await p.release(h1)
+        await p.release(h2)
+        await p.close()
+
+    @pytest.mark.asyncio
     async def test_release_de_otra_tarea_no_libera(self, fake_engine):
         # WR-01: solo la tarea que adquirió puede liberar. Sin la comprobación de
         # ownership, otra tarea con una referencia al handle podría devolver al

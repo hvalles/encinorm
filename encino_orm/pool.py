@@ -181,7 +181,12 @@ class PoolDb(Db):
         # de la generación anterior quedan obsoletos (su `generation` ya no
         # coincide) y se cerrarán al liberarse en vez de reencolarse (A6).
         self._closed = False
-        for _ in range(self._min_size):
+        # Los handles RETENIDOS por un `close()` previo siguen vivos y cuentan
+        # para el cupo: se arranca desde ellos y solo se crean los que falten
+        # hasta `min_size`, para no superar `max_size` (POOL-02).
+        self._size = len(self._checked_out)
+        to_create = max(0, self._min_size - self._size)
+        for _ in range(to_create):
             handle = await self._create_connection()
             self._connections.add(handle)
             self._size += 1
