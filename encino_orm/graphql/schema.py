@@ -1,5 +1,9 @@
 """Construcción del `strawberry.Schema` con queries y mutations por modelo."""
 
+import itertools
+import sys
+import types
+import weakref
 from inspect import Parameter, Signature
 
 import strawberry
@@ -164,34 +168,53 @@ def _build_mutation(models, type_map, input_map):
     return strawberry.type(type("Mutation", (), fields))
 
 
+_build_counter = itertools.count(1)
+
+
 def build_schema(models, *, auto_camel_case: bool = False) -> strawberry.Schema:
     """Construye un `strawberry.Schema` con queries y mutations para `models`.
 
     Los resolvers obtienen la conexión desde `context_value={"db": db}`.
+
+    Los tipos generados usan `strawberry.lazy(...)`, que resuelve vía
+    `importlib.import_module`. Para no mutar el namespace de este módulo, cada
+    build registra un módulo sintético propio en `sys.modules`.
+
+    Ese módulo NO se puede borrar al terminar la construcción: Strawberry
+    resuelve los `LazyType` de los filtros autorreferentes (`and`/`or`/`not`)
+    en tiempo de *ejecución* (`LazyType.resolve_type()` no cachea), así que
+    debe sobrevivir mientras el schema pueda ejecutarse. Se libera cuando el
+    schema se recolecta (participa en un ciclo, de modo que lo libera el GC
+    cíclico), evitando fugas permanentes en `sys.modules`.
     """
-    import sys
+    name = f"encino_orm.graphql._build_{next(_build_counter)}"
+    mod = types.ModuleType(name)
+    mod.__package__ = __package__
+    sys.modules[name] = mod
+    try:
+        type_map = {}
+        for model in models:
+            typ = build_type(model, name)
+            type_map[model] = typ
+            setattr(mod, model.__name__, typ)
 
-    module_name = __name__
-    module = sys.modules[module_name]
+        input_map = {m: build_input(m) for m in models}
+        filter_map = {}
+        for model in models:
+            ftype = build_filter_input(model, name)
+            filter_map[model] = ftype
+            setattr(mod, f"{model.__name__}Filter", ftype)
 
-    type_map = {}
-    for model in models:
-        typ = build_type(model, module_name)
-        type_map[model] = typ
-        setattr(module, model.__name__, typ)
+        query = _build_query(models, type_map, filter_map)
+        mutation = _build_mutation(models, type_map, input_map)
 
-    input_map = {m: build_input(m) for m in models}
-    filter_map = {}
-    for model in models:
-        ftype = build_filter_input(model, module_name)
-        filter_map[model] = ftype
-        setattr(module, f"{model.__name__}Filter", ftype)
-
-    query = _build_query(models, type_map, filter_map)
-    mutation = _build_mutation(models, type_map, input_map)
-
-    return strawberry.Schema(
-        query=query,
-        mutation=mutation,
-        config=StrawberryConfig(auto_camel_case=auto_camel_case),
-    )
+        schema = strawberry.Schema(
+            query=query,
+            mutation=mutation,
+            config=StrawberryConfig(auto_camel_case=auto_camel_case),
+        )
+    except BaseException:
+        sys.modules.pop(name, None)
+        raise
+    weakref.finalize(schema, sys.modules.pop, name, None)
+    return schema

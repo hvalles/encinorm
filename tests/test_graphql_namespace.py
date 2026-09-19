@@ -23,6 +23,7 @@ snapshot ausente FALLA, no se omite, asi que el ``.ambr`` va en el MISMO commit
 que este fichero y ANTES de tocar ``encino_orm/graphql/schema.py``.
 """
 
+import gc
 import sys
 from typing import ClassVar
 
@@ -193,7 +194,15 @@ def test_build_schema_no_muta_el_namespace_del_modulo():
 
 
 def test_build_schema_no_fuga_modulos_sinteticos():
-    """El namespace por build se registra solo durante la construccion del schema."""
+    """El modulo por build se libera cuando el schema deja de estar referenciado.
+
+    El modulo sintetico debe sobrevivir mientras el schema pueda resolver sus
+    `LazyType` (los filtros autorreferentes se resuelven en ejecucion, sin
+    cache); cuando el schema se recolecta, el `weakref.finalize` lo retira de
+    `sys.modules`. El schema participa en un ciclo, por eso se fuerza un
+    `gc.collect()` antes de comprobar que no quedan entradas huerfanas.
+    """
     build_schema([Region, Agente])
     build_schema([Ciudad])
+    gc.collect()
     assert not [k for k in sys.modules if "_build_" in k]
