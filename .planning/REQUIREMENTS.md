@@ -46,7 +46,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 - [x] **POOL-01**: Existe un handle `PooledConnection` que concentra el estado por conexión (driver, `last_id`, timestamps, generación, en-uso)
 - [x] **POOL-02**: `acquire()` es libre de carreras (reserva-antes-de-await) y nunca supera `max_size`
-- [ ] **POOL-03**: `last_id` se captura **dentro** del insert (`RETURNING`/`SCOPE_IDENTITY`/`lastrowid` inmediato) por conexión/tarea; el `last_id()` post-hoc queda deprecado (El plan `04-02` posee además el fix del `SET` del `MERGE` de Oracle — ORA-38104 — que hace ejecutable `Model.insert(replace=True)` allí; registrado por el plan `02-12`.)
+- [x] **POOL-03**: `last_id` se captura **dentro** del insert (`RETURNING`/`SCOPE_IDENTITY`/`lastrowid` inmediato) por conexión/tarea; el `last_id()` post-hoc queda deprecado (El plan `04-02` posee además el fix del `SET` del `MERGE` de Oracle — ORA-38104 — que hace ejecutable `Model.insert(replace=True)` allí; registrado por el plan `02-12`.)
 - [ ] **POOL-04**: Existe una política `reset_on_release` configurable con rollback por defecto, más warning de deprecación y entrada de CHANGELOG
 - [ ] **POOL-05**: Un contador de generación y un reaper perezoso cierran conexiones inactivas por encima de `min_size` sin daemon en background
 - [ ] **POOL-06**: `close()` es idempotente y nunca cierra una conexión en uso por el llamador
@@ -159,7 +159,7 @@ Qué fase cubre cada requisito.
 | SEC-01 | Phase 3 | Complete |
 | POOL-01 | Phase 4 | Complete |
 | POOL-02 | Phase 4 | Complete |
-| POOL-03 | Phase 4 | Pending |
+| POOL-03 | Phase 4 | Complete |
 | POOL-04 | Phase 4 | Pending |
 | POOL-05 | Phase 4 | Pending |
 | POOL-06 | Phase 4 | Pending |

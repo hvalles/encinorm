@@ -268,7 +268,7 @@ semantics are explicit instead of accidental.
 Plans:
 
 - [x] 04-01: `PooledConnection` handle consolidating per-connection state (driver, `last_id`, timestamps, generation, in-use) and reserve-before-await `acquire()` that never locks across the await; task-ownership binding on the `_current_connection` contextvar; `PoolDb._last_id` removed — POOL-01, POOL-02
-- [ ] 04-02: Capture `last_id` **inside** the insert (`RETURNING` / `OUTPUT INSERTED` / immediate `lastrowid`) per connection/task via opt-in `returning=<col>` + `Db.execute_insert`; deprecate post-hoc `last_id()` with a centralized warning; migrate the 29 test call sites + 2 internal callers — POOL-03. Owns too the Oracle `MERGE` `SET` fix (**ORA-38104**): exclude `conflict_cols` from `WHEN MATCHED THEN UPDATE SET` (as `build_upsert` already does with `update_cols`) so `Model.insert(replace=True)` is executable on Oracle — registered by plan `02-12` (see `.planning/phases/02-dialect-seam-engine-parity/deferred-items.md`).
+- [x] 04-02: Capture `last_id` **inside** the insert (`RETURNING` / `OUTPUT INSERTED` / immediate `lastrowid`) per connection/task via opt-in `returning=<col>` + `Db.execute_insert`; deprecate post-hoc `last_id()` with a centralized warning; migrate the 29 test call sites + 2 internal callers — POOL-03. Owns too the Oracle `MERGE` `SET` fix (**ORA-38104**): exclude `conflict_cols` from `WHEN MATCHED THEN UPDATE SET` (as `build_upsert` already does with `update_cols`) so `Model.insert(replace=True)` is executable on Oracle — registered by plan `02-12` (see `.planning/phases/02-dialect-seam-engine-parity/deferred-items.md`).
 - [ ] 04-03: `reset_on_release` policy (rollback by default, configurable commit), with explicit commit-or-rollback in `execute`/`_run` first so standalone writes are not silently dropped; `DeprecationWarning` + CHANGELOG entry — POOL-04
 - [ ] 04-04: Generation counter + lazy idle reaper closing connections above `min_size` (no background daemon), and an idempotent `close()` that never closes an in-use connection; retire the `encino_orm.pool` mypy-ratchet entry — POOL-05, POOL-06
 - [x] 04-05: Test infrastructure only (dev deps `pytest-timeout`/`pytest-repeat` + `uv lock`, `stress` marker, CI `--timeout-method=signal`, shared `EventBarrier` helper); no behavior assertions — POOL-07 *(logical `04-05a`; split from the original `04-05` to isolate the blocking-human package-legitimacy checkpoint)*
@@ -453,7 +453,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 1. Safety Net — CI Gates & Test Infrastructure | 5/5 | Complete   | 2026-09-17 |
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
 | 3. Data Correctness | 13/13 | Complete    | 2026-09-18 |
-| 4. Pool Correctness & Concurrency | 2/6 | In Progress|  |
+| 4. Pool Correctness & Concurrency | 3/6 | In Progress|  |
 | 5. Resilience | 0/4 | Not started | - |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
