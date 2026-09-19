@@ -160,14 +160,6 @@ select = [
 # validada con check_identifier antes de construir el SQL); `name`/`status`
 # viajan SIEMPRE como parametros ligados (T-03-01-01/T-03-01-02).
 "encino_orm/migration.py" = ["S608"]
-# S102: handlers generados con exec(); se sustituyen en Fase 6 (CFG-03).
-# B008: Depends(...) en defaults de inyección de dependencias de FastAPI; se
-# levanta en Fase 6 (CFG-02).
-"encino_orm/http/routes.py" = ["S102", "B008"]
-"encino_orm/graphql/schema.py" = ["S102"]
-# B008: Depends(...)/require(...) en defaults de FastAPI (5 hallazgos); idiom del
-# framework, se levanta en Fase 6 (CFG-02).
-"encino_orm/security/guard.py" = ["B008"]
 # S608: igual que el resto de adaptadores. S311: `random` solo alimenta el
 # backoff con jitter para reintentos de deadlock; no es sensible a seguridad.
 # PERF203: el try/except debe permanecer dentro del bucle de reintentos (máx. 9
@@ -179,9 +171,6 @@ select = [
 # S324: sha1 construye claves de caché, no una frontera de seguridad.
 "encino_orm/model/cached.py" = ["S324"]
 "encino_orm/model/filter.py" = ["S324"]
-# B008: Depends/require en defaults (2 hallazgos). S105: la constante SECRET es
-# solo de test. Ambos se levantan en Fase 6 (CFG-02).
-"tests/test_security.py" = ["B008", "S105"]
 # Interpola SQL a propósito para ejercitar los fragmentos portables.
 "tests/test_sql_functions.py" = ["S608"]
 # S608: los tests del ledger interpolan la constante MIGRATIONS_TABLE (fuente
@@ -254,15 +243,25 @@ module = [
     # `base.py` (fuera del alcance de 04-04) y la convención del repo prohíbe
     # `# type: ignore` inline, así que la entrada sigue con su causa escrita.
     "encino_orm.pool",                 #  5 errores — residual de tipado (no de POOL-01…06)
-    "encino_orm.security.models",      #  4 errores — se limpia en Fase 6 (CFG-02: SecurityConfig inmutable)
+    # 06-05 intentó retirar esta entrada y NO pudo: quedan 4 errores de TIPADO
+    # (`valid-type` x3 por la anotación `STR_100(required=True)` —una llamada a
+    # `make_constraint`, que mypy no interpreta como tipo— y `call-arg` x1 en
+    # `Rol(db, rol=...)`). Es el idiom documentado del repo (`README.md`) y
+    # corregirlo exigiría un `# type: ignore` inline, prohibido. Residual ajeno a
+    # la corrección de CFG-02, que sí cerró los globales de seguridad.
+    "encino_orm.security.models",      #  4 errores — residual de tipado (no de CFG-02)
 ]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-# 6 errores (filters 3, resolvers 2, types 1). Los cinco `name-defined`
-# (`Name "child.__name__" is not defined`) son un artefacto del patrón de
-# handlers generados con `exec()`, que CFG-03 (Fase 6) elimina; CFG-04
-# (Fase 6) elimina además la mutación del namespace de GraphQL.
+# 06-05 intentó retirar esta entrada tras CFG-03/CFG-04 y NO pudo: quedan 7
+# errores residuales de TIPADO repartidos en 4 ficheros — `filters.py` 3
+# (`valid-type`/`assignment`/`operator`), `resolvers.py` 2 y `types.py` 1
+# (`Name "child.__name__" is not defined` en anotaciones `strawberry.lazy`
+# construidas con el nombre dinámico del hijo) y `schema.py` 1 (`misc`: las
+# variantes condicionales de la closure `resolver` no comparten firma). CFG-03
+# eliminó el `exec()` y CFG-04 la mutación del namespace, pero estos residuales
+# son de tipado estático, no de corrección; se conservan con su causa escrita.
 module = ["encino_orm.graphql.*"]
 ignore_errors = true
 
@@ -273,10 +272,20 @@ ignore_errors = true
 # solo encoge.
 module = [
     "encino_orm.migration",            # 3 errores — Fase 3 (DATA-01/DATA-02: ledger y migrate atómico)
-    "encino_orm.http.routes",          # 2 errores — Fase 6 (CFG-03: exec() → closures)
-    "encino_orm.http.parsing",         # 2 errores — Fase 6 (CFG-03: capa HTTP)
+    # 06-05 intentó retirar esta entrada tras CFG-03 y NO pudo: quedan 5 errores
+    # residuales de TIPADO — 2 `misc` (las variantes condicionales de la closure
+    # `handler` no comparten firma), 1 `valid-type` (`Variable "model" is not
+    # valid as a type`), 1 `arg-type` y 1 `attr-defined`. CFG-03 quitó el
+    # `exec()`; el residual es de tipado estático, no de corrección.
+    "encino_orm.http.routes",          # 5 errores — residual de tipado (no de CFG-03)
+    # 06-05 intentó retirar esta entrada y NO pudo: quedan 2 errores de TIPADO
+    # (`var-annotated` en `partes` y `misc` por el generador `Filter | None`).
+    "encino_orm.http.parsing",         # 2 errores — residual de tipado (no de CFG-03)
     "encino_orm.model.references",     # 1 error  — Fase 2 (DIAL-02: validación en los builders)
-    "encino_orm.security.guard",       # 1 error  — Fase 6 (CFG-02: factorías de guardas)
+    # 06-05 intentó retirar esta entrada tras CFG-02 y NO pudo: quedan 2 errores
+    # de TIPADO (`"object" has no attribute "credentials"` porque la dependency
+    # usa `Annotated[object, ...]` y `union-attr` sobre `PermissionSet | None`).
+    "encino_orm.security.guard",       # 2 errores — residual de tipado (no de CFG-02)
 ]
 ignore_errors = true
 
