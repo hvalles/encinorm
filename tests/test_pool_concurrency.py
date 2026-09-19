@@ -25,7 +25,7 @@ import pytest
 
 import encino_orm.pool as pool_module
 import tests._pool_helpers as helpers
-from encino_orm import PoolDb
+from encino_orm import PoolDb, Query
 
 # --- Task 1: carrera de admisión determinista (POOL-02 afirmado) ---
 
@@ -95,3 +95,85 @@ async def test_barrier_releases_only_with_matching_parties():
         await asyncio.wait_for(waiter, timeout=0.5)
 
     assert waiter.cancelled()
+
+
+# --- Task 2: ids concurrentes sin cruce y commit standalone (POOL-03/04) ---
+
+
+@pytest.fixture
+async def sqlite_pool(tmp_path):
+    """Pool SQLite real sobre fichero, patrón de `tests/test_pool.py`."""
+    p = PoolDb(
+        "sqlite",
+        min_size=1,
+        max_size=3,
+        database=str(tmp_path / "concurrency.db"),
+    )
+    await p.connect()
+    yield p
+    await p.close()
+
+
+async def _create_names_table(pool: PoolDb) -> None:
+    await pool.execute(
+        Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", [])
+    )
+
+
+@pytest.mark.concurrency
+@pytest.mark.timeout(20)
+async def test_concurrent_insert_ids_no_crosstalk(sqlite_pool):
+    """Cada tarea recibe SU PROPIO id, sin cruce entre tareas.
+
+    SQLite serializa las escrituras con su `busy_timeout`; el objetivo del test
+    es la captura del id DENTRO de la sentencia (04-02), no el paralelismo del
+    motor.
+    """
+    await _create_names_table(sqlite_pool)
+
+    async def insert_one(nombre):
+        qry = sqlite_pool.insert("t", {"nombre": nombre}, returning="id")
+        return nombre, await sqlite_pool.execute_insert(qry)
+
+    results = await asyncio.gather(*(insert_one(f"n{i}") for i in range(5)))
+    mapping = dict(results)
+
+    assert len(set(mapping.values())) == 5
+    assert sorted(mapping.values()) == [1, 2, 3, 4, 5]
+
+    rows = await sqlite_pool.fetch_all(Query("SELECT nombre, id FROM t", []))
+    by_name = {r["nombre"]: r["id"] for r in rows}
+    assert by_name == mapping
+
+
+async def test_standalone_commit_visible_across_connections(sqlite_pool):
+    """Un `pool.execute(INSERT)` standalone es visible desde otra conexión.
+
+    Sin marker `concurrency`: no hay barrera; el commit explícito de 04-03 lo
+    hace determinista.
+    """
+    await _create_names_table(sqlite_pool)
+
+    await sqlite_pool.execute(sqlite_pool.insert("t", {"nombre": "a"}))
+
+    rows = await sqlite_pool.fetch_all(Query("SELECT * FROM t", []))
+    assert len(rows) == 1
+    assert rows[0]["nombre"] == "a"
+
+
+async def test_execute_insert_inside_transaction_uses_held_connection(sqlite_pool):
+    """Dentro de `transaction()`, `execute_insert` usa la conexión retenida."""
+    await _create_names_table(sqlite_pool)
+
+    async with sqlite_pool.transaction():
+        first = await sqlite_pool.execute_insert(
+            sqlite_pool.insert("t", {"nombre": "a"}, returning="id")
+        )
+        second = await sqlite_pool.execute_insert(
+            sqlite_pool.insert("t", {"nombre": "b"}, returning="id")
+        )
+
+    assert second == first + 1
+
+    rows = await sqlite_pool.fetch_all(Query("SELECT nombre, id FROM t ORDER BY id", []))
+    assert [r["nombre"] for r in rows] == ["a", "b"]
