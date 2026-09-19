@@ -360,6 +360,16 @@ Plans:
 - [x] 07-03: Batched `copy_table` with per-dialect batch sizing (`min(MAX_PARAMS // n_columns, MAX_ROWS)`), preferring array binding/`executemany` for Oracle/PostgreSQL, with row-equivalence tests — PERF-01
 - [x] 07-04: Bound `QueryTracer._latencies` with `deque(maxlen=N)` and switch `_FIELD_ADAPTERS` to `WeakKeyDictionary` — PERF-04
 
+**Fase 7 COMPLETA** (2026-09-19). Verificación: `07-VERIFICATION.md` PASS 4/4
+(la verdad 4 se confirmó en fuente: `observability.py:85` deque acotado +
+`model.py:30` WeakKeyDictionary; el cambio `observability.py` quedó en `6cf670e`,
+ancestro del rango de revisión). Code review `07-REVIEW.md` con
+`issue_founds` → 1 High / 2 Medium / 3 Low / 3 Info, **resuelto** en dos commits
+atómicos (`edf8318` HR-01+MR-02, `8228dc5` MR-01+LR-01+LR-02+IN-01/IN-03); LR-03
+aceptado como riesgo documentado (3 corridas CI verdes consecutivas, σ ~1,3%). CI
+10/10 jobs verde y docs desplegadas tras el push de cierre. Sin cambios de API;
+requisitos PERF-01..04 `[x]` en REQUIREMENTS.md.
+
 ### Phase 8: Release 0.3.0
 
 **Goal**: The deprecation path is shipped, not planned. Users on `>=0.2.6` get warned by 0.2.7, then

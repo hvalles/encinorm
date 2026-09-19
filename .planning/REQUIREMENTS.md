@@ -69,10 +69,10 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 
 ### Performance
 
-- [ ] **PERF-01**: `copy_table` inserta por lotes con tamaño por dialecto (`min(MAX_PARAMS // n_columnas, MAX_ROWS)`)
-- [ ] **PERF-02**: Existe una suite de benchmarks con objetivos numéricos y un gate que falla ante una regresión deliberada de 2×
-- [ ] **PERF-03**: La salida del profiler (`py-spy`/`cProfile`) se compromete **antes** de cualquier optimización
-- [ ] **PERF-04**: `QueryTracer._latencies` está acotado y `_FIELD_ADAPTERS` usa `WeakKeyDictionary`
+- [x] **PERF-01**: `copy_table` inserta por lotes con tamaño por dialecto (`min(MAX_PARAMS // n_columnas, MAX_ROWS)`)
+- [x] **PERF-02**: Existe una suite de benchmarks con objetivos numéricos y un gate que falla ante una regresión deliberada de 2×
+- [x] **PERF-03**: La salida del profiler (`py-spy`/`cProfile`) se compromete **antes** de cualquier optimización
+- [x] **PERF-04**: `QueryTracer._latencies` está acotado y `_FIELD_ADAPTERS` usa `WeakKeyDictionary`
 
 ### Release
 
@@ -173,10 +173,10 @@ Qué fase cubre cada requisito.
 | CFG-03 | Phase 6 | Complete |
 | CFG-04 | Phase 6 | Complete |
 | CFG-05 | Phase 6 | Complete |
-| PERF-01 | Phase 7 | Pending |
-| PERF-02 | Phase 7 | Pending |
-| PERF-03 | Phase 7 | Pending |
-| PERF-04 | Phase 7 | Pending |
+| PERF-01 | Phase 7 | Shipped |
+| PERF-02 | Phase 7 | Shipped |
+| PERF-03 | Phase 7 | Shipped |
+| PERF-04 | Phase 7 | Shipped |
 | REL-01 | Phase 8 | Pending |
 | REL-02 | Phase 8 | Pending |
 | REL-03 | Phase 8 | Pending |

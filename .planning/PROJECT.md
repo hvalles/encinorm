@@ -129,6 +129,9 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 | Excluir nuevos motores del alcance | Concentrar esfuerzo en la fiabilidad de los seis motores actuales | — Pending |
 | Exigir test de regresión por cada bug corregido | Evita reaparición y da evidencia objetiva de "done" | — Pending |
 | Cobertura multi-motor como criterio de done | El bug de `COUNT(*)` demuestra que el sesgo a SQLite oculta fallos dialectales | — Pending |
+| Seam de dialectos como único propietario del SQL de INSERT (Fase 7) | Todo SQL generado para INSERT (fila, multi-VALUES, `INSERT ALL` de Oracle, `ignore_duplicated`/`replace`/upsert) vive en `encino_orm/dialects/` con estrategia por motor; los adaptadores ejecutan `Query` sin más ramas SQL nuevas fuera del seam. Relevant para PHASE 7 | — Shipped (Fase 7) |
+| `batch_size` como fórmula de producción pública y canario en CI (Fase 7) | El gate de benchmarks mide la función real (`encino_orm/transfer.batch_size`), no una copia literal; un cambio de fórmula parpadearía el floor (LR-02) | — Shipped (Fase 7) |
+| `copy_table` degrada con SQL específico por dialecto en bordes (Fase 7) | `target_cols == []` → fila DEFAULT por dialecto (MR-01); `per_row == 0` → insert de fila única (LR-01). Correcto sobre el valor de producción | — Shipped (Fase 7) |
 
 ## Evolution
 
@@ -148,4 +151,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-19 after Phase 6 completion*
+*Last updated: 2026-09-19 after Phase 6 completion and Phase 7 completion*

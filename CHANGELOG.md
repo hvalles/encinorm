@@ -8,6 +8,35 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
+### Añadido
+
+- **Seam de dialectos (PERF-02/PERF-04: perforamnce; PERF-03 profiler).** Nuevo
+  paquete `encino_orm/dialects/` con la estrategia de INSERT por motor
+  (`strategy_for(dialect)`), `build_insert` (fila única con SQL/mecanismo de
+  `ignore_duplicated`/`replace`/`conflict`/`returning` por dialecto) y
+  `build_multi_insert` (multi-VALUES `(...),(...)` o `INSERT ALL ... SELECT 1
+  FROM DUAL` para Oracle, que no soporta multi-VALUES). `_placeholders_from`
+  mantiene la cardinalidad exacta filas × columnas y valida la longitud de cada
+  fila fail-closed (una fila despareja lanza `ValueError` con el índice de fila;
+  antes podía desplazar valores entre filas en silencio). `copy_table` (PERF-01)
+  ahora inserta por lotes con `batch_size = min(MAX_PARAMS // n_columnas,
+  MAX_ROWS)` — fórmula pública en `encino_orm/transfer.batch_size`, medida por el
+  canario de benchmarks; cuando el destino no admite ni una fila en lote degrada
+  al insert de fila única, y con tabla solo-PK-autoincremental (`target_cols ==
+  []`) emite fila default por dialecto (`DEFAULT VALUES` en
+  sqlite/postgres/mssql, `() VALUES ()` en mysql/mariadb, `(pk) VALUES (DEFAULT)`
+  en oracle; antes emitía `INSERT INTO t () VALUES ()`, error de sintaxis fuera de
+  mysql). `insert_many` reutiliza el seam (PERF-02) y `Model.upsert`/directos de
+  SQL por dialecto siguen en su módulo histórico vía el mismo `strategy_for`.
+  `QueryTracer` (PERF-04) acota `_latencies` con `deque(maxlen=N)` + ventana
+  móvil (`latency_window`) y percentiles sobre la ventana; `_FIELD_ADAPTERS` pasa
+  a `WeakKeyDictionary` para no retener clases de modelo. Gate de benchmarks en
+  CI (`test_benchmarks.py`, 6 unidades, mediana > piso 0.6×; job aislado por
+  fichero). Comportamiento `ignore_duplicated` en lote: skip-por-fila en
+  sqlite/mysql/mariadb/postgres, ALL-OR-NOTHING (descarta todo el lote,
+  `execute` → 0) en mssql/oracle — documentado en el docstring de
+  `build_multi_insert`.
+
 ### Cambiado
 
 - **CAMBIO DE COMPORTAMIENTO (CFG-01: default de conexión inyectable).** El
