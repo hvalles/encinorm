@@ -149,6 +149,7 @@ class SqliteDb(Db):
         conflict: list[str] | None = None,
         *,
         schema: str | None = None,
+        returning: str | None = None,
     ):
         return build_insert(
             tabla,
@@ -160,6 +161,7 @@ class SqliteDb(Db):
             replace=replace,
             ignore_duplicated=ignore_duplicated,
             schema=schema,
+            returning=returning,
         )
 
     def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
@@ -178,6 +180,23 @@ class SqliteDb(Db):
         await cursor.close()
         _log("execute", sql, values, time.monotonic() - t0)
         return cursor.rowcount
+
+    async def execute_insert(self, qry: Query) -> int | None:
+        """Ejecuta el INSERT y devuelve `cursor.lastrowid` si el `Query` lo pide.
+
+        `lastrowid` se lee INMEDIATAMENTE tras el `execute` y antes de cerrar el
+        cursor (el id pertenece a ESTA sentencia, no a la sesión). Con
+        `qry.returns_id` falso devuelve `None`: el SQL es byte-idéntico y no hay
+        captura que ofrecer.
+        """
+        self._ensure_connected()
+        sql, values = self._prepare(qry)
+        t0 = time.monotonic()
+        cursor = await self._connection.execute(sql, values)
+        new_id = cursor.lastrowid if qry.returns_id else None
+        await cursor.close()
+        _log("execute_insert", sql, values, time.monotonic() - t0)
+        return new_id
 
     async def fetch_all(self, qry: Query) -> list[dict]:
         self._ensure_connected()
@@ -214,7 +233,7 @@ class SqliteDb(Db):
     async def exists(self, qry: Query) -> bool:
         return await self.fetch_one(qry) is not None
 
-    async def last_id(self) -> int:
+    async def _last_id_value(self) -> int:
         self._ensure_connected()
         cursor = await self._connection.execute("SELECT last_insert_rowid()")
         row = await cursor.fetchone()

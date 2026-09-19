@@ -171,6 +171,7 @@ class PostgresDb(Db):
         conflict: list[str] | None = None,
         *,
         schema: str | None = None,
+        returning: str | None = None,
     ):
         return build_insert(
             tabla,
@@ -182,6 +183,7 @@ class PostgresDb(Db):
             replace=replace,
             ignore_duplicated=ignore_duplicated,
             schema=schema,
+            returning=returning,
         )
 
     def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
@@ -199,6 +201,25 @@ class PostgresDb(Db):
         status = await self._connection.execute(sql, *values)
         _log("execute", sql, values, time.monotonic() - t0)
         return _rowcount(status)
+
+    async def execute_insert(self, qry: Query) -> int | None:
+        """Ejecuta el INSERT y captura el id con `RETURNING` si el `Query` lo pide.
+
+        `lastval` de PostgreSQL es SESSION-scoped (devuelve el último `nextval`
+        de la sesión, de cualquier tabla y tarea), así que el camino nuevo usa
+        `fetchrow` sobre el `INSERT … RETURNING <col>` que ya construyó el
+        builder. Sin `returns_id` ejecuta normal y devuelve `None`.
+        """
+        self._ensure_connected()
+        sql, values = self._prepare(qry)
+        t0 = time.monotonic()
+        if qry.returns_id:
+            row = await self._connection.fetchrow(sql, *values)
+            _log("execute_insert", sql, values, time.monotonic() - t0)
+            return row[qry.id_column] if row is not None else None
+        await self._connection.execute(sql, *values)
+        _log("execute_insert", sql, values, time.monotonic() - t0)
+        return None
 
     async def fetch_all(self, qry: Query) -> list[dict]:
         self._ensure_connected()
@@ -229,7 +250,7 @@ class PostgresDb(Db):
     async def exists(self, qry: Query) -> bool:
         return await self.fetch_one(qry) is not None
 
-    async def last_id(self) -> int:
+    async def _last_id_value(self) -> int:
         self._ensure_connected()
         return await self._connection.fetchval("SELECT lastval()")
 

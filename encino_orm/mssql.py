@@ -210,6 +210,7 @@ class MssqlDb(Db):
         conflict: list[str] | None = None,
         *,
         schema: str | None = None,
+        returning: str | None = None,
     ):
         return build_insert(
             tabla,
@@ -221,6 +222,7 @@ class MssqlDb(Db):
             replace=replace,
             ignore_duplicated=ignore_duplicated,
             schema=schema,
+            returning=returning,
         )
 
     def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
@@ -257,6 +259,39 @@ class MssqlDb(Db):
                 self._last_id = row[0] if row and row[0] is not None else 0
             _log("execute", sql, values, time.monotonic() - t0)
             return rowcount
+        finally:
+            await cursor.close()
+
+    async def execute_insert(self, qry: Query) -> int | None:
+        """Ejecuta el INSERT y lee `OUTPUT INSERTED.<col>` si el `Query` lo pide.
+
+        `@@IDENTITY`/`SCOPE_IDENTITY()` en un `execute` separado son
+        session-scoped (el segundo devuelve NULL, verificado); el id se captura
+        en la MISMA sentencia con `OUTPUT INSERTED`, donde `cursor.rowcount` vale
+        -1 y NO debe usarse como retorno. El `;` que exige un `MERGE` se añade
+        solo al SQL del driver, igual que en `execute`.
+        """
+        self._ensure_connected()
+        sql, values = self._prepare(qry)
+        if sql.lstrip().upper().startswith("MERGE"):
+            sql = sql.rstrip().rstrip(";") + ";"
+        t0 = time.monotonic()
+        cursor = await self._connection.cursor()
+        try:
+            try:
+                await cursor.execute(sql, values)
+            except Exception as exc:
+                if getattr(qry, "ignore_duplicated", False) and self.is_unique_violation(exc):
+                    return None
+                raise
+            self._in_tx = True
+            new_id = None
+            if qry.returns_id:
+                row = await cursor.fetchone()
+                new_id = row[0] if row and row[0] is not None else None
+                self._last_id = new_id or 0
+            _log("execute_insert", sql, values, time.monotonic() - t0)
+            return new_id
         finally:
             await cursor.close()
 
@@ -313,7 +348,7 @@ class MssqlDb(Db):
     async def exists(self, qry: Query) -> bool:
         return await self.fetch_one(qry) is not None
 
-    async def last_id(self) -> int:
+    async def _last_id_value(self) -> int:
         return self._last_id
 
     async def migrate(self, name: str, qry: Query):

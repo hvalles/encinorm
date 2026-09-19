@@ -82,7 +82,7 @@
       ]),
     }),
     'oracle': dict({
-      'sql': 'INSERT INTO t (a) VALUES (:parameter_0000) RETURNING id INTO :ret_id',
+      'sql': 'INSERT INTO t (a) VALUES (:parameter_0000)',
       'values': dict({
         'parameter_0000': 1,
       }),
@@ -125,7 +125,7 @@
       ]),
     }),
     'oracle': dict({
-      'sql': 'INSERT INTO t (a,b) VALUES (:parameter_0000,:parameter_0001) RETURNING id INTO :ret_id',
+      'sql': 'INSERT INTO t (a,b) VALUES (:parameter_0000,:parameter_0001)',
       'values': dict({
         'parameter_0000': 1,
         'parameter_0001': 'x',
@@ -157,7 +157,7 @@
       ]),
     }),
     'mssql': dict({
-      'sql': 'MERGE INTO t AS dst USING (SELECT ? AS a, ? AS b) AS src ON (dst.a = src.a) WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
+      'sql': 'MERGE INTO t AS dst USING (SELECT ? AS a, ? AS b) AS src ON (dst.a = src.a) WHEN MATCHED THEN UPDATE SET dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
       'values': list([
         1,
         'x',
@@ -171,7 +171,7 @@
       ]),
     }),
     'oracle': dict({
-      'sql': 'MERGE INTO t dst USING (SELECT :parameter_0000 AS a, :parameter_0001 AS b) src ON (dst.a = src.a) WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
+      'sql': 'MERGE INTO t dst USING (SELECT :parameter_0000 AS a, :parameter_0001 AS b) src ON (dst.a = src.a) WHEN MATCHED THEN UPDATE SET dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
       'values': dict({
         'parameter_0000': 1,
         'parameter_0001': 'x',
@@ -203,7 +203,7 @@
       ]),
     }),
     'mssql': dict({
-      'sql': 'MERGE INTO t AS dst USING (SELECT ? AS a, ? AS b) AS src ON (dst.b = src.b) WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
+      'sql': 'MERGE INTO t AS dst USING (SELECT ? AS a, ? AS b) AS src ON (dst.b = src.b) WHEN MATCHED THEN UPDATE SET dst.a = src.a WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
       'values': list([
         1,
         'x',
@@ -217,7 +217,7 @@
       ]),
     }),
     'oracle': dict({
-      'sql': 'MERGE INTO t dst USING (SELECT :parameter_0000 AS a, :parameter_0001 AS b) src ON (dst.b = src.b) WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
+      'sql': 'MERGE INTO t dst USING (SELECT :parameter_0000 AS a, :parameter_0001 AS b) src ON (dst.b = src.b) WHEN MATCHED THEN UPDATE SET dst.a = src.a WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)',
       'values': dict({
         'parameter_0000': 1,
         'parameter_0001': 'x',

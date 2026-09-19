@@ -25,9 +25,10 @@ class Query:
     ``_encino_orm_migrations`` no necesita migración.
 
     Accesores: ``sql`` (compilado), ``params`` (dict), ``sql_template`` (la
-    plantilla con los `{n}`), ``fields`` (los valores de entrada) y
-    ``ignore_duplicated``. ``query`` se conserva como property de SOLO LECTURA
-    que devuelve una lista nueva ``[sql, params]`` en cada acceso.
+    plantilla con los `{n}`), ``fields`` (los valores de entrada),
+    ``ignore_duplicated`` y la metadata de captura de id ``returns_id`` /
+    ``id_column``. ``query`` se conserva como property de SOLO LECTURA que
+    devuelve una lista nueva ``[sql, params]`` en cada acceso.
 
     Limitaciones conocidas, declaradas explícitamente:
 
@@ -48,14 +49,32 @@ class Query:
     # Orden natural exigido por RUF023. Las anotaciones de clase son necesarias
     # para que mypy vea los slots escritos con `object.__setattr__` (no crean
     # variables de clase, así que no chocan con `__slots__`).
-    __slots__ = ("_fields", "_ignore_duplicated", "_params", "_sql", "_sql_template")
+    __slots__ = (
+        "_fields",
+        "_id_column",
+        "_ignore_duplicated",
+        "_params",
+        "_returns_id",
+        "_sql",
+        "_sql_template",
+    )
     _fields: list
+    _id_column: str | None
     _ignore_duplicated: bool
     _params: dict
+    _returns_id: bool
     _sql: str
     _sql_template: str
 
-    def __init__(self, sql: str, fields: list | None = None, *, ignore_duplicated: bool = False):
+    def __init__(
+        self,
+        sql: str,
+        fields: list | None = None,
+        *,
+        ignore_duplicated: bool = False,
+        returns_id: bool = False,
+        id_column: str | None = None,
+    ):
         values = list(fields or [])
         indices = {int(m) for m in _PLACEHOLDER_RE.findall(sql)}
         # Sin carve-out: `set() != set(range(0))` ya es falso, así que el caso
@@ -78,6 +97,8 @@ class Query:
         object.__setattr__(self, "_sql_template", sql)
         object.__setattr__(self, "_fields", values)
         object.__setattr__(self, "_ignore_duplicated", bool(ignore_duplicated))
+        object.__setattr__(self, "_returns_id", bool(returns_id))
+        object.__setattr__(self, "_id_column", id_column)
         object.__setattr__(self, "_sql", compiled)
         object.__setattr__(self, "_params", params)
 
@@ -107,6 +128,21 @@ class Query:
         return self._ignore_duplicated
 
     @property
+    def returns_id(self) -> bool:
+        """Metadata de ejecución: la sentencia captura el id en el propio INSERT.
+
+        La fija el builder (`build_insert(returning=...)`); la lee el adaptador
+        para saber si debe devolver el id capturado (`lastrowid`, `RETURNING`,
+        `OUTPUT INSERTED`, `RETURNING … INTO`).
+        """
+        return self._returns_id
+
+    @property
+    def id_column(self) -> str | None:
+        """Columna de retorno interpolada en `RETURNING`/`OUTPUT INSERTED`, o `None`."""
+        return self._id_column
+
+    @property
     def query(self) -> list:
         """Compatibilidad de lectura (D-02): `[sql_compilado, params]`. Lista nueva."""
         return [self._sql, self._params]
@@ -116,12 +152,20 @@ class Query:
 
         Revalida la cardinalidad por construcción y nunca muta ``self``.
         """
-        return Query(self.sql_template, fields, ignore_duplicated=self.ignore_duplicated)
+        return Query(
+            self.sql_template,
+            fields,
+            ignore_duplicated=self.ignore_duplicated,
+            returns_id=self.returns_id,
+            id_column=self.id_column,
+        )
 
     def __eq__(self, other) -> bool:
         # D-03: la igualdad se define sobre (plantilla SQL, valores). El flag
-        # `ignore_duplicated` queda EXCLUIDO a propósito: dos Queries con el
-        # mismo texto y flags distintos comparan iguales.
+        # `ignore_duplicated` y la metadata de captura de id (`returns_id`/
+        # `id_column`) quedan EXCLUIDOS a propósito: dos Queries con el mismo
+        # texto y valores son equivalentes aunque pidan (o no) el id. Es
+        # metadata de EJECUCIÓN, no de identidad del statement.
         if not isinstance(other, Query):
             return NotImplemented
         return self.sql_template == other.sql_template and self.fields == other.fields

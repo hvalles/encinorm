@@ -158,47 +158,86 @@ class TestMssqlInsert:
 
     def test_replace_merge_con_as(self):
         qry = build_insert("t", {"a": 1, "b": "x"}, strategy=MSSQL_INSERT, replace=True)
+        # EDICIÓN DELIBERADA (04-02, ORA-38104): el `SET` EXCLUYE la columna del
+        # `ON` (el fallback `columns[0]` = `a`); actualizarla es ORA-38104 en
+        # Oracle. Mismo patrón que `build_upsert` con `update_cols`.
         assert qry.sql_template == (
             "MERGE INTO t AS dst USING (SELECT {0} AS a, {1} AS b) AS src "
             "ON (dst.a = src.a) "
-            "WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b "
+            "WHEN MATCHED THEN UPDATE SET dst.b = src.b "
             "WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)"
         )
         assert qry.fields == [1, "x"]
+        assert qry.returns_id is False
 
     def test_replace_merge_conflict_explicito(self):
         qry = build_insert(
             "t", {"a": 1, "b": "x"}, strategy=MSSQL_INSERT, replace=True, conflict=["b"]
         )
         assert "ON (dst.b = src.b)" in qry.sql_template
+        assert "SET dst.a = src.a" in qry.sql_template
+        assert "SET dst.a = src.a, dst.b" not in qry.sql_template
+
+    def test_replace_merge_todas_conflicto_lanza(self):
+        # Fix ORA-38104: si no queda ninguna columna actualizable, se falla
+        # CERRADO en vez de emitir un `SET` inválido.
+        with pytest.raises(ValueError, match="sin columnas actualizables"):
+            build_insert("t", {"a": 1}, strategy=MSSQL_INSERT, replace=True)
+
+    def test_insert_plano_con_returning_lleva_output_inserted(self):
+        qry = build_insert("t", {"a": 1, "b": 2}, strategy=MSSQL_INSERT, returning="id")
+        assert qry.sql_template == "INSERT INTO t (a,b) OUTPUT INSERTED.id VALUES ({0},{1})"
+        assert qry.returns_id is True
+        assert qry.id_column == "id"
+
+    def test_insert_plano_sin_returning_no_lleva_output(self):
+        qry = build_insert("t", {"a": 1, "b": 2}, strategy=MSSQL_INSERT)
+        assert qry.sql_template == "INSERT INTO t (a,b) VALUES ({0},{1})"
+        assert qry.returns_id is False
+        assert qry.id_column is None
 
 
 class TestOracleInsert:
-    def test_plano_sin_id_lleva_returning(self):
+    def test_plano_sin_returning_no_lo_emite(self):
+        # EDICIÓN DELIBERADA (04-02): el `RETURNING id INTO :ret_id` deja de ser
+        # incondicional y pasa a ser OPT-IN del llamador. Sin `returning`, el SQL
+        # es byte-idéntico al INSERT plano.
         qry = build_insert("t", {"a": 1, "b": "x"}, strategy=ORACLE_INSERT)
+        assert qry.sql_template == "INSERT INTO t (a,b) VALUES ({0},{1})"
+        assert qry.fields == [1, "x"]
+        assert qry.returns_id is False
+        assert qry.id_column is None
+
+    def test_plano_con_returning_lleva_returning_into(self):
+        qry = build_insert("t", {"a": 1, "b": "x"}, strategy=ORACLE_INSERT, returning="id")
         assert qry.sql_template == (
             "INSERT INTO t (a,b) VALUES ({0},{1}) RETURNING id INTO :ret_id"
         )
-        assert qry.fields == [1, "x"]
+        assert qry.returns_id is True
+        assert qry.id_column == "id"
 
-    def test_plano_con_id_no_lleva_returning(self):
+    def test_plano_con_id_sin_returning_no_lleva_returning(self):
         qry = build_insert("t", {"id": 1}, strategy=ORACLE_INSERT)
         assert qry.sql_template == "INSERT INTO t (id) VALUES ({0})"
 
     def test_ignore_duplicated_lleva_el_flag(self):
         qry = build_insert("t", {"a": 1}, strategy=ORACLE_INSERT, ignore_duplicated=True)
         assert qry.ignore_duplicated is True
-        assert qry.sql_template == "INSERT INTO t (a) VALUES ({0}) RETURNING id INTO :ret_id"
+        assert qry.sql_template == "INSERT INTO t (a) VALUES ({0})"
 
     def test_replace_merge_sin_as(self):
         qry = build_insert("t", {"a": 1, "b": "x"}, strategy=ORACLE_INSERT, replace=True)
+        # EDICIÓN DELIBERADA (04-02, ORA-38104): el `SET` excluye la columna del
+        # `ON` (fallback `columns[0]` = `a`) para que el MERGE sea EJECUTABLE en
+        # Oracle. Sigue sin capturar id: `MERGE … RETURNING` no existe (ORA-00933).
         assert qry.sql_template == (
             "MERGE INTO t dst USING (SELECT {0} AS a, {1} AS b) src "
             "ON (dst.a = src.a) "
-            "WHEN MATCHED THEN UPDATE SET dst.a = src.a, dst.b = src.b "
+            "WHEN MATCHED THEN UPDATE SET dst.b = src.b "
             "WHEN NOT MATCHED THEN INSERT (a,b) VALUES (src.a,src.b)"
         )
         assert qry.fields == [1, "x"]
+        assert qry.returns_id is False
 
 
 class TestUpdateYDelete:
@@ -244,6 +283,66 @@ class TestSchemaCualificado:
         con = build_insert("t", {"a": 1}, strategy=SQLITE_INSERT)
         sin = build_insert("t", {"a": 1}, strategy=SQLITE_INSERT, schema=None)
         assert con.sql_template == sin.sql_template
+
+
+class TestQueryMetadata:
+    """Metadata de captura de id en `Query` (patrón `ignore_duplicated`)."""
+
+    def test_defaults(self):
+        q = Query("INSERT INTO t (a) VALUES ({0})", [1])
+        assert q.returns_id is False
+        assert q.id_column is None
+
+    def test_expone_metadata_y_la_propaga_en_with_params(self):
+        q = Query("INSERT INTO t (a) VALUES ({0})", [1], returns_id=True, id_column="id")
+        assert q.returns_id is True
+        assert q.id_column == "id"
+        q2 = q.with_params([2])
+        assert q2.returns_id is True
+        assert q2.id_column == "id"
+        assert q2.fields == [2]
+
+    def test_metadata_fuera_de_eq_y_hash(self):
+        a = Query("INSERT INTO t (a) VALUES ({0})", [1])
+        b = Query("INSERT INTO t (a) VALUES ({0})", [1], returns_id=True, id_column="id")
+        assert a == b
+        assert hash(a) == hash(b)
+
+
+class TestInsertReturning:
+    """`build_insert(returning=)` es OPT-IN y valida el nombre de columna."""
+
+    def test_sqlite_returning_no_cambia_el_sql_pero_marca_metadata(self):
+        qry = build_insert("t", {"a": 1}, strategy=SQLITE_INSERT, returning="id")
+        assert qry.sql_template == "INSERT INTO t (a) VALUES ({0})"
+        assert qry.returns_id is True
+        assert qry.id_column == "id"
+
+    def test_sqlite_sin_returning_byte_identico(self):
+        con = build_insert("t", {"a": 1}, strategy=SQLITE_INSERT, returning=None)
+        sin = build_insert("t", {"a": 1}, strategy=SQLITE_INSERT)
+        assert con.sql_template == sin.sql_template
+        assert con.returns_id is False
+
+    def test_postgres_returning_va_al_final(self):
+        qry = build_insert("t", {"a": 1}, strategy=POSTGRES_INSERT, returning="id")
+        assert qry.sql_template == "INSERT INTO t (a) VALUES ({0}) RETURNING id"
+        assert qry.returns_id is True
+
+    def test_postgres_returning_tras_on_conflict(self):
+        qry = build_insert(
+            "t", {"a": 1, "b": 2}, strategy=POSTGRES_INSERT, replace=True, returning="id"
+        )
+        assert qry.sql_template == (
+            "INSERT INTO t (a,b) VALUES ({0},{1}) "
+            "ON CONFLICT (a) DO UPDATE SET a = EXCLUDED.a, b = EXCLUDED.b RETURNING id"
+        )
+        assert qry.returns_id is True
+
+    def test_returning_invalido_falla_cerrado(self):
+        for strategy in (POSTGRES_INSERT, MSSQL_INSERT, ORACLE_INSERT, SQLITE_INSERT):
+            with pytest.raises(ValueError):
+                build_insert("t", {"a": 1}, strategy=strategy, returning="id; DROP TABLE x")
 
 
 class TestRechazoPorAdaptador:

@@ -87,8 +87,19 @@ def build_insert(
     replace: bool = False,
     ignore_duplicated: bool = False,
     schema: str | None = None,
+    returning: str | None = None,
 ) -> Query:
-    """Construye el INSERT del dialecto descrito por `strategy`."""
+    """Construye el INSERT del dialecto descrito por `strategy`.
+
+    `returning` es OPT-IN: por defecto `None` y el SQL es byte-idéntico al de
+    siempre. Cuando se pasa, el builder añade la cláusula de captura del id que
+    corresponda al dialecto (`RETURNING` en PostgreSQL, `OUTPUT INSERTED` en
+    MSSQL, `RETURNING … INTO :ret_id` en Oracle; en SQLite/MySQL/MariaDB el SQL
+    no cambia porque el id se lee de `cursor.lastrowid`) y marca el `Query` con
+    `returns_id=True`. En el render `MERGE` (replace en MSSQL/Oracle) NO se añade
+    captura: `MERGE … RETURNING` no existe en Oracle (ORA-00933) y el contrato
+    "un MERGE no devuelve id" se preserva por construcción.
+    """
     qualified = _qualified(table, schema)
     columns = list(data.keys())
     values = list(data.values())
@@ -97,6 +108,12 @@ def build_insert(
     if conflict is not None:
         for col in conflict:
             check_identifier(col, "columna de conflicto")
+    if returning is not None:
+        # Frontera de confianza: `returning` se interpola en `RETURNING`/`OUTPUT
+        # INSERTED`, así que se valida fail-closed ANTES de construir el SQL.
+        check_identifier(returning, "columna de retorno")
+
+    capture = False
 
     if strategy.kind == "prefix":
         keyword = "INSERT"
@@ -108,6 +125,7 @@ def build_insert(
             f"{keyword} INTO {qualified} ({','.join(columns)}) "
             f"VALUES ({_placeholders(len(columns))})"
         )
+        capture = bool(returning)
     elif strategy.kind == "suffix":
         sql = (
             f"INSERT INTO {qualified} ({','.join(columns)}) VALUES ({_placeholders(len(columns))})"
@@ -124,6 +142,10 @@ def build_insert(
             sql += f" ON CONFLICT ({target}) DO UPDATE SET {updates}"
         elif ignore_duplicated:
             sql += " ON CONFLICT DO NOTHING"
+        if returning:
+            # `RETURNING` va DESPUÉS de la cláusula `ON CONFLICT` si existe.
+            sql += f" RETURNING {returning}"
+            capture = True
     else:  # merge
         if replace:
             # El objetivo de conflicto debe ser una columna PRESENTE en el `src`
@@ -131,19 +153,33 @@ def build_insert(
             # deja `conflict=None` en `merge` (MSSQL/Oracle) deliberadamente: la PK
             # autoincremental `id` no está en `src`, así que pasar `["id"]` produciría
             # `ON (dst.id = src.id)` sobre una columna inexistente (MSSQL 4104 /
-            # ORA-00904). El fallback a `columns[0]` es ejecutable en MSSQL pero
-            # semánticamente incorrecto (actualiza la columna del `ON`); en Oracle ni
-            # siquiera es ejecutable (ORA-38104), defecto preexistente documentado.
+            # ORA-00904). El fallback a `columns[0]` es ejecutable en MSSQL y, desde
+            # el fix de ORA-38104, TAMBIÉN en Oracle: el `SET` EXCLUYE las columnas
+            # de conflicto (mismo patrón que `build_upsert` con `update_cols`), de
+            # modo que no se actualiza la columna del `ON`.
             conflict_cols = list(conflict) if conflict else ([columns[0]] if columns else ["id"])
-            set_sql = ", ".join(f"dst.{c} = src.{c}" for c in columns)
-            sql = _merge_sql(qualified, strategy, columns, conflict_cols, set_sql)
+            update_cols = [c for c in columns if c not in conflict_cols]
+            if not update_cols:
+                raise ValueError(
+                    "MERGE sin columnas actualizables: todas las columnas del INSERT "
+                    "son de conflicto"
+                )
+            set_sql = ", ".join(f"dst.{c} = src.{c}" for c in update_cols)
+            sql = _merge_sql(
+                qualified, strategy, columns, conflict_cols, set_sql, update_cols=update_cols
+            )
+            # Un MERGE no puede capturar el id: no se añade `OUTPUT`/`RETURNING`.
         else:
+            out = f" OUTPUT INSERTED.{returning}" if returning and strategy.output_inserted else ""
             sql = (
-                f"INSERT INTO {qualified} ({','.join(columns)}) "
+                f"INSERT INTO {qualified} ({','.join(columns)}){out} "
                 f"VALUES ({_placeholders(len(columns))})"
             )
-            if strategy.returning_id and "id" not in columns:
-                sql += " RETURNING id INTO :ret_id"
+            if returning and strategy.returning_id:
+                sql += f" RETURNING {returning} INTO :ret_id"
+                capture = True
+            elif returning and strategy.output_inserted:
+                capture = True
 
     return Query(
         sql,
@@ -151,6 +187,8 @@ def build_insert(
         ignore_duplicated=bool(
             strategy.carries_ignore_duplicated and ignore_duplicated and not replace
         ),
+        returns_id=capture,
+        id_column=returning if capture else None,
     )
 
 

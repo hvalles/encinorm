@@ -26,8 +26,13 @@ class InsertStrategy:
     merge_alias_keyword: str = "AS"
     # MSSQL/Oracle suprimen la violación de unicidad en `execute()`, no en el SQL.
     carries_ignore_duplicated: bool = False
-    # Oracle añade `RETURNING id INTO :ret_id` en el INSERT plano sin `id`.
+    # Oracle captura el id del INSERT plano con `RETURNING <col> INTO :ret_id`
+    # (opt-in del llamador vía `build_insert(returning=...)`).
     returning_id: bool = False
+    # MSSQL captura el id con `OUTPUT INSERTED.<col>` DENTRO del mismo statement:
+    # `SCOPE_IDENTITY()` en un `execute` separado devuelve NULL (verificado), y
+    # `@@IDENTITY` es session-scoped y contaminable por triggers. Opt-in.
+    output_inserted: bool = False
 
 
 SQLITE_INSERT = InsertStrategy(kind="prefix")
@@ -37,7 +42,7 @@ MYSQL_INSERT = InsertStrategy(
 # MariaDB habla el protocolo MySQL: hereda literalmente su estrategia.
 MARIADB_INSERT = MYSQL_INSERT
 POSTGRES_INSERT = InsertStrategy(kind="suffix")
-MSSQL_INSERT = InsertStrategy(kind="merge", carries_ignore_duplicated=True)
+MSSQL_INSERT = InsertStrategy(kind="merge", carries_ignore_duplicated=True, output_inserted=True)
 ORACLE_INSERT = InsertStrategy(
     kind="merge",
     merge_alias_keyword="",

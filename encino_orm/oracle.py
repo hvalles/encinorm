@@ -215,6 +215,7 @@ class OracleDb(Db):
         conflict: list[str] | None = None,
         *,
         schema: str | None = None,
+        returning: str | None = None,
     ):
         return build_insert(
             tabla,
@@ -226,6 +227,7 @@ class OracleDb(Db):
             replace=replace,
             ignore_duplicated=ignore_duplicated,
             schema=schema,
+            returning=returning,
         )
 
     def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
@@ -262,6 +264,43 @@ class OracleDb(Db):
                 self._last_id = v[0] if isinstance(v, (list, tuple)) and v else 0
             _log("execute", sql, values, time.monotonic() - t0)
             return rowcount
+        finally:
+            cursor.close()
+
+    async def execute_insert(self, qry: Query) -> int | None:
+        """Ejecuta el INSERT y captura `RETURNING <col> INTO :ret_id` si se pide.
+
+        El out-var nombrado es el mecanismo nativo de Oracle. `MERGE … RETURNING`
+        NO está soportado (ORA-00933), así que el builder no lo emite para el
+        render `merge`; aquí `returning` exige además que el SQL lleve `:ret_id`.
+        """
+        self._ensure_connected()
+        sql, values = self._prepare(qry)
+        # `FROM dual` solo al SQL que va al driver (ver `_MERGE_USING_RE`).
+        if sql.lstrip().upper().startswith("MERGE"):
+            sql = _MERGE_USING_RE.sub(r"USING (SELECT \1 FROM dual) src", sql, count=1)
+        t0 = time.monotonic()
+        returning = qry.returns_id and ":ret_id" in sql
+        cursor = self._connection.cursor()
+        out = cursor.var(self._oracledb.NUMBER) if returning else None
+        params = dict(values)
+        if returning:
+            params["ret_id"] = out
+        try:
+            try:
+                await cursor.execute(sql, params)
+            except Exception as exc:
+                if getattr(qry, "ignore_duplicated", False) and self.is_unique_violation(exc):
+                    return None
+                raise
+            self._in_tx = True
+            new_id = None
+            if returning:
+                v = out.getvalue()
+                new_id = v[0] if isinstance(v, (list, tuple)) and v else None
+                self._last_id = new_id or 0
+            _log("execute_insert", sql, values, time.monotonic() - t0)
+            return new_id
         finally:
             cursor.close()
 
@@ -313,7 +352,7 @@ class OracleDb(Db):
     async def exists(self, qry: Query) -> bool:
         return await self.fetch_one(qry) is not None
 
-    async def last_id(self) -> int:
+    async def _last_id_value(self) -> int:
         return self._last_id
 
     async def migrate(self, name: str, qry: Query):

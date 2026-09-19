@@ -164,6 +164,7 @@ class MysqlDb(Db):
         conflict: list[str] | None = None,
         *,
         schema: str | None = None,
+        returning: str | None = None,
     ):
         return build_insert(
             tabla,
@@ -175,6 +176,7 @@ class MysqlDb(Db):
             replace=replace,
             ignore_duplicated=ignore_duplicated,
             schema=schema,
+            returning=returning,
         )
 
     def delete(self, tabla: str, keys: dict, *, schema: str | None = None):
@@ -196,6 +198,27 @@ class MysqlDb(Db):
             self._last_id = cursor.lastrowid
             _log("execute", sql, values, time.monotonic() - t0)
             return cursor.rowcount
+        finally:
+            await cursor.close()
+
+    async def execute_insert(self, qry: Query) -> int | None:
+        """Ejecuta el INSERT y devuelve `cursor.lastrowid` si el `Query` lo pide.
+
+        MariaDB hereda este método de `MysqlDb`. `self._last_id` se conserva para
+        el `_last_id_value()` deprecado; el camino nuevo lee `cursor.lastrowid`
+        de ESTA sentencia.
+        """
+        self._ensure_connected()
+        sql, values = self._prepare(qry)
+        t0 = time.monotonic()
+        cursor = await self._connection.cursor(aiomysql.DictCursor)
+        try:
+            with _suppress_mysql_warnings():
+                await cursor.execute(sql, values)
+            self._last_id = cursor.lastrowid
+            new_id = cursor.lastrowid if qry.returns_id else None
+            _log("execute_insert", sql, values, time.monotonic() - t0)
+            return new_id
         finally:
             await cursor.close()
 
@@ -243,7 +266,7 @@ class MysqlDb(Db):
     async def exists(self, qry: Query) -> bool:
         return await self.fetch_one(qry) is not None
 
-    async def last_id(self) -> int:
+    async def _last_id_value(self) -> int:
         return self._last_id
 
     async def migrate(self, name: str, qry: Query):

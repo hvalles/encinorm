@@ -103,6 +103,7 @@ class Db(ABC):
         conflict: list[str] | None = None,
         *,
         schema: str | None = None,
+        returning: str | None = None,
     ): ...
 
     @abstractmethod
@@ -113,6 +114,18 @@ class Db(ABC):
 
     @abstractmethod
     async def execute(self, qry: Query): ...
+
+    @abstractmethod
+    async def execute_insert(self, qry: Query) -> int | None:
+        """Ejecuta un INSERT y devuelve el id capturado en la MISMA sentencia.
+
+        `None` significa "id no disponible" (p. ej. un `MERGE`, que no expone el
+        id en la frontera del driver). Solo los adaptadores conocen el mecanismo
+        nativo (`lastrowid`/`RETURNING`/`OUTPUT INSERTED`/`RETURNING INTO`); el
+        `Query` transporta la metadata `returns_id`/`id_column` que fija
+        `build_insert(returning=...)`.
+        """
+        ...
 
     @abstractmethod
     async def fetch_all(self, qry: Query): ...
@@ -126,8 +139,23 @@ class Db(ABC):
     @abstractmethod
     async def exists(self, qry: Query): ...
 
-    @abstractmethod
-    async def last_id(self): ...
+    async def last_id(self):
+        """DEPRECADO: usa `execute_insert(qry)` o el retorno de `Model.insert()`.
+
+        El id post-hoc es incorrecto bajo concurrencia (session-scoped en
+        PostgreSQL/MSSQL) y devuelve el id de OTRA fila sin error. Se mantiene
+        como método concreto que delega en `_last_id_value()`; el aviso de
+        deprecación centralizado se habilita en la Task 3 de `04-02`.
+        """
+        return await self._last_id_value()
+
+    async def _last_id_value(self) -> int:
+        """Id de la última inserción de ESTA conexión (0 si no está disponible).
+
+        Método concreto y sobreescribible por adaptador: los dobles de test no
+        necesitan implementarlo. No emite warning; `last_id()` es quien lo hará.
+        """
+        return 0
 
     @abstractmethod
     async def migrate(self, name: str, qry: Query): ...
