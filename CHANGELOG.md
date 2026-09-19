@@ -26,6 +26,18 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ### Corregido
 
+- **CAMBIO DE COMPORTAMIENTO (cierre y reaping del pool).** `PoolDb.close()`
+  pasa a ser **idempotente** y deja de cerrar conexiones EN USO: solo cierra las
+  ociosas; las que un llamador mantiene siguen vivas y se cierran al liberarse.
+  Antes, `close()` cerraba también las retenidas, rompiendo la atomicidad de un
+  tercero. Además, las conexiones ociosas por encima de `min_size` se cierran
+  tras `idle_timeout` mediante un **reaper perezoso** (invocado al entrar en
+  `acquire()` y al salir de `release()`, sin daemon de fondo); con
+  `idle_timeout=None` el reaper está desactivado. Un handle liberado con el pool
+  cerrado —o de una generación anterior tras un ciclo close/reconnect— se cierra
+  en vez de volver a la cola. Nota de ownership: esta entrada es ADITIVA y no
+  prejuzga la enumeración de cambios incompatibles del milestone, que posee la
+  Fase 8 (`08-04`).
 - **CAMBIO DE COMPORTAMIENTO (semántica de liberación del pool).** `PoolDb`
   cierra ahora la transacción **explícitamente** en `execute`/`_run` (commit en
   éxito, rollback en error) antes de devolver la conexión al pool, y `release()`

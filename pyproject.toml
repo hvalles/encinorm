@@ -136,8 +136,11 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 # D-09: no se reescriben asserts genéricos (pytest.raises(Exception)) ni asserts
-# de estado privado en Fase 1, así que PT011/B017 se ignoran aquí y se levantan
-# en Fase 4. PT012/PT018/PT006 siguen activos.
+# de estado privado en Fase 1. Fase 4 evaluó levantar PT011/B017 (04-04, Open
+# Question 4) y decidió DIFERIRLOS a una fase de calidad posterior: son ~147
+# asserts (`pytest.raises(Exception)` + `pytest.raises` sin `match=`) AJENOS al
+# alcance de POOL-01…07, y levantarlos produciría un diff mecánico inabarcable
+# que enterraría los cambios reales del pool. PT012/PT018/PT006 siguen activos.
 "tests/**" = ["S101", "PT011", "B017", "ARG001", "ARG002"]
 # S608: los constructores de dialecto interpolan SQL intencionadamente.
 # La validación centralizada llega en Fase 2 (DIAL-02); el resto de `S` sigue activo.
@@ -243,7 +246,14 @@ module = [
     "encino_orm.model.model",          # 20 errores — se limpia en Fase 2 (DIAL) y Fase 4 (POOL-03)
     "encino_orm.model.query_builder",  #  9 errores — se limpia en Fase 2 (DIAL-03: count/paginate/list_tables)
     "encino_orm.model.cached",         #  6 errores — se limpia en Fase 3 (DATA-03: invalidación de escritura)
-    "encino_orm.pool",                 #  5 errores — se limpia en Fase 4 (POOL-01…06)
+    # 04-04 (POOL-01…06) intentó retirar esta entrada y NO pudo: quedan 5
+    # errores residuales de TIPADO, ajenos a la corrección del pool — 3
+    # `var-annotated` (`_idle`/`_connections`/`_checked_out` sin anotación) y 2
+    # `override` (`dialect`/`transactional_ddl` como property de solo lectura
+    # sobre atributos ESCRIBIBLES de `Db`). Los `override` exigen tocar
+    # `base.py` (fuera del alcance de 04-04) y la convención del repo prohíbe
+    # `# type: ignore` inline, así que la entrada sigue con su causa escrita.
+    "encino_orm.pool",                 #  5 errores — residual de tipado (no de POOL-01…06)
     "encino_orm.security.models",      #  4 errores — se limpia en Fase 6 (CFG-02: SecurityConfig inmutable)
 ]
 ignore_errors = true
