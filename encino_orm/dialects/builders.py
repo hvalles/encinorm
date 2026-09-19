@@ -246,9 +246,7 @@ def build_multi_insert(
     # entre filas en silencio. Se valida cada fila ANTES de aplanar.
     for i, row in enumerate(rows):
         if len(row) != n_cols:
-            raise ValueError(
-                f"fila {i} con {len(row)} valores para {n_cols} columnas: {row!r}"
-            )
+            raise ValueError(f"fila {i} con {len(row)} valores para {n_cols} columnas: {row!r}")
     values = [v for row in rows for v in row]
 
     if strategy.multi_values:

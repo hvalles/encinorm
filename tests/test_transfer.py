@@ -355,7 +355,9 @@ class TestCopyTable:
         # con MAX_PARAMS=2). La copia degrada al insert de fila única, donde la
         # sentencia lleva exactamente las 3 columnas y se respeta el límite.
         await src.execute(
-            Query("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, a TEXT, b TEXT, c TEXT)", [])
+            Query(
+                "CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, a TEXT, b TEXT, c TEXT)", []
+            )
         )
         for i in range(3):
             await src.execute(
