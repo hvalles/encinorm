@@ -211,7 +211,8 @@ class Model(BaseModel):
         """Resuelve (y cachea) la conexión del modelo.
 
         Si no se pasó `db` al construirlo, se resuelve de forma implícita:
-        transacción activa del pool → `bind()`/`session()` → `set_default_db()`.
+        transacción activa del pool → `bind()`/`session()` → default del
+        `ConnectionRegistry` (el de módulo si no se inyecta otro).
         """
         db = object.__getattribute__(self, "_db")
         if db is None:

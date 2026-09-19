@@ -275,6 +275,17 @@ class TestSecurityConfig:
         assert _SIGNING_MATERIAL not in repr(cfg)
         assert _SIGNING_MATERIAL not in str(cfg)
 
+    def test_config_rechaza_algorithms_vacio(self):
+        """CR-01: una allowlist de algoritmos vacía se rechaza al construir."""
+        with pytest.raises(AuthenticationError):
+            SecurityConfig(_SIGNING_MATERIAL, _noop_get_db, algorithms=())
+
+    def test_verify_token_rechaza_secret_vacio(self):
+        """WR-01-R: PyJWT solo AVISA de la clave vacía; la verificación debe
+        rechazarla en el borde para que un token forjado no autentique."""
+        with pytest.raises(AuthenticationError):
+            verify_token("cualquier.token.aqui", "")
+
     @pytest.mark.asyncio
     async def test_guards_desde_config_200_401_403(self, sec_db):
         await _seed_permissions(sec_db)

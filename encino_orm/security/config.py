@@ -26,10 +26,11 @@ from .exceptions import AuthenticationError
 class SecurityConfig:
     """Configuración inmutable de la capa de seguridad.
 
-    `secret` es la clave de firma JWT (nunca se incluye en `repr`, WR-01),
-    `get_db` la dependency de conexión de la aplicación y `algorithms` la
-    allowlist de algoritmos que se pasa a `verify_token` (que la valida contra su
-    propio conjunto permitido).
+    `secret` es la clave de firma JWT (nunca se incluye en `repr`/`str`, WR-01;
+    `dataclasses.asdict()`/`astuple()` sí lo incluyen porque serializan el campo:
+    no serialices la config), `get_db` la dependency de conexión de la aplicación
+    y `algorithms` la allowlist de algoritmos que se pasa a `verify_token` (que la
+    valida contra su propio conjunto permitido).
     """
 
     secret: str = field(repr=False)

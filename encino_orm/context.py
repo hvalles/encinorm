@@ -11,8 +11,11 @@ puedan resolver su conexión de forma implícita. El orden de resolución es:
 5. error `ConnectionError`.
 
 El default ya NO es un global mutable de proceso: vive en el estado de instancia
-de un `ConnectionRegistry`, de modo que dos aplicaciones/tenants en el mismo
-proceso pueden resolver a bases de datos distintas sin pisarse.
+de un `ConnectionRegistry`. `resolve_db(registry=...)` resuelve contra el registry
+que recibe, así que dos aplicaciones/tenants que resuelvan a través de su propio
+registry obtienen bases distintas sin pisarse. Nota: un `Model` sin `db` explícito
+no acepta un registry directamente; usa `db=` o el enlace ambiente
+(`bind`/`session`) para aislarlo por tenant.
 """
 
 import contextvars
@@ -30,8 +33,10 @@ class ConnectionRegistry:
     """Holder inyectable de la conexión por defecto de una aplicación.
 
     El estado es de instancia (`_default_db`), no de módulo: dos registries en
-    el mismo proceso resuelven a sus propias bases de datos. La precedencia
-    ambiente (`bind`/`session`/transacción del pool) sigue ganando al default.
+    el mismo proceso resuelven a sus propias bases de datos cuando la resolución
+    pasa por ellos (`resolve_db(registry=...)`). La precedencia ambiente
+    (`bind`/`session`/transacción del pool) sigue ganando al default. Un `Model`
+    sin `db` explícito usa el registry de módulo, no uno inyectado.
     """
 
     __slots__ = ("_default_db",)

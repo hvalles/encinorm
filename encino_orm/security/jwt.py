@@ -71,7 +71,16 @@ def _filter_algorithms(algorithms: list[str] | None) -> list[str]:
     return list(algorithms)
 
 
+def _check_secret(secret: str) -> None:
+    """Fail-closed (WR-01-R): PyJWT solo AVISA de una clave HMAC vacía, no la
+    rechaza; un token forjado con HS256 y clave vacía validaría. Se rechaza aquí,
+    en el borde de la verificación, además de en `SecurityConfig`."""
+    if not isinstance(secret, str) or not secret:
+        raise AuthenticationError("SECRET no configurado para verificar el token")
+
+
 def verify_token(token: str, secret: str, algorithms: list[str] | None = None) -> dict:
+    _check_secret(secret)
     jwt = _jwt()
     algorithms = _filter_algorithms(algorithms)
     try:
@@ -101,6 +110,7 @@ def emit_refresh(
 
 
 def verify_refresh(token: str, secret: str, algorithms: list[str] | None = None) -> dict:
+    _check_secret(secret)
     jwt = _jwt()
     algorithms = _filter_algorithms(algorithms)
     try:

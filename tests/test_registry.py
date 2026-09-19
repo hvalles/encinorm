@@ -107,3 +107,17 @@ async def test_resolve_db_acepta_registry_explicito():
         assert resolve_db(registry=ra) is db_a
     finally:
         await db_a.close()
+
+
+def test_resolve_db_no_ignora_un_registry_falsy():
+    """WR-03: un registry que se evalúa como falsy NO debe caer al de módulo."""
+    db_modulo = object()
+    db_falsy = object()
+    _registry.set_default(db_modulo)
+
+    class _RegistryFalsy(ConnectionRegistry):
+        def __bool__(self):
+            return False
+
+    ra = _RegistryFalsy(db_falsy)
+    assert resolve_db(registry=ra) is db_falsy
