@@ -81,3 +81,19 @@ class TestDbTransaction:
 
         rows = await connected_db.fetch_all(Query("SELECT valor FROM test_tx_err", []))
         assert len(rows) == 0
+
+
+class TestDbExecutionWrappers:
+    """RESL-02: los públicos son concretos y delegan en privados concretos."""
+
+    def test_metodos_de_ejecucion_ya_no_son_abstractos(self):
+        for name in ("execute", "execute_insert", "fetch_all", "fetch_one", "fetch_many"):
+            assert getattr(getattr(Db, name), "__isabstractmethod__", False) is False
+
+    @pytest.mark.asyncio
+    async def test_privados_de_ejecucion_lanzan_notimplemented(self):
+        qry = Query("SELECT 1", [])
+        with pytest.raises(NotImplementedError):
+            await Db._execute(None, qry)
+        with pytest.raises(NotImplementedError):
+            await Db._fetch_one(None, qry)
