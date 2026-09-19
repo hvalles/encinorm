@@ -1,0 +1,99 @@
+# serializer version: 1
+# name: test_sdl_snapshot
+  '''
+  type Agente {
+    id: ID
+    enabled: Boolean
+    created_at: DateTime
+    updated_at: DateTime
+    agente: String
+    region_id: Int
+    region: Region
+  }
+  
+  input AgenteFilter {
+    id: IdFilter = null
+    agente: StringFilter = null
+    region_id: IntFilter = null
+    and: [AgenteFilter!] = null
+    or: [AgenteFilter!] = null
+    not: AgenteFilter = null
+  }
+  
+  input AgenteInput {
+    agente: String = null
+    region_id: Int = null
+  }
+  
+  """Date with time (isoformat)"""
+  scalar DateTime
+  
+  input IdFilter {
+    eq: ID = null
+    ne: ID = null
+    in: [ID!] = null
+    is_null: Boolean = null
+  }
+  
+  input IntFilter {
+    eq: Int = null
+    ne: Int = null
+    gt: Int = null
+    ge: Int = null
+    lt: Int = null
+    le: Int = null
+    in: [Int!] = null
+    between: [Int!] = null
+    is_null: Boolean = null
+  }
+  
+  type Mutation {
+    region_create(data: RegionInput!): Region!
+    region_update(id: ID!, data: RegionInput!): Region!
+    region_delete(id: ID!): Boolean!
+    agente_create(data: AgenteInput!): Agente!
+    agente_update(id: ID!, data: AgenteInput!): Agente!
+    agente_delete(id: ID!): Boolean!
+  }
+  
+  type Query {
+    regiones(filter: RegionFilter = null, limit: Int = null, page: Int = 1): [Region!]!
+    regiones_count(filter: RegionFilter = null): Int!
+    region(id: ID!): Region
+    agentes(filter: AgenteFilter = null, limit: Int = null, page: Int = 1): [Agente!]!
+    agentes_count(filter: AgenteFilter = null): Int!
+    agente(id: ID!): Agente
+  }
+  
+  type Region {
+    id: ID
+    enabled: Boolean
+    created_at: DateTime
+    updated_at: DateTime
+    region: String
+    agentes: [Agente!]
+  }
+  
+  input RegionFilter {
+    id: IdFilter = null
+    region: StringFilter = null
+    and: [RegionFilter!] = null
+    or: [RegionFilter!] = null
+    not: RegionFilter = null
+  }
+  
+  input RegionInput {
+    region: String = null
+  }
+  
+  input StringFilter {
+    eq: String = null
+    ne: String = null
+    in: [String!] = null
+    like: String = null
+    startswith: String = null
+    endswith: String = null
+    is_null: Boolean = null
+  }
+  '''
+# ---
