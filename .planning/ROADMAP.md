@@ -68,7 +68,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Pool Correctness & Concurrency** - `PooledConnection` handle, race-free `acquire()`, in-insert `last_id`, explicit release policy, lazy reaper, deterministic stress tests (completed 2026-09-19)
 - [x] **Phase 5: Resilience** - Classified disconnects, single reconnect outside transactions, `pre_ping`/lifetime for direct connections, public error taxonomy (completed 2026-09-19)
 - [x] **Phase 6: Config & Optional-Layer Hygiene** - `ConnectionRegistry` + `SecurityConfig` replace mutable globals; `exec()` codegen becomes closures; trust boundaries documented (completed 2026-09-19)
-- [ ] **Phase 7: Performance & Benchmarks** - Profile first, then batched `copy_table`, a benchmark gate that fails a 2× regression, and bounded tracer/cache structures
+- [x] **Phase 7: Performance & Benchmarks** - Profile first, then batched `copy_table`, a benchmark gate that fails a 2× regression, and bounded tracer/cache structures (completed 2026-09-19)
 - [ ] **Phase 8: Release 0.3.0** - 0.2.7 deprecation release, OIDC trusted publishing, 0.3.0rc1, complete CHANGELOG + MIGRATION-0.3.md, README pinning guidance
 
 ## Phase Details
@@ -355,10 +355,10 @@ batched inserts remove real round-trips, and a benchmark gate fails on a deliber
 
 Plans:
 
-- [ ] 07-01: Run and commit profiler output (`py-spy`/`cProfile`) on a representative workload, before any optimization — PERF-03
-- [ ] 07-02: Benchmark harness (warmup, ≥5 reps, median + p95 + σ, logging disabled) benchmarking **sync units directly** — SQL build, placeholder translation, batch sizing — with numeric targets and a 2× regression gate — PERF-02
-- [ ] 07-03: Batched `copy_table` with per-dialect batch sizing (`min(MAX_PARAMS // n_columns, MAX_ROWS)`), preferring array binding/`executemany` for Oracle/PostgreSQL, with row-equivalence tests — PERF-01
-- [ ] 07-04: Bound `QueryTracer._latencies` with `deque(maxlen=N)` and switch `_FIELD_ADAPTERS` to `WeakKeyDictionary` — PERF-04
+- [x] 07-01: Run and commit profiler output (`py-spy`/`cProfile`) on a representative workload, before any optimization — PERF-03
+- [x] 07-02: Benchmark harness (warmup, ≥5 reps, median + p95 + σ, logging disabled) benchmarking **sync units directly** — SQL build, placeholder translation, batch sizing — with numeric targets and a 2× regression gate — PERF-02
+- [x] 07-03: Batched `copy_table` with per-dialect batch sizing (`min(MAX_PARAMS // n_columns, MAX_ROWS)`), preferring array binding/`executemany` for Oracle/PostgreSQL, with row-equivalence tests — PERF-01
+- [x] 07-04: Bound `QueryTracer._latencies` with `deque(maxlen=N)` and switch `_FIELD_ADAPTERS` to `WeakKeyDictionary` — PERF-04
 
 ### Phase 8: Release 0.3.0
 

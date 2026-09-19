@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 6 complete (5/5) — ready to discuss Phase 7
-last_updated: 2026-09-19T07:31:22.910Z
+status: verify
+stopped_at: Phase 7 complete (4/4) — plan 07-03 entregado, SUMMARY escrito, verifier PASS; listo para phase.complete
+last_updated: 2026-09-19T18:20:00.000Z
 last_activity: 2026-09-19
 progress:
   total_phases: 8
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-17)
 
 **Core value:** El ORM debe ser confiable en producción sobre cualquiera de los seis motores — correcto bajo concurrencia, seguro frente a inyección y configuraciones erróneas, y predecible en rendimiento.
-**Current focus:** Phase 7 — performance & benchmarks
+**Current focus:** Phase 8 — release 0.3.0
 **Milestone:** encino_orm 0.2.6 → 0.3.0 (production hardening)
 
 ## Current Position
 
-Phase: 7
-Plan: Not started
-Status: Ready to plan
+Phase: 8 (pending)
+Plan: Phase 7 complete (4/4)
+Status: Verify complete — ready for phase.complete
 Last activity: 2026-09-19
 
 Progress: [██████████] 100%
@@ -103,6 +103,10 @@ Progress: [██████████] 100%
 | Phase 06 P03 | 2 min | 3 tasks | 3 files |
 | Phase 06 P04 | 7 min | 3 tasks | 3 files |
 | Phase 06 P05 | 20 | 3 tasks | 17 files |
+| Phase 07 P01 | - | - | 1 files |
+| Phase 07 P02 | - | - | - |
+| Phase 07 P03 | - | 3 tasks | 6 files |
+| Phase 07 P04 | - | - | - |
 
 ## Accumulated Context
 
@@ -236,6 +240,10 @@ Recent decisions affecting current work:
 - [Phase 06]: 06-05: las entradas del ratchet mypy asignadas a Fase 6 SE CONSERVAN con la causa reescrita (http.routes 5, security.guard 2, http.parsing 2, graphql.* 7, security.models 4 errores residuales de tipado); retirarlas deja mypy rojo y el plan autoriza el residual con causa — Los per-file-ignores S102/B008 SI se retiran (probe ruff --isolated limpio), pero los residuales de tipado no son artefacto del exec() y no se corrigen sin # type: ignore inline (prohibido)
 - [Phase 06]: 06-05: el cap de PyJWT sube a >=2.8,<2.15 (2.14.0) con uv lock --upgrade-package; uv audit (OSV) y pip-audit (PyPA) limpios sin ignores y tests/test_security.py verde, de modo que se retiran los 5 ignores GHSA de ci.yml — uv lock a secas conserva la version fijada aunque el rango se amplie; el upgrade explicito es necesario para que el fix entre. Fail-closed: si algo fallara se restaura el cap y se conservan los ignores
 - [Phase 06]: 06-05: docs/trust-boundaries.md documenta Filter.raw/Query/db.fn.* con ejemplos SEGURO/INSEGURO y tests/test_trust_boundaries.py congela que los parsers HTTP/GraphQL no pueden emitir Filter.raw (conjuntos cerrados de operadores) — CFG-05 Success Criterion 5; la prosa cita anchors reales y el test impide que la pagina desaparezca o se vacie
+- [Phase 07]: PERF-01 se entrega con `build_multi_insert`/`_placeholders_from` multi-VALUES por dialecto (Oracle `INSERT ALL` con `multi_values=False`) y `copy_table` batch en `encino_orm/transfer.py` con chunk `min(MAX_PARAMS // n, MAX_ROWS)` (fallback fila-a-fila si `target_cols == []`), sin cambio de API — Sonda cross-engine (4 ficheros: mysql/postgresql 500 filas, mssql/oracle 100 filas) pasa local; MSSQL usa `preserve_ids=False` porque `INT IDENTITY` rechaza IDs explicitos sin IDENTITY_INSERT (driver no lo habilita).
+- [Phase 07]: El benchmark generativo `test_multi_insert_gen_floor` calibra su piso en el MISMO commit (floor 780 = 0.6× de la mediana local 1,306 ops/s para 200 filas × 5 cols) en vez del 900 literal del RESEARCH, porque RESEARCH media sobre un harness distinto (1,516 vs 1,306) — PRIMER run de CI recalibra ±20%; el smoke asserta `len(params) == rows*cols` y la ausencia de `INSERT ALL` en SQLite.
+- [Phase 07]: Evidencia >=2× medida contra el commit pre-batching `0b5696b` via worktree temporal: 10,000 filas × 5 cols → 48,691 filas/s (0.2054s) vs 5,823 filas/s (1.7173s) = **8.4×**; el profiler `--scale=1` (2,000×2, sqlite :memory:) da 1.004× porque el round-trip es despreciable a esa escala (documentado como esperado en SUMMARY).
+- [Phase 07]: Oracle `LIMITS["oracle"]` (65535 binds) mantiene "NO verificado empiricamente": la sonda de 100 filas (600 binds, INSERT ALL) prueba el camino, no el techo — el throttling termico de este host colapsa lotes de 500 filas a ~240-450 ops/s, por eso la sonda Oracle/MSSQL es de 100 filas.
 
 ### Pending Todos
 
