@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: executing
-stopped_at: "Completed 06-04-PLAN.md (CFG-03 GraphQL + CFG-04) — Fase 6 en curso (4/5)"
-last_updated: "2026-09-19T07:05:17.000Z"
+status: verifying
+stopped_at: Completed 06-05-PLAN.md (CFG-05 docs + CHANGELOG + gates + PyJWT bump) — Fase 6 completa (5/5), lista para verificacion
+last_updated: "2026-09-19T07:15:54.278Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 45
-  completed_plans: 44
-  percent: 98
+  completed_plans: 45
+  percent: 75
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 
 Phase: 6
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-19
 
-Progress: [██████████] 98%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -101,6 +101,7 @@ Progress: [██████████] 98%
 | Phase 06 P02 | 4 min | 2 tasks | 4 files |
 | Phase 06 P03 | 2 min | 3 tasks | 3 files |
 | Phase 06 P04 | 7 min | 3 tasks | 3 files |
+| Phase 06 P05 | 20 | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -231,6 +232,9 @@ Recent decisions affecting current work:
 - [Phase 06]: build_schema registra un modulo sintetico por build (types.ModuleType + sys.modules) y ya no muta el namespace de encino_orm.graphql.schema con setattr — Dos builds sucesivos dejan de acumular tipos y de apuntar al tipo del ultimo build (Success Criterion 4)
 - [Phase 06]: El modulo sintetico por build NO se borra en un finally: los filtros autorreferentes resuelven sus LazyType en EJECUCION (LazyType.resolve_type no cachea), asi que se libera con weakref.finalize cuando el schema se recolecta — El del sys.modules del plan rompia { agentes(filter: ...) } con ModuleNotFoundError; el fallback autorizado (conservar el modulo) se endurece atando su vida al schema (evidencia en 06-04-SUMMARY)
 - [Phase 06]: El test de no-mutacion del namespace usa un modelo sonda (Sonda) que ningun otro build registra — Con [Region, Agente] la asercion pasaba en vacio porque tests previos ya habian mutado el modulo (orden de ejecucion)
+- [Phase 06]: 06-05: las entradas del ratchet mypy asignadas a Fase 6 SE CONSERVAN con la causa reescrita (http.routes 5, security.guard 2, http.parsing 2, graphql.* 7, security.models 4 errores residuales de tipado); retirarlas deja mypy rojo y el plan autoriza el residual con causa — Los per-file-ignores S102/B008 SI se retiran (probe ruff --isolated limpio), pero los residuales de tipado no son artefacto del exec() y no se corrigen sin # type: ignore inline (prohibido)
+- [Phase 06]: 06-05: el cap de PyJWT sube a >=2.8,<2.15 (2.14.0) con uv lock --upgrade-package; uv audit (OSV) y pip-audit (PyPA) limpios sin ignores y tests/test_security.py verde, de modo que se retiran los 5 ignores GHSA de ci.yml — uv lock a secas conserva la version fijada aunque el rango se amplie; el upgrade explicito es necesario para que el fix entre. Fail-closed: si algo fallara se restaura el cap y se conservan los ignores
+- [Phase 06]: 06-05: docs/trust-boundaries.md documenta Filter.raw/Query/db.fn.* con ejemplos SEGURO/INSEGURO y tests/test_trust_boundaries.py congela que los parsers HTTP/GraphQL no pueden emitir Filter.raw (conjuntos cerrados de operadores) — CFG-05 Success Criterion 5; la prosa cita anchors reales y el test impide que la pagina desaparezca o se vacie
 
 ### Pending Todos
 
@@ -242,7 +246,9 @@ None yet.
 - **`ARCHITECTURE.md` is wrong** about PostgreSQL `lastval()` being transaction-scoped (it is session-scoped). Correct it before Phase 4 planning. See ROADMAP.md "Research Corrections".
 - **POOL-04 is the milestone's highest-risk change:** flipping release-from-commit to release-from-rollback can silently drop standalone writes. The three-step sequence in ROADMAP.md must be followed.
 - **Open research flags:** Phase 2 (syrupy/testcontainers topology), Phase 4 (`PooledConnection` + `last_id` API contract), Phase 5 (per-driver disconnect classification), Phase 6 (`__signature__`, GraphQL namespace), Phase 7 (per-dialect parameter ceilings).
-- 5 avisos GHSA reales de PyJWT 2.12.1 (auth bypass, SSRF, DoS) quedan allowlisteados en el job deps hasta ampliar el cap PyJWT inferior a 2.13; requiere decision de seguimiento en la Fase 6 (CFG-02).
+- **Resuelto en 06-05:** los 5 avisos GHSA de PyJWT 2.12.1 quedaron saldados al subir el cap a `>=2.8,<2.15` (2.14.0) con `uv audit`/`pip-audit` limpios y sin ignores; `ci.yml` ya no allowlistea avisos.
+- **Residual de tipado (06-05):** las entradas del ratchet mypy de `http.routes` (5), `security.guard` (2), `http.parsing` (2), `graphql.*` (7) y `security.models` (4) SE CONSERVAN con causa escrita: no son artefacto del `exec()` y no se corrigen sin `# type: ignore` inline (prohibido). Candidato a una fase de calidad posterior.
+- **Gap de supply-chain (06-05):** el `pip-audit` del job `deps` no audita los extras opcionales (`uv export` sin `--all-extras`), por lo que no cubre `PyJWT`/`fastapi`/`strawberry`. Registrado en `.planning/phases/06-config-optional-layer-hygiene/deferred-items.md`.
 
 ## Deferred Items
 
@@ -255,6 +261,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T07:05:17.000Z
-Stopped at: Completed 06-04-PLAN.md (CFG-03 GraphQL + CFG-04) — Fase 6 en curso (4/5)
+Last session: 2026-09-19T07:15:54.268Z
+Stopped at: Completed 06-05-PLAN.md (CFG-05 docs + CHANGELOG + gates + PyJWT bump) — Fase 6 completa (5/5), lista para verificacion
 Resume file: None

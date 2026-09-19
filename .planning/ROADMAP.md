@@ -67,7 +67,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Data Correctness** - Migration ledger, atomic-or-reconciled `migrate()`, and `CachedModel` write-invalidation (parallel to Phase 2) (completed 2026-09-18)
 - [x] **Phase 4: Pool Correctness & Concurrency** - `PooledConnection` handle, race-free `acquire()`, in-insert `last_id`, explicit release policy, lazy reaper, deterministic stress tests (completed 2026-09-19)
 - [x] **Phase 5: Resilience** - Classified disconnects, single reconnect outside transactions, `pre_ping`/lifetime for direct connections, public error taxonomy (completed 2026-09-19)
-- [ ] **Phase 6: Config & Optional-Layer Hygiene** - `ConnectionRegistry` + `SecurityConfig` replace mutable globals; `exec()` codegen becomes closures; trust boundaries documented
+- [x] **Phase 6: Config & Optional-Layer Hygiene** - `ConnectionRegistry` + `SecurityConfig` replace mutable globals; `exec()` codegen becomes closures; trust boundaries documented (completed 2026-09-19)
 - [ ] **Phase 7: Performance & Benchmarks** - Profile first, then batched `copy_table`, a benchmark gate that fails a 2× regression, and bounded tracer/cache structures
 - [ ] **Phase 8: Release 0.3.0** - 0.2.7 deprecation release, OIDC trusted publishing, 0.3.0rc1, complete CHANGELOG + MIGRATION-0.3.md, README pinning guidance
 
@@ -330,7 +330,7 @@ Plans:
 
 **Wave 3** *(blocked on Waves 1–2; single owner of the shared files)*
 
-- [ ] 06-05-PLAN.md — Explicit trust-boundary documentation for `Filter.raw`, `Query` and `db.fn.*` (`docs/trust-boundaries.md` + regression test), deprecation banners for `set_default_db` in `README.md`/`docs/getting-started.md`, `CHANGELOG.md` entries for CFG-01…05, retirement of the `S102`/`B008`/mypy-ratchet suppressions naming Phase 6 (incl. `encino_orm.http.parsing`), and the isolated `PyJWT>=2.8,<2.15` cap bump with `uv lock` + `uv audit`/`pip-audit` and the 5 GHSA ignores removed — CFG-05
+- [x] 06-05-PLAN.md — Explicit trust-boundary documentation for `Filter.raw`, `Query` and `db.fn.*` (`docs/trust-boundaries.md` + regression test), deprecation banners for `set_default_db` in `README.md`/`docs/getting-started.md`, `CHANGELOG.md` entries for CFG-01…05, retirement of the `S102`/`B008`/mypy-ratchet suppressions naming Phase 6 (incl. `encino_orm.http.parsing`), and the isolated `PyJWT>=2.8,<2.15` cap bump with `uv lock` + `uv audit`/`pip-audit` and the 5 GHSA ignores removed — CFG-05
 
 **Waves:** 1 → `06-01`, `06-02`; 2 → `06-03`, `06-04`; 3 → `06-05`. The Wave 1 pair is disjoint (`context.py`+`__init__.py` vs `security/*`). The Wave 2 pair is disjoint (`http/routes.py` vs `graphql/schema.py`) and waits for Wave 1 so the public config signatures are frozen before the OpenAPI/SDL snapshots are captured. `06-05` runs last because it is the single owner of `pyproject.toml`, `CHANGELOG.md`, `mkdocs.yml` and `ci.yml` (Pitfall 8: three parallel plans editing the same gate block would conflict). All five plans are autonomous (no checkpoints; no new packages).
 
@@ -467,7 +467,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 3. Data Correctness | 13/13 | Complete    | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 6/6 | Complete    | 2026-09-19 |
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
-| 6. Config & Optional-Layer Hygiene | 3/5 | In Progress|  |
+| 6. Config & Optional-Layer Hygiene | 5/5 | Complete   | 2026-09-19 |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
 | 8. Release 0.3.0 | 0/5 | Not started | - |
 
