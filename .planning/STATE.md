@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: executing
-stopped_at: "Completed 04-06-PLAN.md (POOL-07: tests deterministas de concurrencia/estres) — Phase 4 completa"
-last_updated: "2026-09-19T03:22:00.000Z"
+status: ready_to_plan
+stopped_at: Phase 4 complete (6/6) — ready to discuss Phase 5
+last_updated: 2026-09-19T03:59:33.078Z
 last_activity: 2026-09-19
 progress:
   total_phases: 8
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-17)
 
 **Core value:** El ORM debe ser confiable en producción sobre cualquiera de los seis motores — correcto bajo concurrencia, seguro frente a inyección y configuraciones erróneas, y predecible en rendimiento.
-**Current focus:** Phase 4 — pool correctness & concurrency
+**Current focus:** Phase 5 — resilience
 **Milestone:** encino_orm 0.2.6 → 0.3.0 (production hardening)
 
 ## Current Position
 
-Phase: 4
-Plan: 6 of 6 (04-06 complete)
-Status: Phase complete
+Phase: 5
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-09-19
 
 Progress: [██████████] 100%
@@ -37,7 +37,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 31
+- Total plans completed: 37
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -49,6 +49,7 @@ Progress: [██████████] 100%
 | 02 | 12 | - | - |
 | 3 | 13 | - | - |
 | 04 | 3 | 6 | - |
+| 4 | 6 | - | - |
 
 **Recent Trend:**
 

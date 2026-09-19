@@ -39,6 +39,10 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - ✓ `CachedModel`: dominio de caché canónico por PK, invalidación de TODAS las filas afectadas (clave de escritura no-PK), clave namespaced por `scope()`, sonda con el valor serializado y fail-open; sin lecturas obsoletas tras una escritura — Validated in Phase 3
 - ✓ `MemoryCacheBackend` acotado con LRU (`max_size=1024`) y documentado como dev/test-only — Validated in Phase 3
 - ✓ SEC-01: `Model.update`/`delete` aplican el `scope()` activo al DML (`WHERE` ligado); una escritura con clave no-PK no cruza tenants — Validated in Phase 3
+- ✓ `PooledConnection` concentra el estado por conexión; `acquire()` reserva-antes-de-await (nunca supera `max_size`) con ownership por tarea; `PoolDb._last_id` eliminado — Validated in Phase 4
+- ✓ El id se captura DENTRO del INSERT por conexión/tarea (`Db.execute_insert`, `returning=` opt-in: `lastrowid`/`RETURNING`/`OUTPUT INSERTED`/`RETURNING INTO`); `last_id()` post-hoc deprecado; MERGE de Oracle ejecutable (ORA-38104) — Validated in Phase 4
+- ✓ `reset_on_release` (rollback por defecto, `"commit"` deprecado con warning) con commit/rollback explícito en `execute`/`_run`; `close()` idempotente que respeta al tenedor; reaper perezoso por encima de `min_size` — Validated in Phase 4
+- ✓ Tests de concurrencia/estrés deterministas (barrera `asyncio.Event`, piso 3.10) con `pytest-timeout`/`pytest-repeat` — Validated in Phase 4
 
 ### Active
 
@@ -53,19 +57,15 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - [ ] Documentación explícita de superficies de confianza (`Filter.raw`, `Query`, fragmentos `db.fn.*`)
 
 **Concurrencia y pool**
-- [ ] `PoolDb.acquire()` es libre de carreras; nunca supera `max_size` bajo concurrencia
-- [ ] `last_id()` es correcto por conexión/tarea; sin cruces entre inserts concurrentes
-- [ ] Política definida de commit vs rollback al liberar una conexión con transacción abierta
 - [ ] Reconexión automática o envoltorio de salud para conexiones directas (no-pool)
-- [ ] Tests de concurrencia y estrés del pool que cubran estos caminos
+- [ ] (Residual menor documentado) `connect()` sin `close()` intermedio puede duplicar el lote; endurecer con guard de idempotencia en una pasada de calidad del pool
 
 **Calidad y CI**
-- [ ] (Fase 2 dejó el job `engine-heavy` cableado; falta su primer run verde en CI)
+- [x] El job `engine-heavy` (MSSQL + Oracle) tuvo su primer run verde en CI (2026-09-18); el fallo previo era el piso de cobertura global aplicado a una pata parcial, resuelto con `--cov-fail-under=0`
 
 **Rendimiento**
 - [ ] `copy_table` inserta por lotes en lugar de una fila por round-trip
 - [ ] La traducción de placeholders se precompila/cachea en lugar de re-parsear con regex en cada ejecución
-- [ ] El pool cierra conexiones ociosas por encima de `min_size` (reaper o política en `release()`)
 - [ ] Suite de benchmarks con objetivos numéricos medibles en CI
 
 **Release**
@@ -139,4 +139,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-18 after Phase 3 completion*
+*Last updated: 2026-09-19 after Phase 4 completion*
