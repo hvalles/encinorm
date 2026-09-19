@@ -6,3 +6,5 @@ y ahora por `Model.has_many(...)`. Se combina con `&` (AND), `|` (OR) y `~` (NOT
 ::: encino_orm.model.Filter
 
 ::: encino_orm.model.col
+
+Fronteras de confianza: ver [trust-boundaries.md](../trust-boundaries.md).

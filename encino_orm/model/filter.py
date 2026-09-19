@@ -112,6 +112,15 @@ class Filter:
 
     @staticmethod
     def raw(sql: str, params: list) -> "Filter":
+        """Condición a partir de un fragmento SQL literal y sus parámetros.
+
+        Frontera de confianza: el fragmento se reemite VERBATIM (`_rebind_raw`
+        solo reindexa los placeholders `{n}` para encajarlos con el resto del
+        árbol) y NO se valida. El llamador es responsable de no interpolar
+        entrada no confiable en `sql`; los valores deben viajar en `params`,
+        ligados. Contrato completo y ejemplos seguros/inseguros en
+        `docs/trust-boundaries.md`.
+        """
         return Filter("RAW", sql, list(params))
 
     # --- agrupadores ---

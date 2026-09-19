@@ -9,6 +9,17 @@ pool) y es la base que facilita B.3 (multi-tenant en `load`) y B.4 (DataLoader).
 > Complementa `docs/design/1-model.md`, `docs/design/4-crud.md` y
 > `docs/design/8-pk.md`. Es **aditivo**: `Model(db, ...)` sigue funcionando como hoy.
 
+!!! note "Actualización (Fase 6, CFG-01)"
+    El diseño original guardaba el default en un global `_default_db`. Hoy el
+    default vive en un `ConnectionRegistry` inyectable (estado de instancia), de
+    modo que dos aplicaciones/tenants en el mismo proceso resuelven a sus propias
+    bases de datos. `set_default_db`/`get_default_db` sobreviven como shims
+    **DEPRECADOS** (emiten `DeprecationWarning`) y se retiran en la Fase 8
+    (`REL-01`). La precedencia descrita abajo (explícito → pool → ambiente →
+    default) no cambia; solo cambia de dónde sale el default. Ver
+    [context.md](../reference/context.md) y
+    [trust-boundaries.md](../trust-boundaries.md).
+
 ---
 
 ## 1. Análisis de las recomendaciones B (analisys-07)

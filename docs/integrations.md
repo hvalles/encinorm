@@ -106,11 +106,14 @@ perms.require("users", "create")           # lanza AuthorizationError si no pued
 
 ### Guard en FastAPI
 
-```python
-import encino_orm.security.guard as guard
+El patrón recomendado es inyectar un `SecurityConfig` **inmutable** y construir
+las factorías de guards cerradas sobre él con `security_dependencies(config)`:
 
-guard.SECRET = "clave-super-secreta"
-guard.GET_DB = get_db                     # dependency de conexión
+```python
+from encino_orm.security import SecurityConfig, security_dependencies
+
+config = SecurityConfig(secret="clave-super-secreta", get_db=get_db)
+get_current_user, require = security_dependencies(config)
 
 @app.get("/users")
 async def list_users(user=Depends(get_current_user())):
@@ -119,6 +122,24 @@ async def list_users(user=Depends(get_current_user())):
 @app.post("/users")
 async def create_user(user=Depends(require("users", "create"))):
     ...
+```
+
+Mutar el `SecurityConfig` está prohibido (`frozen=True`); para rotar el secreto o
+aislar un tenant se construye otro config y otras factorías. Al estar cerradas
+sobre `config`, el guard deja de depender de estado global.
+
+!!! warning "Globales deprecados"
+    `guard.SECRET` y `guard.GET_DB` están **deprecados**: siguen existiendo solo
+    por compatibilidad y su uso emite `DeprecationWarning`. Mutarlos ya **no**
+    cambia el comportamiento de un guard construido desde `SecurityConfig`. Se
+    retiran en la Fase 8 (`REL-01`). El ejemplo legacy, conservado solo como
+    referencia, es:
+
+```python
+import encino_orm.security.guard as guard
+
+guard.SECRET = "clave-super-secreta"   # DEPRECADO: usa SecurityConfig
+guard.GET_DB = get_db                  # DEPRECADO: usa SecurityConfig
 ```
 
 ## 4. Codegen y CLI

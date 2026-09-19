@@ -25,3 +25,5 @@ Contrato `Db` y las implementaciones por motor, más `Query`, `Engine` y el pool
 ::: encino_orm.OracleDb
 
 ::: encino_orm.create_db
+
+Fronteras de confianza: ver [trust-boundaries.md](../trust-boundaries.md).

@@ -7,3 +7,5 @@ Registro de funciones SQL traducidas al dialecto del motor, accesibles como
 ::: encino_orm.SqlFunctions
 
 ::: encino_orm.Weekday
+
+Fronteras de confianza: ver [trust-boundaries.md](../trust-boundaries.md).

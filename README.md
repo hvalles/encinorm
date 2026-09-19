@@ -35,8 +35,11 @@ datos.
 - **Esquema**: `create_table`, migraciones versionadas, `diff_schema` y
   `sync_schema`.
 - **Hooks** de ciclo de vida y **caché** (`CachedModel` + `CacheBackend`).
-- **Conexión implícita**: `set_default_db`, `bind` y `session` eliminan la
-  necesidad de pasar `db` a cada instancia.
+- **Conexión implícita**: un `ConnectionRegistry` inyectable, más `bind` y
+  `session`, eliminan la necesidad de pasar `db` a cada instancia.
+  `set_default_db`/`get_default_db` siguen disponibles pero están **deprecados**
+  (emiten `DeprecationWarning`); usa `ConnectionRegistry`
+  (ver [contexto](docs/reference/context.md)).
 - **Observabilidad**: `trace_id` por request y `QueryTracer` con métricas.
 - **Capas opcionales**: REST (`create_crud`), GraphQL (`build_schema`),
   seguridad (`emit_token`, `require`, RBAC tri-estado) y CLI/codegen

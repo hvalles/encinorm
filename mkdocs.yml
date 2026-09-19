@@ -65,6 +65,7 @@ nav:
       - Observabilidad: reference/observability.md
       - Migraciones: reference/migration.md
   - Desarrolladores:
+      - Fronteras de confianza (SQL): trust-boundaries.md
       - Agregar un motor: engines.md
       - Docker: docker.md
       - Créditos: credits.md

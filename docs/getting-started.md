@@ -89,10 +89,18 @@ await User.cursor(db, id=u.id).delete()           # soft-delete (enabled=False)
 Para no pasar `db` en cada instancia, registra una conexión por defecto o usa el
 ámbito de request:
 
+!!! warning "`set_default_db` está deprecado"
+    `set_default_db`/`get_default_db` emiten `DeprecationWarning` y se retiran en
+    la Fase 8 (`REL-01`). El reemplazo es un `ConnectionRegistry` inyectable:
+    `reg = ConnectionRegistry(db)` y luego `reg.resolve()` (o
+    `resolve_db(registry=reg)`). `bind`/`session` y la resolución implícita del
+    `Model` no cambian. Ver [contexto](reference/context.md) y
+    [fronteras de confianza](trust-boundaries.md).
+
 ```python
 from encino_orm import set_default_db, session
 
-set_default_db(db)                        # singleton de proceso
+set_default_db(db)                        # DEPRECADO: prefiere ConnectionRegistry
 u = User(name="Bob")                      # sin `db`
 await u.insert()
 
