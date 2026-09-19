@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+import time
 import warnings
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
@@ -38,6 +39,16 @@ class Db(ABC):
     # desde `dialects.strategies.TRANSACTIONAL_DDL`; el runner de migraciones lo
     # lee en runtime para saber si el rollback ya eliminó la fila `pending`.
     transactional_ddl: bool = True
+
+    # Política de reciclado para conexiones DIRECTAS (RESL-03), OPT-IN: el
+    # default es conservador porque `pre_ping` añade un round-trip (`is_alive()`)
+    # por operación. Se fijan por INSTANCIA desde `connect(**kwargs)` — nunca por
+    # constructor, porque `PoolDb._create_connection` y `create_db` construyen
+    # `cls()` sin argumentos y un `__init__` con parámetros los rompería.
+    # `max_connection_lifetime` mide EDAD de conexión (semántica de
+    # `pool_recycle`), no inactividad: esa la cubre el reaper del pool (Fase 4).
+    pre_ping: bool = False
+    max_connection_lifetime: float | None = None
 
     # Estado de conexión para la auto-reconexión (RESL-02). Cada adaptador los
     # fija por instancia en `__init__`/`connect()`. `_connect_kwargs` guarda los
@@ -174,6 +185,70 @@ class Db(ABC):
             logger.warning("fallo al cerrar la conexión antes de reconectar", exc_info=True)
         await self.connect(**kwargs)
 
+    # --- Resiliencia: política `pre_ping` / `max_connection_lifetime` (RESL-03) ---
+
+    def _resilience_opts(self, kwargs: dict) -> dict:
+        """Extrae las opciones de resiliencia ANTES de reenviar `kwargs` al driver.
+
+        Hace `pop` de `pre_ping`/`max_connection_lifetime`, las normaliza y las
+        fija por instancia. Devuelve el dict SIN esas dos claves, listo para
+        guardarse en `_connect_kwargs` y reenviarse al driver: si llegasen al
+        driver, `aiomysql.connect(**kwargs)`/`asyncpg.connect(**kwargs)` fallarían
+        con un kwarg desconocido y la construcción de `conn_str`/`dsn` recibiría
+        datos de más.
+
+        Falla cerrado: un `max_connection_lifetime` no-`None` `<= 0` lanza
+        `ValueError` (mismo criterio que `check_identifier` para argumentos
+        inválidos). `None` desactiva el reciclado por edad sin error.
+        """
+        self.pre_ping = bool(kwargs.pop("pre_ping", self.pre_ping))
+        lifetime = kwargs.pop("max_connection_lifetime", self.max_connection_lifetime)
+        if lifetime is not None:
+            lifetime = float(lifetime)
+            if lifetime <= 0:
+                raise ValueError(
+                    f"max_connection_lifetime debe ser un número positivo: {lifetime!r}"
+                )
+        self.max_connection_lifetime = lifetime
+        return kwargs
+
+    def _should_recycle(self) -> bool:
+        """Indica si la conexión superó su vida máxima (EDAD, no inactividad).
+
+        `False` si nunca hubo conexión (`_connected_at is None`) o si el límite
+        está desactivado (`None`). El reloj es `time.monotonic()` — el mismo del
+        pool (`pool.py`) e inmune a saltos de hora —, nunca el reloj de pared.
+        """
+        if self._connected_at is None:
+            return False
+        if self.max_connection_lifetime is None:
+            return False
+        return time.monotonic() - self._connected_at >= self.max_connection_lifetime
+
+    async def _maybe_recycle(self) -> None:
+        """Recicla proactivamente la conexión directa antes de usarla (RESL-03).
+
+        Chequeo PEREZOSO y por operación (sin daemon ni tarea de fondo),
+        invocado al ENTRAR en `_with_reconnect`. Es un no-op si nunca hubo
+        conexión (`_connected_at is None`): no se recicla lo que no existió.
+
+        - Si se superó `max_connection_lifetime` → reconecta.
+        - Si `pre_ping` está activo y `is_alive()` es `False` → reconecta
+          INMEDIATAMENTE (Pitfall 5: `aiomysql.ping(reconnect=False)` sobre una
+          conexión muerta la deja inutilizable; anotar el fallo sin reconectar no
+          basta).
+
+        No emite warnings (el proyecto corre con `filterwarnings = ["error"]`) ni
+        loguea `_connect_kwargs` (contienen `password`).
+        """
+        if self._connected_at is None:
+            return
+        if self._should_recycle():
+            await self._reconnect()
+            return
+        if self.pre_ping and not await self.is_alive():
+            await self._reconnect()
+
     async def _with_reconnect(self, fn, *, retry: bool):
         """Ejecuta `fn()` y, ante una desconexión fuera de transacción, reconecta.
 
@@ -202,7 +277,13 @@ class Db(ABC):
         reintenta un lock (eso es de `retry()`, con backoff) y relanza la MISMA
         instancia para que `retry()` siga reconociéndola. Tampoco traduce la
         excepción (la taxonomía es de RESL-04).
+
+        Antes del `try` se ejecuta `_maybe_recycle()`: un chequeo PROACTIVO,
+        PEREZOSO (sin daemon) y opt-in de `pre_ping`/`max_connection_lifetime`
+        (RESL-03). Con los defaults (`False`/`None`) es un no-op sin coste en el
+        camino caliente.
         """
+        await self._maybe_recycle()
         try:
             return await fn()
         except Exception as exc:
