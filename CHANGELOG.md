@@ -23,6 +23,18 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   TTL; el nuevo formato no las sirve. Nota de ownership: esta entrada es ADITIVA y
   no prejuzga la enumeración de cambios incompatibles del milestone, que posee la
   Fase 8 (`08-04`).
+- **CAMBIO DE COMPORTAMIENTO (resiliencia de conexiones directas).** Una
+  desconexión fuera de transacción se clasifica con `is_disconnect_error` y
+  reconecta **exactamente una vez** (sin bucle ni backoff); dentro de una
+  transacción se relanza sin reconectar, porque un write pudo haber llegado al
+  servidor antes de morir el socket. Política de escrituras (lectura literal del
+  criterio de la fase): las LECTURAS se re-ejecutan tras reconectar; una
+  ESCRITURA cuya sentencia nunca llegó al driver (`ConnectionError` de la
+  librería) se ejecuta; una ESCRITURA que murió mid-statement reconecta pero
+  **relanza sin re-ejecutar** (nunca duplica en silencio). Antes, una desconexión
+  salía cruda del driver y la conexión directa quedaba inutilizable. Nota de
+  ownership: esta entrada es ADITIVA y no prejuzga la enumeración completa del
+  milestone, que posee la Fase 8 (`08-04`).
 
 ### Corregido
 
@@ -219,6 +231,32 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   compensación ya no enmascara la excepción original del DDL (IN-01). Nota de
   ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
   que posee la Fase 8 (`08-04`).
+- **CAMBIO DE COMPORTAMIENTO (taxonomía de errores y traducción de excepciones).**
+  Se publica una taxonomía aditiva — `ConnectionLostError(ConnectionError)`,
+  `OperationalError(QueryError)`, `IntegrityError(QueryError)` y
+  `ProgrammingError(QueryError)` — exportada desde `encino_orm`, y un punto único
+  de traducción (`Db._translate_exception`) que convierte las excepciones del
+  driver en excepciones de la librería. Un error de **lock** se devuelve SIN
+  traducir para no romper el reintento de `retry()`. Los mensajes traducidos
+  incluyen el del driver y nunca `_connect_kwargs` (contienen `password`). Nota
+  HTTP: al heredar de `QueryError`, `OperationalError`/`IntegrityError`/
+  `ProgrammingError` pasan a mapearse a **400** en `install_error_handlers`
+  (antes escapaban como 500); `ConnectionLostError` hereda de `ConnectionError` y
+  sigue siendo 500. La traducción usa `raise ... from exc` para preservar la
+  causa del driver (`__cause__`), una **desviación deliberada** de la convención
+  del repo justificada por ASVS V7 (diagnóstico del error de driver). Nota de
+  ownership: esta entrada es ADITIVA y no prejuzga la enumeración completa del
+  milestone, que posee la Fase 8 (`08-04`).
+- **CAMBIO DE COMPORTAMIENTO (reciclado opt-in de conexiones directas).** Nuevos
+  kwargs de `connect()` — `pre_ping` (default `False`) y
+  `max_connection_lifetime` (default `None`) — para que una conexión directa
+  sobreviva a periodos de inactividad: `pre_ping` sondea `is_alive()` antes de
+  cada operación (coste: un round-trip por operación) y reconecta de inmediato si
+  la sonda falla; `max_connection_lifetime` recicla por **edad** de conexión
+  (`time.monotonic`), no por inactividad. El reciclado a nivel de pool es
+  `RELI-03` (v2). SQLite `:memory:` **rechaza** reconectar (crearía una base
+  vacía y perdería los datos) lanzando `ConnectionLostError`. Nota de ownership:
+  esta entrada es ADITIVA y no prejuzga la enumeración del milestone (`08-04`).
 
 ## [0.2.6] - 2026-09-11
 

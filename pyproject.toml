@@ -267,18 +267,16 @@ module = ["encino_orm.graphql.*"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-# Cola medida: 6 errores repartidos en módulos pequeños. Se limpian cuando la
-# fase que reescribe cada módulo pase por él.
+# Cola medida: 9 errores repartidos en cinco módulos pequeños. Se limpian cuando
+# la fase que reescribe cada módulo pase por él. 05-04 (RESL) retiró las entradas
+# de los adaptadores y de `base` al corregir sus residuales de tipado; el ratchet
+# solo encoge.
 module = [
     "encino_orm.migration",            # 3 errores — Fase 3 (DATA-01/DATA-02: ledger y migrate atómico)
     "encino_orm.http.routes",          # 2 errores — Fase 6 (CFG-03: exec() → closures)
     "encino_orm.http.parsing",         # 2 errores — Fase 6 (CFG-03: capa HTTP)
-    "encino_orm.oracle",               # 2 errores — Fase 2 (DIAL-01/DIAL-02) y Fase 5 (RESL-01)
-    "encino_orm.mysql",                # 1 error  — Fase 2 (DIAL-01/DIAL-02) y Fase 5 (RESL-01)
-    "encino_orm.mssql",                # 1 error  — Fase 2 (DIAL-01/DIAL-02) y Fase 5 (RESL-01)
     "encino_orm.model.references",     # 1 error  — Fase 2 (DIAL-02: validación en los builders)
     "encino_orm.security.guard",       # 1 error  — Fase 6 (CFG-02: factorías de guardas)
-    "encino_orm.base",                 # 1 error  — Fase 5 (RESL-02: plantilla `_with_reconnect`)
 ]
 ignore_errors = true
 

@@ -312,7 +312,7 @@ class OracleDb(Db):
                 raise
             self._in_tx = True
             rowcount = cursor.rowcount
-            if returning:
+            if returning and out is not None:
                 v = out.getvalue()
                 self._last_id = v[0] if isinstance(v, (list, tuple)) and v else 0
             _log("execute", sql, values, time.monotonic() - t0)
@@ -348,7 +348,7 @@ class OracleDb(Db):
                 raise
             self._in_tx = True
             new_id = None
-            if returning:
+            if returning and out is not None:
                 v = out.getvalue()
                 new_id = v[0] if isinstance(v, (list, tuple)) and v else None
                 self._last_id = new_id or 0

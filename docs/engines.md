@@ -156,6 +156,66 @@ class MimotorDb(Db):
   retorno de `Model.insert()`.
 - `is_lock_error(exc)`: opcional; devuelve `True` ante deadlocks/bloqueos
   re-reintentables para que `retry()` funcione.
+- `is_disconnect_error(exc)`: opcional pero **obligatorio** para que la
+  auto-reconexión funcione. Devuelve `True` cuando el error del driver es una
+  pérdida de conexión (socket muerto, sesión matada, fichero inalcanzable).
+  Regla dura: **exclusión mutua con `is_lock_error`** — un lock NUNCA puede
+  clasificarse como desconexión, o el reintento con backoff de `retry()` dejaría
+  de reconocerlo. Clasifica por tipo/errno/SQLSTATE/`.full_code`; el substring de
+  mensaje solo es **refuerzo** donde el código es genérico (el `HY000` de ODBC en
+  MSSQL, cuyos mensajes vienen localizados).
+- `_translate_error(exc)`: opcional; mapea la excepción del driver a la taxonomía
+  pública (ver abajo). El punto ÚNICO de traducción es `Db._translate_exception`,
+  que `_with_reconnect` invoca en todos sus relanzados. Orden: (1) si
+  `is_lock_error(exc)` → devuelve el ORIGINAL sin traducir; (2) si ya es
+  `EncinoOrmError` → tal cual; (3) si `is_disconnect_error(exc)` →
+  `ConnectionLostError`; (4) en otro caso delega en el hook del adaptador. El
+  hook NO construye SQL ni interpola valores y nunca incluye `_connect_kwargs`
+  (contienen `password`).
+
+**Taxonomía pública de errores.** Las excepciones del driver no deben salir del
+adaptador (el contrato de importación diferida prohíbe al usuario depender del
+driver). La jerarquía es **aditiva**: las clases existentes conservan nombre y
+base.
+
+```python
+EncinoOrmError
+├── ConnectionError
+│   └── ConnectionLostError        # pérdida de conexión (RESL-01/02)
+└── QueryError
+    ├── OperationalError           # fallo operativo del motor
+    ├── IntegrityError             # UNIQUE / FK / NOT NULL / CHECK
+    └── ProgrammingError           # sintaxis / identificador / tipo inválido
+```
+
+- `ConnectionLostError` hereda de `ConnectionError`: `except ConnectionError`
+  sigue capturando lo que capturaba.
+- `OperationalError`/`IntegrityError`/`ProgrammingError` heredan de `QueryError`.
+  Nota HTTP: `install_error_handlers` mapea `QueryError` a **400**, así que esos
+  tres pasan de escapar como 500 a responder 400; `ConnectionLostError` sigue
+  siendo 500.
+- Un error de **lock** nunca se traduce: `retry()` clasifica sobre el tipo/args
+  ORIGINALES del driver y `_translate_exception` lo devuelve intacto.
+
+> **Desviación deliberada (chaining).** La convención del repo no usa
+> `raise ... from`; aquí la traducción SÍ lo usa (`raise ... from exc`) para
+> preservar la causa del driver (`__cause__`), que se perdería al REEMPLAZAR el
+> tipo de excepción. Es una excepción consciente justificada por ASVS V7
+> (diagnóstico del error de driver).
+
+**Ciclo de vida de la conexión directa.** `pre_ping` y `max_connection_lifetime`
+son kwargs OPCIONALES de `connect(**kwargs)`, NO del constructor (`PoolDb` y
+`create_db` construyen `cls()` sin argumentos):
+
+- `pre_ping=False` por defecto. Al activarlo, cada operación sondea `is_alive()`
+  (un round-trip extra) y reconecta **inmediatamente** si la sonda falla.
+- `max_connection_lifetime=None` por defecto. Mide **edad** de conexión con
+  `time.monotonic()` (semántica de `pool_recycle`), no inactividad; el reciclado
+  a nivel de pool es `RELI-03` (v2).
+
+SQLite es embebido y no tiene socket: `SqliteDb._reconnect()` **rechaza** una base
+`:memory:` (reconectar crearía una base vacía y perdería los datos) lanzando
+`ConnectionLostError`.
 
 ### 3. Implementa las migraciones
 
