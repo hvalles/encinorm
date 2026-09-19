@@ -12,9 +12,14 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 - **CAMBIO DE COMPORTAMIENTO (CFG-01: default de conexión inyectable).** El
   default de conexión de proceso deja de ser el global mutable `_default_db` y
-  pasa a vivir en un `ConnectionRegistry` inyectable (estado de instancia), de
-  modo que dos aplicaciones/tenants en el mismo proceso resuelven a sus propias
-  bases de datos sin pisarse. `set_default_db`/`get_default_db` quedan
+  pasa a vivir en un `ConnectionRegistry` inyectable (estado de instancia):
+  `resolve_db(registry=...)` resuelve contra el registry que recibe, así que dos
+  aplicaciones/tenants en el mismo proceso que resuelvan a través de su propio
+  registry obtienen bases de datos distintas sin pisarse. `Model` sin `db`
+  explícito resuelve por la cadena ambiente (`bind`/`session`/transacción del pool)
+  y, en último término, por el registry de módulo; para aislar por tenant pasa
+  `db=` explícito o usa `bind`/`session` (un `Model` no acepta un registry
+  directamente — residual documentado). `set_default_db`/`get_default_db` quedan
   **DEPRECADOS** (emiten `DeprecationWarning`) y `resolve_db()` sin argumentos
   conserva el comportamiento histórico. La precedencia `bind`/`session`/
   transacción del pool no cambia. Viejo: un único default de proceso; nuevo:

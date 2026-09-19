@@ -260,6 +260,21 @@ class TestSecurityConfig:
         with pytest.raises(dataclasses.FrozenInstanceError):
             cfg.secret = valor
 
+    def test_config_rechaza_secret_vacio_fail_closed(self):
+        """CR-01: el camino recomendado valida al construir; un secreto vacío o
+        un `get_db` ausente se rechazan (PyJWT solo AVISA de la clave vacía, así
+        que un token forjado con HS256 y clave vacía autenticaba)."""
+        with pytest.raises(AuthenticationError):
+            SecurityConfig("", _noop_get_db)
+        with pytest.raises(AuthenticationError):
+            SecurityConfig(_SIGNING_MATERIAL, None)
+
+    def test_repr_no_filtra_el_secreto(self):
+        """WR-01: `repr`/`str` de la config no exponen la clave de firma."""
+        cfg = SecurityConfig(_SIGNING_MATERIAL, _noop_get_db)
+        assert _SIGNING_MATERIAL not in repr(cfg)
+        assert _SIGNING_MATERIAL not in str(cfg)
+
     @pytest.mark.asyncio
     async def test_guards_desde_config_200_401_403(self, sec_db):
         await _seed_permissions(sec_db)

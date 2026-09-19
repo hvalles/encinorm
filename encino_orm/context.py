@@ -118,4 +118,6 @@ def resolve_db(registry: ConnectionRegistry | None = None):
     histórico. Pasa `registry` para resolver contra un `ConnectionRegistry`
     explícito (aislamiento por aplicación/tenant).
     """
-    return (registry or _registry).resolve()
+    # `is None` (no `or`): un registry que se evalúe como falsy no debe ignorarse
+    # en silencio y caer al de módulo (WR-03).
+    return (_registry if registry is None else registry).resolve()

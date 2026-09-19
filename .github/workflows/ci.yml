@@ -240,8 +240,11 @@ jobs:
         # pip-audit no lee uv.lock (verificado: `--locked .` -> "no lockfiles
         # found"), asi que se le alimenta el export de uv. Usa el feed PyPA,
         # distinto del feed OSV de `uv audit`: dos fuentes independientes.
+        # `--all-extras` (WR-04): sin el, el export omite las dependencias de
+        # los extras (fastapi/PyJWT/strawberry/redis/drivers) y el cross-check
+        # nunca las audita; con el, la cobertura del feed PyPA es la del lock.
         run: |
-          uv export --format requirements-txt --no-emit-project --no-hashes > "$RUNNER_TEMP/uv-export.txt"
+          uv export --format requirements-txt --no-emit-project --no-hashes --all-extras > "$RUNNER_TEMP/uv-export.txt"
           uv run pip-audit -r "$RUNNER_TEMP/uv-export.txt"
 
   engine-heavy:
