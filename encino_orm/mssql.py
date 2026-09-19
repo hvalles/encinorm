@@ -19,6 +19,10 @@ from .query import Query
 
 _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
 
+# Código nativo de SQL Server al final del mensaje de `pyodbc.Error` real:
+# "... (1205)". Se usa el ÚLTIMO paréntesis numérico como código.
+_NATIVE_CODE_RE = re.compile(r"\((\d+)\)")
+
 
 def _log(method, sql, values, elapsed):
     logger.debug(
@@ -59,55 +63,77 @@ class MssqlDb(Db):
         return self._connection is not None
 
     # --- errores ---
-    def _native_code(self, exc) -> int | None:
-        try:
-            return int(exc.args[1][0])
-        except (IndexError, TypeError, ValueError):
+    def _sqlstate(self, exc) -> str | None:
+        """SQLSTATE de `pyodbc.Error.args[0]` (str), o `None`."""
+        args: tuple = getattr(exc, "args", None) or ()
+        if not args:
             return None
+        state = args[0]
+        return state if isinstance(state, str) else None
+
+    def _message(self, exc) -> str:
+        """Mensaje del driver.
+
+        `pyodbc.Error` REAL tiene `args == (sqlstate, str)`. Algunos dobles usan
+        la forma `(sqlstate, (code, msg))`; se soportan ambas.
+        """
+        args: tuple = getattr(exc, "args", None) or ()
+        if len(args) > 1:
+            second = args[1]
+            if isinstance(second, (tuple, list)):
+                second = second[1] if len(second) > 1 else second[0]
+            return str(second)
+        return str(exc)
+
+    def _native_code(self, exc) -> int | None:
+        """Código nativo de SQL Server.
+
+        El driver real NO expone el código como campo: viaja al final del
+        mensaje (`... (1205)`), así que se extrae de ahí; la forma sintética
+        `(sqlstate, (code, msg))` se sigue soportando. `None` si no se puede.
+        """
+        args: tuple = getattr(exc, "args", None) or ()
+        if len(args) > 1 and isinstance(args[1], (tuple, list)):
+            try:
+                return int(args[1][0])
+            except (IndexError, TypeError, ValueError):
+                return None
+        codes = _NATIVE_CODE_RE.findall(self._message(exc))
+        return int(codes[-1]) if codes else None
 
     def is_lock_error(self, exc: Exception) -> bool:
-        # 1205 deadlock victim, 1222 lock request timeout
-        return self._native_code(exc) in (1205, 1222)
+        # 1205 deadlock victim, 1222 lock request timeout (por código nativo o
+        # por SQLSTATE: `40001` serialización, `HYT00` timeout).
+        if self._native_code(exc) in (1205, 1222):
+            return True
+        return self._sqlstate(exc) in ("40001", "HYT00")
 
     def is_unique_violation(self, exc: Exception) -> bool:
-        try:
-            sqlstate = exc.args[0]
-        except (IndexError, TypeError):
-            return False
         code = self._native_code(exc)
-        return sqlstate == "23000" and code in (2601, 2627)
+        return self._sqlstate(exc) == "23000" and code in (2601, 2627)
 
     def is_disconnect_error(self, exc: Exception) -> bool:
         """Clasifica la pérdida de conexión por SQLSTATE de ODBC.
 
         - `08xxx` (clase de error de conexión) → disconnect.
-        - `HY000`/`40001` NO-lock → disconnect solo si el mensaje trae una firma
+        - `HY000` NO-lock → disconnect solo si el mensaje trae una firma
           verificada. Pitfall 7: un KILL en mitad de query llega como `HY000`
           genérico, NO como `08xxx`.
-        - 1205/1222 (deadlock/lock timeout) quedan FUERA: son de `is_lock_error`.
+        - Un lock/deadlock (`1205`/`1222`/`40001`/`HYT00`) queda FUERA: es de
+          `is_lock_error` (RESL-01, exclusión mutua).
 
         NO importa `pyodbc`: clasifica por la forma de `args` del driver
         (drivers opcionales fuera del job `test` de CI).
         """
-        if self._native_code(exc) in (1205, 1222):
+        if self.is_lock_error(exc):
             return False
-        try:
-            sqlstate = exc.args[0]
-        except (IndexError, TypeError):
-            return False
-        if not isinstance(sqlstate, str):
+        sqlstate = self._sqlstate(exc)
+        if sqlstate is None:
             return False
         if sqlstate.startswith("08"):
             return True
-        if sqlstate in ("HY000", "40001"):
-            try:
-                native = exc.args[1]
-            except (IndexError, TypeError):
-                native = None
-            if isinstance(native, (tuple, list)) and len(native) > 1:
-                message = str(native[1])
-            else:
-                message = str(exc)
+        if sqlstate == "HY000":
+            message = self._message(exc)
             return any(
                 marker in message
                 for marker in (
@@ -121,18 +147,15 @@ class MssqlDb(Db):
     def _translate_error(self, exc: Exception) -> Exception:
         """Traduce ODBC/`pyodbc` a la taxonomía (RESL-04).
 
-        Reutiliza `is_unique_violation` (SQLSTATE 23000 + 2601/2627) y el
-        SQLSTATE de `args[0]`; no importa `pyodbc` (clasifica por la forma de
-        `args`, igual que `is_disconnect_error`). Las desconexiones ya las
-        intercepta `is_disconnect_error` antes de llegar aquí.
+        Toda la clase `23000` es integridad (UNIQUE 2601/2627, FK 547, NOT NULL
+        515, CHECK): distinguirlas por código dejaba FK/NOT NULL como
+        `ProgrammingError` (WR-02). Las desconexiones ya las intercepta
+        `is_disconnect_error` antes de llegar aquí.
         """
-        if self.is_unique_violation(exc):
+        sqlstate = self._sqlstate(exc)
+        if sqlstate == "23000" or self.is_unique_violation(exc):
             return IntegrityError(str(exc))
-        try:
-            sqlstate = exc.args[0]
-        except (IndexError, TypeError):
-            sqlstate = None
-        if sqlstate in ("42000", "42S02", "42S22", "23000"):
+        if sqlstate in ("42000", "42S02", "42S22"):
             return ProgrammingError(str(exc))
         return OperationalError(str(exc))
 
@@ -177,6 +200,13 @@ class MssqlDb(Db):
         self._connected_at = None
 
     async def is_alive(self) -> bool:
+        """Sonda de vida: `SELECT 1` SIN commit (WR-07).
+
+        Un `commit()` aquí mutaría el estado transaccional del llamador; con
+        `pre_ping` la sonda corre en el camino caliente y puede caer dentro de
+        una transacción. El reset del sobrante es responsabilidad de
+        `release()`/`_run`, no de una sonda de vida.
+        """
         if self._connection is None:
             return False
         try:
@@ -186,7 +216,6 @@ class MssqlDb(Db):
                 await cursor.fetchone()
             finally:
                 await cursor.close()
-            await self._connection.commit()
             return True
         except Exception:
             return False

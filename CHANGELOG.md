@@ -232,21 +232,24 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
   que posee la Fase 8 (`08-04`).
 - **CAMBIO DE COMPORTAMIENTO (taxonomía de errores y traducción de excepciones).**
-  Se publica una taxonomía aditiva — `ConnectionLostError(ConnectionError)`,
-  `OperationalError(QueryError)`, `IntegrityError(QueryError)` y
+  Se publica una taxonomía — `ConnectionLostError(ConnectionError)`,
+  `OperationalError(EncinoOrmError)`, `IntegrityError(QueryError)` y
   `ProgrammingError(QueryError)` — exportada desde `encino_orm`, y un punto único
   de traducción (`Db._translate_exception`) que convierte las excepciones del
   driver en excepciones de la librería. Un error de **lock** se devuelve SIN
   traducir para no romper el reintento de `retry()`. Los mensajes traducidos
-  incluyen el del driver y nunca `_connect_kwargs` (contienen `password`). Nota
-  HTTP: al heredar de `QueryError`, `OperationalError`/`IntegrityError`/
-  `ProgrammingError` pasan a mapearse a **400** en `install_error_handlers`
-  (antes escapaban como 500); `ConnectionLostError` hereda de `ConnectionError` y
-  sigue siendo 500. La traducción usa `raise ... from exc` para preservar la
-  causa del driver (`__cause__`), una **desviación deliberada** de la convención
-  del repo justificada por ASVS V7 (diagnóstico del error de driver). Nota de
-  ownership: esta entrada es ADITIVA y no prejuzga la enumeración completa del
-  milestone, que posee la Fase 8 (`08-04`).
+  incluyen el del driver y nunca `_connect_kwargs` (contienen `password`).
+  **REEMPLAZO, no solo aditivo:** la excepción del driver se SUSTITUYE por la de
+  la librería, así que un `except sqlite3.IntegrityError:` (o
+  `asyncpg.UniqueViolationError`, etc.) deja de capturarla; hay que capturar el
+  tipo de `encino_orm` o inspeccionar `__cause__` (la causa original se preserva
+  con `raise ... from exc`, desviación deliberada de la convención del repo
+  justificada por ASVS V7). Nota HTTP: `IntegrityError`/`ProgrammingError`
+  derivan de `QueryError` → **400**; `OperationalError` (fallo de
+  INFRAESTRUCTURA, no de la consulta) deriva de `EncinoOrmError` → **500**;
+  `ConnectionLostError` hereda de `ConnectionError` → **500**. Nota de ownership:
+  esta entrada es ADITIVA y no prejuzga la enumeración completa del milestone,
+  que posee la Fase 8 (`08-04`).
 - **CAMBIO DE COMPORTAMIENTO (reciclado opt-in de conexiones directas).** Nuevos
   kwargs de `connect()` — `pre_ping` (default `False`) y
   `max_connection_lifetime` (default `None`) — para que una conexión directa

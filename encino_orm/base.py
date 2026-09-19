@@ -246,7 +246,7 @@ class Db(ABC):
         `ValueError` (mismo criterio que `check_identifier` para argumentos
         inválidos). `None` desactiva el reciclado por edad sin error.
         """
-        self.pre_ping = bool(kwargs.pop("pre_ping", self.pre_ping))
+        pre_ping = bool(kwargs.pop("pre_ping", self.pre_ping))
         lifetime = kwargs.pop("max_connection_lifetime", self.max_connection_lifetime)
         if lifetime is not None:
             lifetime = float(lifetime)
@@ -254,6 +254,9 @@ class Db(ABC):
                 raise ValueError(
                     f"max_connection_lifetime debe ser un número positivo: {lifetime!r}"
                 )
+        # Se asignan DESPUÉS de validar ambos (IN-03): un `lifetime` inválido no
+        # debe dejar `pre_ping` cambiado en la instancia.
+        self.pre_ping = pre_ping
         self.max_connection_lifetime = lifetime
         return kwargs
 
@@ -285,8 +288,15 @@ class Db(ABC):
 
         No emite warnings (el proyecto corre con `filterwarnings = ["error"]`) ni
         loguea `_connect_kwargs` (contienen `password`).
+
+        GUARDA DE TRANSACCIÓN (CR-01): si hay una transacción abierta NO se
+        recicla. `close()` revertiría el trabajo no confirmado en silencio y las
+        sentencias posteriores correrían FUERA de la transacción; el reciclado
+        proactivo nunca puede tocar una transacción abierta.
         """
         if self._connected_at is None:
+            return
+        if await self.in_transaction():
             return
         if self._should_recycle():
             await self._reconnect()
@@ -294,7 +304,19 @@ class Db(ABC):
         if self.pre_ping and not await self.is_alive():
             await self._reconnect()
 
-    async def _with_reconnect(self, fn, *, retry: bool):
+    def _raise_translated(self, exc: Exception):
+        """Relanza `exc` traducida, encadenando SOLO si cambia de instancia (IN-04).
+
+        `_translate_exception` devuelve la MISMA instancia para un lock o una
+        excepción ya de la librería; en ese caso se relanza tal cual para no
+        crear un `__cause__` auto-referencial.
+        """
+        translated = self._translate_exception(exc)
+        if translated is exc:
+            raise
+        raise translated from exc
+
+    async def _with_reconnect(self, fn, *, is_read: bool):
         """Ejecuta `fn()` y, ante una desconexión fuera de transacción, reconecta.
 
         Template method (RESL-02) que centraliza la clasificación y la
@@ -309,12 +331,12 @@ class Db(ABC):
           servidor antes de morir el socket; reintentarlo duplicaría datos.
         - Fuera de transacción reconecta **EXACTAMENTE UNA VEZ**, sin bucle ni
           backoff, y aplica la política A2:
-          * **Lecturas** (`retry=True`, `fetch_*`): idempotentes → re-ejecuta.
-          * **Escrituras pre-ejecución** (`retry=False` pero `fn` lanzó la
+          * **Lecturas** (`is_read=True`, `fetch_*`): idempotentes → re-ejecuta.
+          * **Escrituras pre-ejecución** (`is_read=False` pero `fn` lanzó la
             `ConnectionError` de la librería): la sentencia nunca llegó al
             driver, así que re-ejecutar es su PRIMERA ejecución, no un
             reintento.
-          * **Escrituras mid-statement** (`retry=False` y excepción de driver):
+          * **Escrituras mid-statement** (`is_read=False` y excepción de driver):
             el servidor pudo haber aplicado el write → reconecta pero RELANZA
             el error original, sin re-ejecutar (nunca duplica en silencio).
 
@@ -329,30 +351,34 @@ class Db(ABC):
         `docs/engines.md`/`CHANGELOG.md`. El fallo de `_reconnect()` también se
         traduce para que no escape una excepción de driver cruda.
 
-        Antes del `try` se ejecuta `_maybe_recycle()`: un chequeo PROACTIVO,
-        PEREZOSO (sin daemon) y opt-in de `pre_ping`/`max_connection_lifetime`
-        (RESL-03). Con los defaults (`False`/`None`) es un no-op sin coste en el
-        camino caliente.
+        Antes del `try` principal se ejecuta `_maybe_recycle()`: un chequeo
+        PROACTIVO, PEREZOSO (sin daemon) y opt-in de `pre_ping`/
+        `max_connection_lifetime` (RESL-03). Con los defaults (`False`/`None`) es
+        un no-op sin coste en el camino caliente. Su fallo se traduce (WR-01)
+        pero NO dispara otra reconexión: ya intentó reconectar y falló.
         """
-        await self._maybe_recycle()
+        try:
+            await self._maybe_recycle()
+        except Exception as exc:
+            self._raise_translated(exc)
         try:
             return await fn()
         except Exception as exc:
             if not self._is_reconnectable(exc):
-                raise self._translate_exception(exc) from exc
+                self._raise_translated(exc)
             if await self.in_transaction():
-                raise self._translate_exception(exc) from exc
+                self._raise_translated(exc)
             pre_execution = isinstance(exc, OrmConnectionError)
             try:
                 await self._reconnect()
             except Exception as rexc:
-                raise self._translate_exception(rexc) from rexc
-            if retry or pre_execution:
+                self._raise_translated(rexc)
+            if is_read or pre_execution:
                 try:
                     return await fn()
                 except Exception as exc2:
-                    raise self._translate_exception(exc2) from exc2
-            raise self._translate_exception(exc) from exc
+                    self._raise_translated(exc2)
+            self._raise_translated(exc)
 
     @abstractmethod
     def insert(
@@ -382,7 +408,7 @@ class Db(ABC):
     # (Pitfall 10). `PoolDb` sobreescribe los públicos y nunca entra aquí.
 
     async def execute(self, qry: Query):
-        return await self._with_reconnect(lambda: self._execute(qry), retry=False)
+        return await self._with_reconnect(lambda: self._execute(qry), is_read=False)
 
     async def _execute(self, qry: Query):
         raise NotImplementedError("execute() no implementado para este motor")
@@ -396,25 +422,25 @@ class Db(ABC):
         `Query` transporta la metadata `returns_id`/`id_column` que fija
         `build_insert(returning=...)`.
         """
-        return await self._with_reconnect(lambda: self._execute_insert(qry), retry=False)
+        return await self._with_reconnect(lambda: self._execute_insert(qry), is_read=False)
 
     async def _execute_insert(self, qry: Query) -> int | None:
         raise NotImplementedError("execute_insert() no implementado para este motor")
 
     async def fetch_all(self, qry: Query):
-        return await self._with_reconnect(lambda: self._fetch_all(qry), retry=True)
+        return await self._with_reconnect(lambda: self._fetch_all(qry), is_read=True)
 
     async def _fetch_all(self, qry: Query):
         raise NotImplementedError("fetch_all() no implementado para este motor")
 
     async def fetch_one(self, qry: Query):
-        return await self._with_reconnect(lambda: self._fetch_one(qry), retry=True)
+        return await self._with_reconnect(lambda: self._fetch_one(qry), is_read=True)
 
     async def _fetch_one(self, qry: Query):
         raise NotImplementedError("fetch_one() no implementado para este motor")
 
     async def fetch_many(self, qry: Query, limit: int, page: int):
-        return await self._with_reconnect(lambda: self._fetch_many(qry, limit, page), retry=True)
+        return await self._with_reconnect(lambda: self._fetch_many(qry, limit, page), is_read=True)
 
     async def _fetch_many(self, qry: Query, limit: int, page: int):
         raise NotImplementedError("fetch_many() no implementado para este motor")

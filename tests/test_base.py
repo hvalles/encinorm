@@ -46,9 +46,16 @@ class TestDbExceptions:
             assert issubclass(exc, EncinoOrmError)
 
     def test_taxonomia_es_aditiva_y_compatible(self):
-        """RESL-04: los `except` previos siguen capturando lo que capturaban."""
+        """RESL-04: los `except` previos siguen capturando lo que capturaban.
+
+        Excepción: `OperationalError` deja de derivar de `QueryError` (WR-05) para
+        que un fallo de INFRAESTRUCTURA no se mapee a HTTP 400; deriva de
+        `EncinoOrmError` y cae al 500 genérico. Es un cambio de jerarquía
+        documentado en CHANGELOG.
+        """
         assert issubclass(ConnectionLostError, ConnectionError)
-        assert issubclass(OperationalError, QueryError)
+        assert issubclass(OperationalError, EncinoOrmError)
+        assert not issubclass(OperationalError, QueryError)
         assert issubclass(IntegrityError, QueryError)
         assert issubclass(ProgrammingError, QueryError)
 

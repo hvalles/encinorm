@@ -25,8 +25,24 @@ _PLACEHOLDER_RE = re.compile(r"%\(([A-Za-z0-9_]+)\)s")
 # `Model.upsert()` fallan en Oracle con ORA-00923.
 _MERGE_USING_RE = re.compile(r"USING \(SELECT (.+?)\) src")
 
-# Códigos ORA de desconexión: sesión matada, EOF, red caída, etc.
-_ORA_DISCONNECT_CODES = (28, 1012, 1080, 2396, 3113, 3114, 3135, 12537, 12541, 12547)
+# Códigos ORA de desconexión: sesión matada, EOF, red caída, timeout de TNS,
+# ORACLE no disponible, etc. (WR-06: se añaden 12570/12571/12170/1034).
+_ORA_DISCONNECT_CODES = (
+    28,
+    1012,
+    1034,
+    1080,
+    2396,
+    3113,
+    3114,
+    3135,
+    12170,
+    12537,
+    12541,
+    12547,
+    12570,
+    12571,
+)
 # `full_code` es obligatorio: DPY-4011 (sesión matada) trae `code == 0`.
 _ORA_DISCONNECT_DPY = ("DPY-4011", "DPY-6005", "DPY-6001", "DPY-6003")
 

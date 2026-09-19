@@ -175,25 +175,28 @@ class MimotorDb(Db):
 
 **Taxonomía pública de errores.** Las excepciones del driver no deben salir del
 adaptador (el contrato de importación diferida prohíbe al usuario depender del
-driver). La jerarquía es **aditiva**: las clases existentes conservan nombre y
-base.
+driver). La jerarquía conserva los nombres y bases existentes (`ConnectionError`,
+`QueryError`), pero la traducción **REEMPLAZA** la excepción del driver por la de
+la librería: `except sqlite3.IntegrityError:` deja de capturarla; captura el tipo
+de `encino_orm` o inspecciona `__cause__`.
 
 ```python
 EncinoOrmError
 ├── ConnectionError
 │   └── ConnectionLostError        # pérdida de conexión (RESL-01/02)
+├── OperationalError               # fallo operativo/infra del motor (NO es QueryError)
 └── QueryError
-    ├── OperationalError           # fallo operativo del motor
     ├── IntegrityError             # UNIQUE / FK / NOT NULL / CHECK
     └── ProgrammingError           # sintaxis / identificador / tipo inválido
 ```
 
 - `ConnectionLostError` hereda de `ConnectionError`: `except ConnectionError`
   sigue capturando lo que capturaba.
-- `OperationalError`/`IntegrityError`/`ProgrammingError` heredan de `QueryError`.
-  Nota HTTP: `install_error_handlers` mapea `QueryError` a **400**, así que esos
-  tres pasan de escapar como 500 a responder 400; `ConnectionLostError` sigue
-  siendo 500.
+- `IntegrityError`/`ProgrammingError` heredan de `QueryError`; nota HTTP:
+  `install_error_handlers` mapea `QueryError` a **400**.
+- `OperationalError` deriva de `EncinoOrmError` (NO de `QueryError`): un fallo de
+  INFRAESTRUCTURA (servidor caído, timeout) no es culpa del cliente, así que cae
+  al **500** genérico. `ConnectionLostError` también es 500.
 - Un error de **lock** nunca se traduce: `retry()` clasifica sobre el tipo/args
   ORIGINALES del driver y `_translate_exception` lo devuelve intacto.
 

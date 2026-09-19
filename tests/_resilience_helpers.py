@@ -200,14 +200,15 @@ def pg_operational() -> Exception:
 
 
 class _MssqlExc(Exception):
-    """Excepción con la MISMA forma de `args` que `pyodbc.Error`.
+    """`pyodbc.Error` REAL: `args == (sqlstate, mensaje)`.
 
-    `mssql.py:_native_code` consume `exc.args[1][0]` y `is_unique_violation`
-    consume `exc.args[0]`, así que el doble reproduce `(sqlstate, (code, msg))`.
+    El código nativo de SQL Server NO viaja como campo: aparece al final del
+    mensaje (`... (1205)`). Reproducir la forma real (y no una tupla sintética)
+    es lo que valida de verdad la clasificación (WR-03).
     """
 
     def __init__(self, sqlstate: str, code: int, message: str):
-        self.args = (sqlstate, (code, message))
+        self.args = (sqlstate, f"{message} ({code})")
 
 
 def mssql_disconnect_midquery() -> Exception:
@@ -233,6 +234,16 @@ def mssql_lock_timeout() -> Exception:
 def mssql_integrity() -> Exception:
     """SQLSTATE 23000 + 2627 (unique) → `IntegrityError`."""
     return _MssqlExc("23000", 2627, "Violation of UNIQUE KEY constraint")
+
+
+def mssql_fk_violation() -> Exception:
+    """SQLSTATE 23000 + 547 (FK) → `IntegrityError` (WR-02)."""
+    return _MssqlExc("23000", 547, "The INSERT conflicted with the FOREIGN KEY constraint")
+
+
+def mssql_not_null() -> Exception:
+    """SQLSTATE 23000 + 515 (NOT NULL) → `IntegrityError` (WR-02)."""
+    return _MssqlExc("23000", 515, "Cannot insert the value NULL into column")
 
 
 def mssql_syntax() -> Exception:
@@ -323,13 +334,6 @@ def real_oracle_disconnect() -> Exception:
 # ---------------------------------------------------------------------------
 # Doble determinista de `Db`
 # ---------------------------------------------------------------------------
-
-# `_with_reconnect` llega en 05-02. Mientras `Db.execute`/`fetch_*` sigan siendo
-# abstractos (05-01), el doble debe implementar los públicos para poder
-# instanciarse; cuando el template method exista, los públicos reenvían a la
-# superclase para NO saltarse la clasificación/reconexión. Se evalúa una vez al
-# importar el módulo.
-_DB_CON_TEMPLATE = hasattr(Db, "_with_reconnect")
 
 
 class FakeResilientDb(Db):
@@ -432,32 +436,22 @@ class FakeResilientDb(Db):
             raise self._exc_factory()
         return [{"ok": 1}]
 
-    # --- métodos públicos (compatibilidad 05-01; delegan al template en 05-02) ---
+    # --- métodos públicos: SIEMPRE delegan al template de `Db` ---
 
     async def execute(self, qry):
-        if _DB_CON_TEMPLATE:
-            return await super().execute(qry)
-        return await self._execute(qry)
+        return await super().execute(qry)
 
     async def execute_insert(self, qry):
-        if _DB_CON_TEMPLATE:
-            return await super().execute_insert(qry)
-        return await self._execute_insert(qry)
+        return await super().execute_insert(qry)
 
     async def fetch_all(self, qry):
-        if _DB_CON_TEMPLATE:
-            return await super().fetch_all(qry)
-        return await self._fetch_all(qry)
+        return await super().fetch_all(qry)
 
     async def fetch_one(self, qry):
-        if _DB_CON_TEMPLATE:
-            return await super().fetch_one(qry)
-        return await self._fetch_one(qry)
+        return await super().fetch_one(qry)
 
     async def fetch_many(self, qry, limit, page):
-        if _DB_CON_TEMPLATE:
-            return await super().fetch_many(qry, limit, page)
-        return await self._fetch_many(qry, limit, page)
+        return await super().fetch_many(qry, limit, page)
 
     async def exists(self, qry) -> bool:
         return await self._fetch_one(qry) is not None

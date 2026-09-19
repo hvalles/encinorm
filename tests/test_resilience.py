@@ -40,9 +40,11 @@ from tests._resilience_helpers import (
     FakeResilientDb,
     mssql_disconnect_idle,
     mssql_disconnect_midquery,
+    mssql_fk_violation,
     mssql_integrity,
     mssql_lock,
     mssql_lock_timeout,
+    mssql_not_null,
     mssql_syntax,
     mysql_disconnect,
     mysql_gone_away,
@@ -491,6 +493,52 @@ class TestResilienceLifetime:
         assert db.connects == 0
         assert db.is_alive_calls == 0
 
+    @pytest.mark.asyncio
+    async def test_lifetime_no_recicla_dentro_de_transaccion(self):
+        """CR-01: un reciclado proactivo NUNCA toca una transacción abierta.
+
+        Cerrar la conexión revertiría el trabajo no confirmado en silencio; las
+        sentencias posteriores correrían fuera de la transacción.
+        """
+        db = FakeResilientDb(fail_first=0, tx=True)
+        await db.connect()
+        db.max_connection_lifetime = 10.0
+        db._connected_at -= 11
+
+        assert await db.fetch_one(Query("SELECT 1", [])) == {"ok": 1}
+        assert db.connects == 1
+        assert db.closes == 0
+
+    @pytest.mark.asyncio
+    async def test_pre_ping_no_reconecta_dentro_de_transaccion(self):
+        """CR-01: ni siquiera la sonda `pre_ping` corre dentro de una transacción."""
+        db = FakeResilientDb(fail_first=0, tx=True)
+        await db.connect()
+        db.pre_ping = True
+        db._connected = False
+
+        assert await db.fetch_one(Query("SELECT 1", [])) == {"ok": 1}
+        assert db.connects == 1
+        assert db.closes == 0
+        assert db.is_alive_calls == 0
+
+    @pytest.mark.asyncio
+    async def test_fallo_de_reconexion_proactiva_se_traduce(self):
+        """WR-01: el fallo de `_maybe_recycle` no escapa crudo (RESL-04)."""
+        db = FakeResilientDb(fail_first=0)
+        await db.connect()
+        db.pre_ping = True
+        db._connected = False
+
+        async def _connect_falla(**kwargs):
+            raise mysql_disconnect()
+
+        db.connect = _connect_falla
+
+        with pytest.raises(ConnectionLostError) as raised:
+            await db.fetch_one(Query("SELECT 1", []))
+        assert isinstance(raised.value.__cause__, pymysql.err.OperationalError)
+
     def test_resilience_opts_extrae_y_valida(self):
         """`_resilience_opts` hace pop, normaliza y falla cerrado con `<= 0`."""
         db = SqliteDb()
@@ -581,6 +629,8 @@ _TRANSLATE_CASES = [
     (PostgresDb, pg_programming, ProgrammingError),
     (PostgresDb, pg_operational, OperationalError),
     (MssqlDb, mssql_integrity, IntegrityError),
+    (MssqlDb, mssql_fk_violation, IntegrityError),
+    (MssqlDb, mssql_not_null, IntegrityError),
     (MssqlDb, mssql_syntax, ProgrammingError),
     (OracleDb, oracle_integrity, IntegrityError),
     (OracleDb, oracle_syntax, ProgrammingError),

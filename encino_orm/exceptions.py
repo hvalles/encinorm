@@ -14,7 +14,11 @@ class QueryError(EncinoOrmError):
     pass
 
 
-class OperationalError(QueryError):
+class OperationalError(EncinoOrmError):
+    # NO deriva de `QueryError`: agrupa fallos de INFRAESTRUCTURA del driver
+    # (servidor caído, timeout, error operativo), no errores de la consulta del
+    # cliente. Así el mapeo HTTP no los etiqueta como 400 (WR-05); sin un
+    # handler específico caen al 500 genérico.
     pass
 
 

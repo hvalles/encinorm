@@ -91,6 +91,10 @@ class MysqlDb(Db):
         """
         if isinstance(exc, aiomysql.InterfaceError):
             return True
+        # Un error de socket crudo (no envuelto por aiomysql) también es una
+        # desconexión: sin esto no se dispararía la reconexión (WR-06).
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError)):
+            return True
         if isinstance(exc, aiomysql.OperationalError):
             errno = exc.args[0] if exc.args else None
             return errno in _DISCONNECT_ERRNOS
