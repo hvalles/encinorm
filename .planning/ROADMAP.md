@@ -295,7 +295,7 @@ Plans:
 
 - [x] 05-01: `is_disconnect_error` per adapter across all six engines — RESL-01
 - [x] 05-02: `Db._with_reconnect` template method that reconnects exactly once and only when `in_transaction()` is false, kept strictly separate from the lock/deadlock retry path — RESL-02
-- [ ] 05-03: `pre_ping` + `max_connection_lifetime` policy for direct (non-pooled) connections — RESL-03
+- [x] 05-03: `pre_ping` + `max_connection_lifetime` policy for direct (non-pooled) connections — RESL-03
 - [ ] 05-04: Public error taxonomy translating driver exceptions into library exceptions — RESL-04
 
 ### Phase 6: Config & Optional-Layer Hygiene
@@ -454,7 +454,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 2. Dialect Seam & Engine Parity | 12/12 | Complete   | 2026-09-18 |
 | 3. Data Correctness | 13/13 | Complete    | 2026-09-18 |
 | 4. Pool Correctness & Concurrency | 6/6 | Complete    | 2026-09-19 |
-| 5. Resilience | 2/4 | In Progress|  |
+| 5. Resilience | 3/4 | In Progress|  |
 | 6. Config & Optional-Layer Hygiene | 0/5 | Not started | - |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
 | 8. Release 0.3.0 | 0/5 | Not started | - |

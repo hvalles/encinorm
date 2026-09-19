@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 05-02-PLAN.md (RESL-02: _with_reconnect + politica A2) — Phase 5 en progreso (2/4)"
-last_updated: "2026-09-19T05:12:45.663Z"
+stopped_at: "Completed 05-03-PLAN.md (RESL-03: pre_ping + max_connection_lifetime) — Phase 5 en progreso (3/4)"
+last_updated: "2026-09-19T05:17:36.472Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 40
-  completed_plans: 38
+  completed_plans: 39
   percent: 50
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 5
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [██████████] 95%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -94,6 +94,7 @@ Progress: [██████████] 95%
 | Phase 04 P06 | 20 min | 3 tasks | 1 files |
 | Phase 05 P01 | 5 min | 3 tasks | 14 files |
 | Phase 5 P2 | 9 min | 3 tasks | 8 files |
+| Phase 5 P3 | 3min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -205,6 +206,7 @@ Recent decisions affecting current work:
 - [Phase 05]: 05-01: MSSQL extrae el mensaje aceptando `args[1]` tupla (dobles) o string (pyodbc real); Oracle usa `from oracledb import exceptions` dentro de `real_oracle_disconnect` porque `oracledb.exceptions` no se expone como atributo tras `import oracledb`. — Ambas formas reales verificadas contra los drivers instalados; los drivers opcionales siguen sin importarse a nivel de modulo.
 - [Phase 05]: 05-01: `FakeResilientDb` define los metodos publicos con un puente `hasattr(Db, "_with_reconnect")`: en 05-01 (publicos aun abstractos) delegan en los privados y en 05-02 reenvian a `super()` para no saltarse el template method. — Satisface el criterio de instanciabilidad de 05-01 y deja el helper operativo para 05-02/03/04 sin editar la infraestructura.
 - [Phase 5]: 05-02: _with_reconnect reconecta exactamente una vez y solo fuera de tx; política A2 (lecturas re-ejecutan, escrituras pre-ejecución ejecutan, mid-statement reconectan y relanzan, dentro de tx relanzan). — Un reintento ciego de una escritura ambigua duplicaría datos en silencio (Core Value); el guard in_transaction() y la distinción pre-ejecución vs mid-statement lo impiden.
+- [Phase 05]: 05-03: `pre_ping`/`max_connection_lifetime` son opt-in (defaults `False`/`None`), se fijan por instancia desde `connect(**kwargs)` y `_resilience_opts` hace pop ANTES de guardarlos/reenviarlos al driver. El reciclado mide EDAD con `time.monotonic()` y `_maybe_recycle` reconecta INMEDIATAMENTE si la sonda falla; el chequeo es perezoso (sin daemon) y `pool.py` queda intacto. — `pre_ping` añade un round-trip por operación, así que su coste debe ser opt-in; la inactividad y el reciclado a nivel de pool son del reaper de Fase 4 / RELI-03 (v2).
 
 ### Pending Todos
 
@@ -229,6 +231,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T05:12:45.651Z
-Stopped at: Completed 05-02-PLAN.md (RESL-02: _with_reconnect + politica A2) — Phase 5 en progreso (2/4)
+Last session: 2026-09-19T05:17:33.308Z
+Stopped at: Completed 05-03-PLAN.md (RESL-03: pre_ping + max_connection_lifetime) — Phase 5 en progreso (3/4)
 Resume file: None
