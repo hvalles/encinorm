@@ -253,11 +253,15 @@ jobs:
     name: Benchmarks (gate 2×)
     runs-on: ubuntu-latest
     # PERF-02: pisos = 0.6x de una línea base medida UNA vez en CI; una regresión
-    # >= 1.67x en cualquiera de las 5 unidades falla el job con la mediana en el
+    # >= 1.67x en cualquiera de las 6 unidades falla el job con la mediana en el
     # mensaje del assert. Toda recalibración de un piso se documenta en el MISMO
     # commit que la cambia (disciplina Q3 del RESEARCH de Fase 7).
     # Sin servicios de DB, sin --cov ni --junitxml: no alimenta el combine de
     # `coverage` (needs: [test, engine-heavy] queda intacto).
+    # La colección se limita al fichero test_benchmarks.py: `uv sync --group dev`
+    # no instala los extras http/security/graphql y pytest importa TODOS los
+    # módulos de tests/ en colección, de modo que test_graphql*.py et al. fallaban
+    # con ModuleNotFoundError (fastapi/strawberry) antes de seleccionar -m benchmark.
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -274,7 +278,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Benchmarks
-        run: uv run pytest -m benchmark -q --timeout-method=signal
+        run: uv run pytest tests/test_benchmarks.py -q --timeout-method=signal
 
   engine-heavy:
     name: Motores pesados (MSSQL + Oracle)
