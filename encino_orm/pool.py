@@ -6,7 +6,7 @@ import warnings
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
-from .base import Db, _warn_last_id_deprecated
+from .base import Db
 from .context import bind
 from .engine import Engine
 from .exceptions import ConnectionError, PoolExhaustedError, UnsupportedEngineError
@@ -30,7 +30,8 @@ logger = logging.getLogger("encino_orm")
 
 # Conexión activa de la transacción en curso (por tarea/contexto). Permite que
 # `PoolDb.execute/fetch/...` resuelvan a la MISMA conexión dentro de
-# `transaction()`, garantizando atomicidad y `last_id()` correcto.
+# `transaction()`, garantizando atomicidad y la captura del id con
+# `execute_insert()`.
 _current_connection = contextvars.ContextVar("encino_orm_pool_connection", default=None)
 
 
@@ -539,21 +540,6 @@ class PoolDb(Db):
 
     async def exists(self, qry):
         return await self._run("exists", qry)
-
-    async def last_id(self):
-        """DEPRECADO: usa `PoolDb.execute_insert(qry)`.
-
-        Emite el MISMO `DeprecationWarning` centralizado que el `last_id()` de
-        `Db` (helper de `.base`) y, dentro de una transacción, delega en el id por
-        conexión/tarea del handle retenido; fuera devuelve 0.
-        """
-        _warn_last_id_deprecated()
-        handle = _current_connection.get()
-        if handle is not None:
-            return await handle.driver._last_id_value()
-        # Sin cache a nivel de pool: fuera de una transacción no hay una
-        # conexión/tarea a la que asociar el id, así que se devuelve 0.
-        return 0
 
     async def migrate(self, name: str, qry):
         return await self._run("migrate", name, qry)

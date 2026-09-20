@@ -2,7 +2,6 @@ import asyncio
 import logging
 import random
 import time
-import warnings
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import ClassVar
@@ -17,20 +16,6 @@ from .exceptions import (
 from .query import Query
 
 logger = logging.getLogger("encino_orm")
-
-
-def _warn_last_id_deprecated():
-    """Emite el `DeprecationWarning` CENTRALIZADO de `last_id()`.
-
-    Un único punto de emisión evita seis sitios de warning en los adaptadores y
-    mantiene `filterwarnings = ["error"]` manejable. `stacklevel=2` señala al
-    llamador real (o al `PoolDb.last_id` que delega en este helper).
-    """
-    warnings.warn(
-        "last_id() está deprecado; usa execute_insert(qry) o el retorno de Model.insert()",
-        DeprecationWarning,
-        stacklevel=2,
-    )
 
 
 class Db(ABC):
@@ -448,21 +433,13 @@ class Db(ABC):
     @abstractmethod
     async def exists(self, qry: Query): ...
 
-    async def last_id(self):
-        """DEPRECADO: usa `execute_insert(qry)` o el retorno de `Model.insert()`.
-
-        El id post-hoc es incorrecto bajo concurrencia (session-scoped en
-        PostgreSQL/MSSQL) y devuelve el id de OTRA fila sin error. Emite un
-        `DeprecationWarning` centralizado y delega en `_last_id_value()`.
-        """
-        _warn_last_id_deprecated()
-        return await self._last_id_value()
-
     async def _last_id_value(self) -> int:
         """Id de la última inserción de ESTA conexión (0 si no está disponible).
 
-        Método concreto y sobreescribible por adaptador: los dobles de test no
-        necesitan implementarlo. No emite warning; `last_id()` es quien lo hará.
+        Hook interno concreto y sobreescribible por adaptador: los dobles de test
+        no necesitan implementarlo. NO es API pública — la captura post-hoc del
+        id se retiró en `0.3.0` (REL-01); el id se obtiene con
+        `execute_insert(qry)` o el retorno de `Model.insert()`.
         """
         return 0
 
