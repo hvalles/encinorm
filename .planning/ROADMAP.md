@@ -395,12 +395,12 @@ Plans:
 
 **Wave 2** *(independientes entre sí; 08-04 comparte `CHANGELOG.md` con 08-01, ya en wave 1)*
 
-- [ ] 08-02-PLAN.md — OIDC trusted publishing (`id-token: write`, `uv publish --trusted-publishing always`) en ambos workflows, entorno `pypi` protegido, eliminación de `PYPI_API_TOKEN` y validación en TestPyPI — REL-03
+- [x] 08-02-PLAN.md — OIDC trusted publishing (`id-token: write`, `uv publish --trusted-publishing always`) en ambos workflows, entorno `pypi` protegido, eliminación de `PYPI_API_TOKEN` y validación en TestPyPI — REL-03
 - [x] 08-04-PLAN.md — `CHANGELOG.md` con cada ruptura en viejo/nuevo y `docs/MIGRATION-0.3.md` con pares Antes/Después, registrada en la nav de MkDocs, con guard de fuente — REL-04
 
 **Wave 3** *(08-05, 08-06 y 08-07 son docs/código con ficheros disjuntos; 08-06 documenta todas las retiradas)*
 
-- [ ] 08-05-PLAN.md — README con pinning `~=0.2.6` (no `>=`), aviso de credenciales solo-desarrollo y `.env.example` rastreado, con guard de higiene del README — REL-05
+- [x] 08-05-PLAN.md — README con pinning `~=0.2.6` (no `>=`), aviso de credenciales solo-desarrollo y `.env.example` rastreado, con guard de higiene del README — REL-05
 - [ ] 08-06-PLAN.md — Retirada de APIs deprecadas: `set_default_db`/`get_default_db`, globales mutables `SECRET`/`GET_DB` y fallback legacy; documentación de todas las retiradas (`### Eliminado`) en CHANGELOG + MIGRATION-0.3 y resolución de la nota de ownership — REL-01, REL-04
 - [ ] 08-07-PLAN.md — Limpieza de enlaces muertos a `prompts/` en `docs/**` y guard parametrizado de enlaces — REL-05
 
@@ -498,7 +498,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
 | 6. Config & Optional-Layer Hygiene | 5/5 | Complete    | 2026-09-19 |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
-| 8. Release 0.3.0 | 2/8 | In Progress|  |
+| 8. Release 0.3.0 | 4/8 | In Progress|  |
 
 **Coverage:** 47/47 v1 requirements mapped ✓ (no orphans, no duplicates)
 
