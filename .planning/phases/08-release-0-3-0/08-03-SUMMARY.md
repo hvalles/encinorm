@@ -123,5 +123,19 @@ La publicación real la dispara la persona (D-04). Ver el checkpoint en la respu
 
 ---
 
+## Self-Check
+
+- FOUND: `pyproject.toml` (contiene `version = "0.3.0rc1"`)
+- FOUND: `uv.lock` (entrada `encino-orm` → `version = "0.3.0rc1"`)
+- FOUND: `CHANGELOG.md` (contiene `## [0.3.0rc1]` en L11 y `## [Unreleased]` vacío en L9)
+- FOUND: `dist/encino_orm-0.3.0rc1-py3-none-any.whl` (`Version: 0.3.0rc1`)
+- FOUND: commit `3fec2da` (corte de rc1)
+- FOUND: commit `2387bec` (metadatos del checkpoint)
+- PENDING (por diseño): Tasks 2 y 4 son publicaciones humanas (D-04); Task 3 depende del tag `v0.3.0rc1`.
+
+## Self-Check: PASSED (Task 1; plan pausado en el checkpoint de publicación)
+
+---
+
 *Phase: 08-release-0-3-0*
 *Plan: 03 (PAUSADO en Task 2 — checkpoint humano de publicación)*
