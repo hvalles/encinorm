@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: executing
-stopped_at: Paused at 08-03 Task 4 (checkpoint humano: publicar 0.3.0 final). Tasks 1–3 commiteadas; 0.3.0rc1 publicada y 0.3.0 promovida en 9eb3ea8
-last_updated: "2026-09-20T05:48:00.000Z"
+status: verifying
+stopped_at: Phase 8 complete (8/8) — 0.3.0 published
+last_updated: "2026-09-20T06:01:33.278Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 57
-  completed_plans: 54
-  percent: 75
+  completed_plans: 55
+  percent: 88
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 
 ## Current Position
 
-Phase: 8 (Release 0.3.0) — EXECUTING
-Plan: 08-03 (paused at Task 4 — publish 0.3.0 final checkpoint; Tasks 1–3 committed: rc1 3fec2da, promotion 9eb3ea8)
-Status: Paused at human checkpoint (final publication)
+Phase: 8 (Release 0.3.0) — COMPLETE (8/8 plans)
+Plan: 08-03 complete (4/4) — 0.3.0rc1 3fec2da → promotion 9eb3ea8 → 0.3.0 published (run 35492821208 SUCCESS); REL-02 satisfied
+Status: Phase complete — ready for verification
 Last activity: 2026-09-19
 
-Progress: [██████████] 95%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -264,6 +264,7 @@ Recent decisions affecting current work:
 - [Phase 08-02]: REL-03: OIDC trusted publishing activo (id-token: write + uv publish --trusted-publishing always) en release.yml y publish-testpypi.yml, congelado por tests/test_release_config.py; entorno pypi protegido (branch main + tag v*) y PYPI_API_TOKEN/TEST_PYPI_API_TOKEN eliminados de Actions — Elimina el token de larga vida (menor superficie supply-chain) y hace del entorno protegido la via unica de publicacion; la validacion OIDC end-to-end en TestPyPI se difiere a 0.3.0rc1 en 08-03
 - [Phase 08-03]: 0.3.0rc1 cortada en el commit 3fec2da (pyproject + uv.lock a 0.3.0rc1, `[Unreleased]` promovido a `[0.3.0rc1]` con nuevo `[Unreleased]` vacío); suite completa verde (1124 passed) y wheel `Version: 0.3.0rc1` construida. El plan queda PAUSADO en la Task 2 (checkpoint humano de publicación, D-04): la promoción a 0.3.0 (Task 3) depende del tag `v0.3.0rc1` que crea la persona. — El plan tiene checkpoints de publicación humanas por diseño (`autonomous: false`); Tasks 3–4 no son alcanzables sin la publicación de rc1.
 - [Phase 08-03]: Task 2 (publicación de 0.3.0rc1 por OIDC) COMPLETADA: run 35491961779 SUCCESS con los 10 jobs de CI verdes, `0.3.0rc1` presente en TestPyPI (run 35491781848) y PyPI, tag anotado `v0.3.0rc1` → 3fec2da. Task 3 (promoción a 0.3.0) commiteada en 9eb3ea8: pyproject/uv.lock a `0.3.0`, heading `[0.3.0] - 2026-09-19`, `git diff v0.3.0rc1 -- encino_orm` vacío, suite 1124 passed, wheels/sdist `Version: 0.3.0`. El plan queda PAUSADO en la Task 4 (checkpoint humano de publicación final): NO se ha creado el tag `v0.3.0`, ni push, ni publicación. — D-04: la publicación real la dispara la persona; REL-02 no se cierra hasta que 0.3.0 esté en PyPI.
+- [Phase 08-03]: Task 4 (publicación de 0.3.0 final por OIDC) COMPLETADA: tag anotado v0.3.0 → 9eb3ea8, run 35492821208 SUCCESS (10/10 jobs CI verdes), PyPI info.version = 0.3.0 con 0.3.0rc1 y 0.2.7 presentes; cadena 0.2.7 → 0.3.0rc1 → 0.3.0 confirmada. REL-02 marcado completo y Fase 8 cerrada 8/8. — D-04: la publicación real la dispara la persona; el checkpoint humano se cierra con evidencia verificada por el orquestador (tag + run verde + registro PyPI).
 
 ### Pending Todos
 
@@ -290,6 +291,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T05:48:00.000Z
-Stopped at: Paused at 08-03 Task 4 (checkpoint humano: publicar 0.3.0 final). Task 1 (corte de 0.3.0rc1) en 3fec2da, Task 2 (publicación rc1) completada por la persona, Task 3 (promoción a 0.3.0) en 9eb3ea8; Task 4 pendiente (no se ha tageado v0.3.0).
-Resume file: .planning/phases/08-release-0-3-0/08-03-SUMMARY.md
+Last session: 2026-09-20T05:59:55.933Z
+Stopped at: Phase 8 complete (8/8) — 0.3.0 published
+Resume file: None

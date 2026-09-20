@@ -69,7 +69,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Resilience** - Classified disconnects, single reconnect outside transactions, `pre_ping`/lifetime for direct connections, public error taxonomy (completed 2026-09-19)
 - [x] **Phase 6: Config & Optional-Layer Hygiene** - `ConnectionRegistry` + `SecurityConfig` replace mutable globals; `exec()` codegen becomes closures; trust boundaries documented (completed 2026-09-19)
 - [x] **Phase 7: Performance & Benchmarks** - Profile first, then batched `copy_table`, a benchmark gate that fails a 2× regression, and bounded tracer/cache structures (completed 2026-09-19)
-- [ ] **Phase 8: Release 0.3.0** - 0.2.7 deprecation release, OIDC trusted publishing, 0.3.0rc1, complete CHANGELOG + MIGRATION-0.3.md, README pinning guidance
+- [x] **Phase 8: Release 0.3.0** - 0.2.7 deprecation release, OIDC trusted publishing, 0.3.0rc1, complete CHANGELOG + MIGRATION-0.3.md, README pinning guidance (completed 2026-09-20)
 
 ## Phase Details
 
@@ -410,7 +410,7 @@ Plans:
 
 **Wave 5** *(publicación final; depende de todas las retiradas)*
 
-- [ ] 08-03-PLAN.md — Verificación del gate CI + entorno `pypi`, corte y publicación de 0.3.0rc1, y promoción a 0.3.0 — REL-02
+- [x] 08-03-PLAN.md — Verificación del gate CI + entorno `pypi`, corte y publicación de 0.3.0rc1, y promoción a 0.3.0 — REL-02
 
 **Waves:** 1 → `08-01`; 2 → `08-02`, `08-04`; 3 → `08-05`, `08-06`, `08-07`; 4 → `08-08`; 5 → `08-03`. La cadena de publicación es estricta (0.2.7 → retiradas → 0.3.0rc1 → 0.3.0) y `CHANGELOG.md`/`docs/MIGRATION-0.3.md` son ficheros compartidos, de modo que las olas quedan determinadas por esos dos hechos. `08-01`, `08-02` y `08-03` son no autónomos: D-04 exige un checkpoint humano por publicación real. `08-03` lleva 4 tareas (dos checkpoints de publicación) por la misma razón.
 
@@ -498,7 +498,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
 | 6. Config & Optional-Layer Hygiene | 5/5 | Complete    | 2026-09-19 |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
-| 8. Release 0.3.0 | 7/8 | In Progress|  |
+| 8. Release 0.3.0 | 8/8 | Complete   | 2026-09-20 |
 
 **Coverage:** 47/47 v1 requirements mapped ✓ (no orphans, no duplicates)
 
