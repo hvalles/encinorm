@@ -10,6 +10,7 @@ import pytest
 
 import encino_orm.base as base
 from encino_orm import Query, SqliteDb
+from encino_orm.pool import PoolDb
 
 
 def test_db_last_id_retirado():
@@ -18,6 +19,13 @@ def test_db_last_id_retirado():
     with pytest.raises(AttributeError):
         _ = base.Db.last_id
     assert not hasattr(base, "_warn_last_id_deprecated")
+
+
+def test_pool_db_last_id_retirado():
+    """`PoolDb.last_id()` ya no existe en la línea 0.3.0."""
+    assert not hasattr(PoolDb, "last_id")
+    with pytest.raises(AttributeError):
+        _ = PoolDb.last_id
 
 
 @pytest.mark.asyncio

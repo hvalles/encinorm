@@ -392,20 +392,6 @@ class TestPoolTransactionScope:
         assert rid == 42
 
     @pytest.mark.asyncio
-    async def test_last_id_outside_transaction_is_zero(self, pool):
-        # POOL-03: no hay cache de id a nivel de pool; fuera de una transacción
-        # no hay conexión/tarea a la que asociar el id.
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            assert await pool.last_id() == 0
-
-    @pytest.mark.asyncio
-    async def test_last_id_deprecated(self, pool):
-        # Task 3 / B2: `PoolDb.last_id()` emite el `DeprecationWarning`
-        # centralizado (mismo helper que `Db.last_id`).
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            await pool.last_id()
-
-    @pytest.mark.asyncio
     async def test_resolve_db_unwraps_handle(self, pool):
         # Pitfall 8: `_current_connection` guarda el handle, pero `resolve_db()`
         # debe devolver el `Db` subyacente (Model/engine_of leen `.dialect`).

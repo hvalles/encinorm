@@ -73,16 +73,13 @@ class TestD3LastIdStandalone:
     @pytest.mark.asyncio
     async def test_standalone_insert_captures_id_per_task(self, pool):
         # POOL-03: `execute_insert` captura el id de ESTA sentencia por
-        # conexión/tarea; el cache de id a nivel de pool no existe, así que
-        # fuera de una transacción `last_id()` devuelve 0.
+        # conexión/tarea; no existe un cache de id a nivel de pool.
         await pool.execute(
             Query("CREATE TABLE u (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT)", [])
         )
         first = await pool.execute_insert(pool.insert("u", {"nombre": "x"}, returning="id"))
         second = await pool.execute_insert(pool.insert("u", {"nombre": "y"}, returning="id"))
         assert (first, second) == (1, 2)
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            assert await pool.last_id() == 0
 
 
 class TestD5SearchPagination:

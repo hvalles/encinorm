@@ -109,8 +109,8 @@ class FakeDb:
         return self._last
 
     async def _last_id_value(self):
-        # `PoolDb.last_id()` delega aquí; se registra la llamada para que la
-        # caracterización del scoping siga observándola.
+        # Hook privado que los adaptadores sobreescriben; el doble lo registra
+        # para caracterizar la captura del id por conexión/tarea.
         self.calls.append(("last_id",))
         return self._last
 
@@ -272,70 +272,49 @@ class TestPoolAcquireOvershootRace:
         await p.close()
 
 
-class TestPoolLastIdScoping:
-    async def test_inside_transaction_reads_held_connection(self, pool):
+class TestPoolExecuteInsertScoping:
+    async def test_inside_transaction_uses_held_connection(self, pool):
         qry = Query("INSERT 1", [])
         async with pool.transaction() as db:
             await pool.execute(qry)
-            # POOL-03/Task 3: `last_id()` está DEPRECADO y emite warning; sigue
-            # leyendo la conexión retenida para la caracterización del scoping.
-            with pytest.warns(DeprecationWarning, match="deprecado"):
-                rid = await pool.last_id()
+            # POOL-03: el id se captura por conexión/tarea con `execute_insert`
+            # sobre la conexión retenida por la transacción.
+            rid = await pool.execute_insert(Query("INSERT 2", []))
 
         assert rid == 42
         assert ("execute", qry) in db.calls
-        assert ("last_id",) in db.calls
+        assert ("execute_insert", Query("INSERT 2", [])) in db.calls
 
-    async def test_outside_transaction_has_no_pool_cache(self, single_pool):
-        # POOL-03: se eliminó el cache de id a nivel de pool; fuera de una
-        # transacción no hay conexión/tarea a la que asociar el id (devuelve 0).
-        # El reemplazo es `execute_insert`.
+    async def test_outside_transaction_uses_acquired_connection(self, single_pool):
+        # POOL-03: no existe un cache de id a nivel de pool; `execute_insert`
+        # adquiere una conexión y devuelve el id que produce la sentencia.
         conn = next(iter(single_pool._connections))
-        await single_pool.execute(Query("INSERT 1", []))
+        rid = await single_pool.execute_insert(Query("INSERT 1", []))
 
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            assert await single_pool.last_id() == 0
-
-        calls_before = list(conn.driver.calls)
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            rid = await single_pool.last_id()
-
-        assert rid == 0
-        # `last_id()` fuera de transacción NO consulta la conexión.
-        assert conn.driver.calls == calls_before
+        assert rid == 42
+        assert ("execute_insert", Query("INSERT 1", [])) in conn.driver.calls
 
     async def test_no_cross_task_staleness(self, single_pool):
-        # POOL-03: sin cache compartido, otra tarea no observa el id ajeno.
-        await single_pool.execute(Query("INSERT 1", []))
-
+        # POOL-03: sin cache compartido, el id lo produce la conexión que ejecuta
+        # la sentencia, nunca otra tarea.
         async def other_task():
-            with pytest.warns(DeprecationWarning, match="deprecado"):
-                return await single_pool.last_id()
+            return await single_pool.execute_insert(Query("INSERT 2", []))
 
-        stale = await asyncio.create_task(other_task())
-        assert stale == 0
+        rid = await asyncio.create_task(other_task())
+        assert rid == 42
 
     async def test_insert_inside_transaction_captures_handle_id(self, single_pool):
         # POOL-03: el id se captura por conexión/tarea DENTRO de una transacción.
         async with single_pool.transaction() as db:
-            await single_pool.execute(Query("INSERT 1", []))
-            with pytest.warns(DeprecationWarning, match="deprecado"):
-                assert await single_pool.last_id() == 42
-        assert ("last_id",) in db.calls
+            rid = await single_pool.execute_insert(Query("INSERT 1", []))
+        assert rid == 42
+        assert ("execute_insert", Query("INSERT 1", [])) in db.calls
 
     async def test_lowercase_insert_inside_transaction_captures_handle_id(self, single_pool):
         async with single_pool.transaction() as db:
-            await single_pool.execute(Query("insert into t values (1)", []))
-            with pytest.warns(DeprecationWarning, match="deprecado"):
-                assert await single_pool.last_id() == 42
-        assert ("last_id",) in db.calls
-
-    async def test_non_insert_outside_transaction_has_no_id(self, single_pool):
-        # POOL-03: sin cache de pool, ninguna sentencia deja un id observable
-        # fuera de una transacción.
-        await single_pool.execute(Query("SELECT 1", []))
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            assert await single_pool.last_id() == 0
+            rid = await single_pool.execute_insert(Query("insert into t values (1)", []))
+        assert rid == 42
+        assert ("execute_insert", Query("insert into t values (1)", [])) in db.calls
 
 
 class TestPoolReleaseSemantics:
