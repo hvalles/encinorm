@@ -66,6 +66,7 @@ nav:
       - Migraciones: reference/migration.md
   - Desarrolladores:
       - Fronteras de confianza (SQL): trust-boundaries.md
+      - Guía de migración 0.3: MIGRATION-0.3.md
       - Agregar un motor: engines.md
       - Docker: docker.md
       - Créditos: credits.md
