@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 8 complete (8/8) — 0.3.0 published
-last_updated: "2026-09-20T06:01:33.278Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 8 was final phase)
+last_updated: 2026-09-20T16:48:58.860Z
 last_activity: 2026-09-19
 progress:
   total_phases: 8
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-17)
 
 **Core value:** El ORM debe ser confiable en producción sobre cualquiera de los seis motores — correcto bajo concurrencia, seguro frente a inyección y configuraciones erróneas, y predecible en rendimiento.
-**Current focus:** Phase 8 — Release 0.3.0
+**Current focus:** Milestone complete
 **Milestone:** encino_orm 0.2.6 → 0.3.0 (production hardening)
 
 ## Current Position
 
-Phase: 8 (Release 0.3.0) — COMPLETE (8/8 plans)
-Plan: 08-03 complete (4/4) — 0.3.0rc1 3fec2da → promotion 9eb3ea8 → 0.3.0 published (run 35492821208 SUCCESS); REL-02 satisfied
-Status: Phase complete — ready for verification
-Last activity: 2026-09-19
+Phase: 8
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-09-20
 
 Progress: [██████████] 96%
 
@@ -37,7 +37,7 @@ Progress: [██████████] 96%
 
 **Velocity:**
 
-- Total plans completed: 46
+- Total plans completed: 54
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -52,6 +52,7 @@ Progress: [██████████] 96%
 | 4 | 6 | - | - |
 | 5 | 4 | - | - |
 | 6 | 5 | - | - |
+| 8 | 8 | - | - |
 
 **Recent Trend:**
 
