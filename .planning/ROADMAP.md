@@ -391,7 +391,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — 0.2.7 `DeprecationWarning`s para cada ruptura 0.3.0 que puede avisar (implicit commit on release, mutable `SECRET`/`GET_DB`, post-hoc `last_id()`), justificación escrita de la ruptura fail-closed (identificadores) y guard de la allowlist tolerante a puntos, versión + CHANGELOG `[0.2.7]` (debajo de `[Unreleased]`) + dry-run de build, y checkpoint de publicación del tag `v0.2.7` — REL-01
+- [x] 08-01-PLAN.md — 0.2.7 `DeprecationWarning`s para cada ruptura 0.3.0 que puede avisar (implicit commit on release, mutable `SECRET`/`GET_DB`, post-hoc `last_id()`), justificación escrita de la ruptura fail-closed (identificadores) y guard de la allowlist tolerante a puntos, versión + CHANGELOG `[0.2.7]` (debajo de `[Unreleased]`) + dry-run de build, y checkpoint de publicación del tag `v0.2.7` — REL-01
 
 **Wave 2** *(independientes entre sí; 08-04 comparte `CHANGELOG.md` con 08-01, ya en wave 1)*
 
@@ -498,7 +498,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
 | 6. Config & Optional-Layer Hygiene | 5/5 | Complete    | 2026-09-19 |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
-| 8. Release 0.3.0 | 0/5 | Planned | - |
+| 8. Release 0.3.0 | 1/8 | In Progress|  |
 
 **Coverage:** 47/47 v1 requirements mapped ✓ (no orphans, no duplicates)
 

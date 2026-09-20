@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-09-19T21:02:50.303Z"
-last_activity: 2026-09-19 -- Phase 8 execution started
+stopped_at: Completed 08-01-PLAN.md (0.2.7 published)
+last_updated: "2026-09-20T03:20:20.076Z"
+last_activity: 2026-09-20
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 57
-  completed_plans: 47
+  completed_plans: 48
   percent: 75
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 8 (Release 0.3.0) — EXECUTING
-Plan: 1 of 8
-Status: Executing Phase 8
-Last activity: 2026-09-19 -- Phase 8 execution started
+Plan: 2 of 8
+Status: Ready to execute
+Last activity: 2026-09-20
 
-Progress: [██████████] 100%
+Progress: [████████░░] 84%
 
 ## Performance Metrics
 
@@ -107,6 +107,7 @@ Progress: [██████████] 100%
 | Phase 07 P02 | - | - | - |
 | Phase 07 P03 | - | 3 tasks | 6 files |
 | Phase 07 P04 | - | - | - |
+| Phase 08 P01 | 15min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -245,6 +246,8 @@ Recent decisions affecting current work:
 - [Phase 07]: Evidencia >=2× medida contra el commit pre-batching `0b5696b` via worktree temporal: 10,000 filas × 5 cols → 48,691 filas/s (0.2054s) vs 5,823 filas/s (1.7173s) = **8.4×**; el profiler `--scale=1` (2,000×2, sqlite :memory:) da 1.004× porque el round-trip es despreciable a esa escala (documentado como esperado en SUMMARY).
 - [Phase 07]: Oracle `LIMITS["oracle"]` (65535 binds) mantiene "NO verificado empiricamente": la sonda de 100 filas (600 binds, INSERT ALL) prueba el camino, no el techo — el throttling termico de este host colapsa lotes de 500 filas a ~240-450 ops/s, por eso la sonda Oracle/MSSQL es de 100 filas.
 - [Phase 07]: Primera corrida del job `benchmarks` en CI (2026-09-19): batch_sizing mide ~2,65M (sigma 33,9K) en el runner ubuntu 2-vCPU frente a 10,5M locales — la unidad es aritmetica pura y su throughput escala con la frecuencia del core, no con el ancho de banda Python (las otras 5 unidades pasan sus pisos locales). Su piso se recalibra a 1,58M (2,65M x 0.6) en el MISMO commit (`ebb17e3`), segun la disciplina de calibracion del plan 07-02; el job resuelve ademas el error de coleccion que producia `uv sync --group dev` (sin extras http/security/graphql) al importar test_graphql.py et al. en la recoleccion: ahora ejecuta solo `tests/test_benchmarks.py` (`eee91c8`). Segunda corrida (5ebc844): CI 10/10 jobs verde, incl. Benchmarks y Lint.
+- [Phase ?]: 08-01: se publica 0.2.7 con los tres DeprecationWarning reales pinados (reset_on_release='commit', globales SECRET/GET_DB, last_id() post-hoc) y se documenta la ruptura fail-closed de identificadores como la que NO puede avisar sin degradar la seguridad; la allowlist tolerante a puntos se conserva intencional y blindada por test. — SemVer exige deprecar en un minor antes de romper; degradar una validacion fail-closed para poder avisar reabriria la superficie de inyeccion.
+- [Phase ?]: 08-01: tag anotado v0.2.7 sobre main en el commit de congelacion e984e78 (D-01, sin rama); publicacion real ejecutada por una persona via PYPI_API_TOKEN (D-04, migracion a OIDC en 08-02); REL-01 sigue ABIERTO: las retiradas viven en 08-06 y 08-08. — D-01/D-04 del contexto; REL-01 se reparte entre 08-01, 08-06 y 08-08 y no se cierra hasta las retiradas.
 
 ### Pending Todos
 
@@ -271,6 +274,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T20:00:25.473Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-release-0-3-0/08-CONTEXT.md
+Last session: 2026-09-20T03:19:03.731Z
+Stopped at: Completed 08-01-PLAN.md (0.2.7 published)
+Resume file: None
