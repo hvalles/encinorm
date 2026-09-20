@@ -1,4 +1,4 @@
-# encino_orm · v0.2.6
+# encino_orm · v0.3.0
 
 ORM asíncrono de interfaz unificada para **SQLite**, **MySQL**, **MariaDB**,
 **PostgreSQL**, **SQL Server** y **Oracle**, construido sobre `pydantic`. Proporciona un modelo de datos declarativo, CRUD
@@ -7,13 +7,15 @@ migraciones, y capas opcionales de producto: REST (FastAPI), GraphQL
 (Strawberry), seguridad (RBAC + JWT) y generación de código desde la base de
 datos.
 
-> **Estado: experimental (v0.2.6).** encino_orm se encuentra en **fase
+> **Estado: experimental (v0.3.0).** encino_orm se encuentra en **fase
 > experimental**: la API pública y su comportamiento pueden cambiar **sin previo
 > aviso** en versiones posteriores, **sin garantía de compatibilidad
 > retroactiva**. El núcleo ORM está probado sobre los tres motores (más de 350
 > pruebas, con integraciones reales de MySQL y PostgreSQL), pero no se recomienda
 > depender de una API estable en producción. Documentación de usuario en `docs/`;
-> estado de preparación en `prompts/analisys-07.md`.
+> el detalle de los cambios incompatibles de esta versión vive en
+> [CHANGELOG.md](CHANGELOG.md) y en la
+> [guía de migración a 0.3.0](docs/MIGRATION-0.3.md).
 
 ---
 
@@ -48,6 +50,21 @@ datos.
 ---
 
 ## Instalación
+
+Para instalar la librería desde PyPI, **fija la versión con `~=`**:
+
+```bash
+pip install "encino-orm~=0.2.6"
+```
+
+El operador `~=` acepta únicamente parches de la misma *minor* (`0.2.x`) y no
+salta a la siguiente *minor*. Durante la ventana `0.x` esto es esencial: pip
+**no** trata las versiones `0.x` como especiales para un rango abierto (`>=`),
+de modo que `pip install`/`pip install -U` puede entrar en una *minor* nueva y
+auto-instalar sus cambios incompatibles. Con `encino-orm~=0.2.6`, una futura
+`0.3.0` solo se instala si la pides explícitamente.
+
+Para desarrollo sobre el repositorio, instala en modo editable:
 
 ```bash
 # núcleo (SQLite + MySQL + MariaDB + PostgreSQL)
@@ -118,6 +135,7 @@ async def main():
 | Documento | Contenido |
 |-----------|-----------|
 | [Getting started](docs/getting-started.md) | Instalación y primer modelo en 5 minutos. |
+| [Migración a 0.3.0](docs/MIGRATION-0.3.md) | Rupturas acumuladas desde 0.2.6, con pares Antes/Después y la acción concreta para adaptar tu código. |
 | [Guía de uso](docs/guide.md) | Modelos, restricciones, CRUD, filtros, relaciones, claves primarias y foráneas. |
 | [Integraciones](docs/integrations.md) | REST, GraphQL, seguridad, codegen/CLI y observabilidad. |
 | [Agregar un motor](docs/engines.md) | Guía para desarrolladores: cómo añadir un nuevo motor de base de datos. |
@@ -135,6 +153,12 @@ uv run pytest -m "not integration"   # (si los servidores no están disponibles)
 
 Las integraciones de MySQL, MariaDB, PostgreSQL, SQL Server y Oracle se omiten
 automáticamente si el servidor correspondiente no está disponible.
+
+> **Credenciales SOLO para desarrollo local.** Las credenciales de
+> `docker-compose.yml` y de [`.env.example`](.env.example) son valores desechables
+> de juguete, pensados exclusivamente para levantar los servicios de prueba en tu
+> máquina. **Nunca** las uses en producción: sustitúyelas siempre por secretos
+> gestionados (variables de entorno del despliegue o un gestor de secretos).
 
 ---
 
