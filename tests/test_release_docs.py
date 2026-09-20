@@ -9,7 +9,8 @@ El escaneo del CHANGELOG es DELIBERADAMENTE file-wide (no scopeado a
 `[Unreleased]`): la promoción de 08-03 renombra `[Unreleased]` a `[0.3.0rc1]` y
 deja un `[Unreleased]` vacío, así que un guard limitado a ese bloque fallaría en
 CI y, con `publish: needs: [ci]`, bloquearía el release. La unicidad de
-`### Eliminado` no se asserta aquí: ese heading lo posee 08-06.
+`### Eliminado` se asserta aquí (file-wide) y es el guard que impide que dos
+planes dupliquen ese heading: su único owner es 08-06.
 """
 
 import pathlib
@@ -21,6 +22,7 @@ _MKDOCS = _ROOT / "mkdocs.yml"
 _MIGRATION = _ROOT / "docs" / "MIGRATION-0.3.md"
 
 _MARCA = "CAMBIO DE COMPORTAMIENTO"
+_MARCA_ELIMINADO = "### Eliminado"
 # Marcadores (case-insensitive) de comportamiento viejo y nuevo por entrada.
 _VIEJO = re.compile(r"viejo:|antes[,\s]|antes\b", re.IGNORECASE)
 _NUEVO = re.compile(r"nuevo:|ahora|despu[eé]s", re.IGNORECASE)
@@ -96,3 +98,21 @@ def test_changelog_guard_es_file_wide_no_depende_de_unreleased():
         entrada = _entrada_de(sintetico, posicion)
         assert _VIEJO.search(entrada)
         assert _NUEVO.search(entrada)
+
+
+def test_eliminado_heading_unico():
+    """08-06 es el único owner: EXACTAMENTE un `### Eliminado` en TODO el fichero.
+
+    File-wide por la misma razón que el guard de `CAMBIO DE COMPORTAMIENTO`: en
+    el commit tagueado el heading vive en `[0.3.0rc1]`/`[0.3.0]`, no en
+    `[Unreleased]`; un conteo scopeado daría 0 y bloquearía el release.
+    """
+    texto = _leer(_CHANGELOG)
+    assert len(re.findall(r"^### Eliminado\s*$", texto, re.MULTILINE)) == 1
+
+
+def test_changelog_eliminado_nombra_retiradas_reales():
+    """La sección de retiradas nombra los símbolos retirados de la línea 0.3.0."""
+    texto = _leer(_CHANGELOG)
+    for simbolo in ("set_default_db", "get_default_db", "SECRET", "GET_DB", "last_id"):
+        assert simbolo in texto, simbolo

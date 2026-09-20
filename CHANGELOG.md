@@ -52,8 +52,8 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   **DEPRECADOS** (emiten `DeprecationWarning`) y `resolve_db()` sin argumentos
   conserva el comportamiento histórico. La precedencia `bind`/`session`/
   transacción del pool no cambia. Viejo: un único default de proceso; nuevo:
-  default inyectable por registry. La **retirada** de los globales (no solo su
-  deprecación) es `REL-01` (Fase 8).
+  default inyectable por registry. Los shims `set_default_db`/`get_default_db`
+  quedaron **RETIRADOS** en `0.3.0` (ver `### Eliminado`).
 - **CAMBIO DE COMPORTAMIENTO (CFG-02: configuración de seguridad inmutable).**
   `SecurityConfig` (dataclass `frozen`) + `security_dependencies(config)`
   reemplazan los globales mutables `SECRET`/`GET_DB`: los guards se construyen
@@ -61,7 +61,8 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   el comportamiento**. El fallback a los globales emite `DeprecationWarning` y las
   firmas legacy `get_current_user(...)`/`require(...)` siguen funcionando. Viejo:
   un secreto global de proceso mutado por la app; nuevo: config inmutable por
-  aplicación. Cap de `PyJWT` subido de `>=2.8,<2.13` a `>=2.8,<2.15` (resuelto a
+  aplicación. Los globales `SECRET`/`GET_DB` y su fallback quedaron
+  **RETIRADOS** en `0.3.0` (ver `### Eliminado`). Cap de `PyJWT` subido de `>=2.8,<2.13` a `>=2.8,<2.15` (resuelto a
   2.14.0), con `uv audit` (feed OSV) y `pip-audit` (feed PyPA) verdes **sin
   ignores** y `tests/test_security.py` verde; en consecuencia se retiraron los 5
   `--ignore GHSA-*` del job `deps` de `ci.yml`.
@@ -333,6 +334,33 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   `is_alive()` antes de cada operación y reconecta al instante si falla, y
   `max_connection_lifetime` recicla por edad (ambos opt-in, default
   `False`/`None`).
+
+### Eliminado
+
+Se usa la palabra **Eliminado** (y no `Removido`) para alinear el heading con el
+resto de secciones en español de este archivo. Esta sección es el inventario
+único de las retiradas de la línea `0.3.0` (`REL-01`).
+
+- **`set_default_db()` / `get_default_db()` (default de conexión de proceso).**
+  Viejo: shims de módulo que mutaban/leían el default de proceso y emitían
+  `DeprecationWarning`; nuevo: el default vive en un `ConnectionRegistry`
+  (de instancia) o en el `_registry` de módulo, al que `resolve_db()` sin
+  argumentos sigue apuntando. Migración: sustituye `set_default_db(db)` por
+  `registry.set_default(db)` y `get_default_db()` por `registry.get_default()`.
+- **Globales mutables `SECRET`/`GET_DB` (configuración de seguridad) y su
+  fallback legacy.** Viejo: atributos de módulo reasignables por la aplicación
+  que alimentaban el fallback de `get_current_user()`/`require()`;
+  nuevo: `SecurityConfig` inmutable + `security_dependencies(config)`. Sin
+  configuración explícita, `get_current_user()`/`require()` lanzan
+  `AuthenticationError` accionable (fail-closed). Migración: construye
+  `SecurityConfig(secret, get_db)` en el composition root y pasa la config a
+  `security_dependencies(config)`.
+- **`last_id()` post-hoc (`Db`/`PoolDb`).** Viejo: leído **después** de la
+  sentencia, devolvía el id de OTRA fila bajo concurrencia (el cache de id vivía
+  a nivel de pool) y emitía `DeprecationWarning`; nuevo: el id se captura
+  **dentro** de la sentencia que lo produce con `execute_insert(qry)` o el
+  retorno de `Model.insert()`. Implementado por el plan `08-08`; se enumera aquí
+  porque pertenece a la misma retirada de línea `0.3.0`.
 
 ## [0.2.7] - 2026-09-19
 

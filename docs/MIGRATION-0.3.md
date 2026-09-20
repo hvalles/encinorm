@@ -317,12 +317,94 @@ config = SecurityConfig(secret="...", get_db=...)
 get_current_user, require = security_dependencies(config)
 ```
 
-En `0.2.7` ambos shims emitían `DeprecationWarning`; mutar los globales deja de
-cambiar el comportamiento en `0.3.0`. Para aislar por tenant, pasa `db=`
-explícito o usa `bind`/`session` (un `Model` no acepta un registry directamente).
+En `0.2.7` ambos shims emitían `DeprecationWarning`; en `0.3.0` los shims y los
+globales **se eliminan** (dejan de existir: un `import` o un acceso lanza
+`ImportError`/`AttributeError`), no solo se deprecan. Para aislar por tenant,
+pasa `db=` explícito o usa `bind`/`session` (un `Model` no acepta un registry
+directamente).
 
 **Acción:** sustituye los globales por un `ConnectionRegistry` explícito y por
-`SecurityConfig` + `security_dependencies(config)`.
+`SecurityConfig` + `security_dependencies(config)`. Sin configuración explícita,
+`get_current_user()`/`require()` lanzan `AuthenticationError` accionable: no hay
+fallback.
+
+## Retiradas (símbolos eliminados)
+
+Estos símbolos **ya no existen** en `0.3.0`: no emiten aviso, fallan al
+importarlos/accederlos.
+
+### `set_default_db()` / `get_default_db()`
+
+**Antes (0.2.6):** shims de módulo que mutaban/leían el default de proceso
+(emitían `DeprecationWarning` en `0.2.7`).
+
+```python
+from encino_orm import set_default_db, get_default_db
+
+set_default_db(db)
+actual = get_default_db()
+```
+
+**Después (0.3.0):** el default vive en un `ConnectionRegistry`.
+
+```python
+from encino_orm import ConnectionRegistry, resolve_db
+
+registry = ConnectionRegistry()
+registry.set_default(db)
+actual = registry.get_default()
+resolve_db(registry=registry)   # resolución contra el registry inyectado
+```
+
+**Acción:** sustituye `set_default_db(db)` por `registry.set_default(db)` y
+`get_default_db()` por `registry.get_default()`. `resolve_db()` sin argumentos
+sigue apuntando al `_registry` de módulo (comportamiento histórico).
+
+### Globales `SECRET`/`GET_DB` y fallback legacy
+
+**Antes (0.2.6):** atributos de módulo reasignables que alimentaban el fallback
+de los guards.
+
+```python
+from encino_orm.security import guard
+
+guard.SECRET = "..."       # mutaba el comportamiento global
+guard.GET_DB = get_db
+```
+
+**Después (0.3.0):** `SecurityConfig` inmutable + `security_dependencies`.
+
+```python
+from encino_orm.security import SecurityConfig, security_dependencies
+
+config = SecurityConfig(secret="...", get_db=get_db)
+get_current_user, require = security_dependencies(config)
+```
+
+**Acción:** elimina las asignaciones a `guard.SECRET`/`guard.GET_DB` y construye
+`SecurityConfig(secret, get_db)` en el composition root. Sin config,
+`get_current_user()`/`require()` lanzan `AuthenticationError`.
+
+### `last_id()` post-hoc
+
+**Antes (0.2.6):** `last_id()` se leía tras la sentencia (emitía
+`DeprecationWarning` en `0.2.7`); bajo concurrencia podía devolver el id de
+**otra** fila.
+
+```python
+await db.execute(qry)
+nuevo_id = await db.last_id()  # id de otra fila bajo concurrencia
+```
+
+**Después (0.3.0):** `last_id()` no existe; usa `execute_insert(qry)` o el
+retorno de `Model.insert()`.
+
+```python
+nuevo_id = await db.execute_insert(qry)
+```
+
+**Acción:** sustituye cada `last_id()` post-hoc por `execute_insert` o por el
+retorno de `Model.insert`.
 
 ## Resumen
 
@@ -338,3 +420,4 @@ explícito o usa `bind`/`session` (un `Model` no acepta un registry directamente
 | Taxonomía de errores | Excepción cruda del driver | Traducida (con `__cause__`) | Capturar tipos de `encino_orm` |
 | Reciclado de conexiones | Conexión inactiva muere | `pre_ping`/`max_connection_lifetime` | Activar opt-in si aplica |
 | Defaults globales | `set_default_db`/`SECRET` mutables | Registry + `SecurityConfig` inmutables | Inyectar registry/config |
+| Retiradas | `set_default_db`/`get_default_db`, `SECRET`/`GET_DB`, `last_id()` existían (deprecados) | Eliminados: `ImportError`/`AttributeError` | Usar registry, `SecurityConfig` y `execute_insert` |
