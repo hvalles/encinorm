@@ -16,10 +16,10 @@ requires:
     provides: "retirada de la API pública post-hoc last_id()"
 provides:
   - "0.3.0rc1 publicada en TestPyPI y PyPI por OIDC (run 35491961779 SUCCESS; tag anotado v0.3.0rc1 → 3fec2da)"
-  - "0.3.0 construible y promovida en código: pyproject.toml + uv.lock a `0.3.0` y CHANGELOG a `## [0.3.0]`"
-  - "wheel `dist/encino_orm-0.3.0-py3-none-any.whl` + sdist `.tar.gz` con `Version: 0.3.0` (no publicados)"
-  - "promoción sin deriva de código: `git diff v0.3.0rc1 -- encino_orm` vacío"
-affects: [08-03 (Task 4: publicación final), 08-release-0-3-0]
+  - "0.3.0 promovida en código: pyproject.toml + uv.lock a `0.3.0` y CHANGELOG a `## [0.3.0]` (commit 9eb3ea8)"
+  - "0.3.0 publicada en PyPI por OIDC (run 35492821208 SUCCESS; tag anotado v0.3.0 → 9eb3ea8); PyPI JSON API reporta info.version = 0.3.0"
+  - "cadena de publicación completa y ordenada en PyPI: 0.2.7 → 0.3.0rc1 → 0.3.0 (REL-02 satisfecho)"
+affects: [08-release-0-3-0 (fase completa), milestone v0.3.0]
 
 # Tech tracking
 tech-stack:
@@ -28,6 +28,7 @@ tech-stack:
     - "Promoción de versión pura: pyproject.toml + uv lock + heading de CHANGELOG, sin cambios de código entre rc y final"
     - "Detección temprana de build rojo: suite completa (mismo filtro que ci.yml) corrida ANTES del tag, porque `publish: needs: [ci]` + entorno `pypi` bloquean publicar con CI rojo"
     - "Trazabilidad rc→final: el tag anotado `v0.3.0rc1` sirve de punto de anclaje para demostrar `git diff -- encino_orm` vacío"
+    - "Publicación OIDC sin token: tag anotado → workflow `Publish to PyPI` → CI reutilizable verde → aprobación del entorno `pypi`"
 
 key-files:
   modified:
@@ -38,32 +39,33 @@ key-files:
 key-decisions:
   - "Task 1 (corte de 0.3.0rc1) ejecutada y commiteada en 3fec2da; Task 2 (publicación rc1) completada por la persona (D-04) y verificada por el orquestador (PyPI/TestPyPI con 0.3.0rc1, run 35491961779 SUCCESS)"
   - "Task 3 (promoción a 0.3.0) ejecutada y commiteada en 9eb3ea8: bump de pyproject/uv.lock, heading [0.3.0] y `Sin cambios de código respecto a 0.3.0rc1`"
-  - "Task 4 (publicación de 0.3.0 final) queda PENDIENTE como checkpoint humano (D-04); NO se ha creado el tag v0.3.0, ni push, ni publicación"
+  - "Task 4 (publicación de 0.3.0 final) COMPLETADA por la persona (D-04) y verificada por el orquestador: tag anotado v0.3.0 → 9eb3ea8, run 35492821208 SUCCESS (10/10 jobs CI verdes), PyPI info.version = 0.3.0"
   - "Heading final fechado 2026-09-19, coherente con [0.2.7] y [0.3.0rc1] (calendario de release del mantenedor -06:00)"
 
 patterns-established:
   - "El guard file-wide de tests/test_release_docs.py sobrevive a la promoción: verde con `[Unreleased]` ya vacío y con el heading renombrado a [0.3.0]"
   - "La promoción se verifica como diff de código vacío contra el tag de rc1, no solo por el literal de versión"
+  - "La publicación final se cierra con evidencia de tres capas: tag anotado → run de CI/publicación verde → introspección del registro PyPI"
 
-requirements-completed: []  # REL-02 se cierra cuando 0.3.0rc1 y 0.3.0 estén AMBAS publicadas; 0.3.0 final sigue PENDIENTE
+requirements-completed: [REL-02]
 
 # Metrics
-duration: "~9 min (autónomo acumulado: Task 3 sobre la pasada previa de Task 1)"
+duration: "~9 min autónomos (Tasks 1 y 3); Tasks 2 y 4 son checkpoints humanos (D-04)"
 completed: 2026-09-19
 ---
 
-# Phase 8 Plan 3: Release 0.3.0rc1 y promoción a 0.3.0 — PAUSADO EN CHECKPOINT DE PUBLICACIÓN FINAL
+# Phase 8 Plan 3: Release 0.3.0rc1 → 0.3.0 — COMPLETO (4/4)
 
-**`0.3.0rc1` publicada por OIDC (TestPyPI + PyPI, run `35491961779` SUCCESS) y `0.3.0` promovida en código con `git diff v0.3.0rc1 -- encino_orm` vacío, suite completa verde (1124 passed) y wheels `Version: 0.3.0` construidos; solo falta el checkpoint humano de publicación de la versión final.**
+**`0.3.0rc1` y `0.3.0` publicadas en PyPI por OIDC sin token (runs `35491961779` y `35492821208`, 10/10 jobs de CI verdes), con promoción rc→final sin deriva de código (`git diff v0.3.0rc1 -- encino_orm` vacío), suite completa verde (1124 passed) y wheels `Version: 0.3.0`; REL-02 satisfecho.**
 
-> **ESTADO: Plan PAUSADO en Task 4 (`checkpoint:human-action`).** Tasks 1–3 completas y commiteadas. NO se ha creado el tag `v0.3.0`, ni push, ni publicación. La Task 4 (tag anotado `v0.3.0` + aprobación del entorno `pypi`) la ejecuta la persona (D-04).
+> **ESTADO: Plan COMPLETO — 4/4 tasks.** Tags anotados `v0.3.0rc1` → `3fec2da` y `v0.3.0` → `9eb3ea8` empujados a origin; PyPI reporta `0.3.0rc1` y `0.3.0` (y `0.2.7` precede a ambos).
 
 ## Performance
 
-- **Duration:** ~9 min autónomos (Task 3 sobre la pasada previa de Task 1)
+- **Duration:** ~9 min autónomos (Tasks 1 y 3); Tasks 2 y 4 son checkpoints humanos (D-04)
 - **Started:** 2026-09-19
-- **Completed (parcial):** 2026-09-19 — pausado en el checkpoint de publicación final
-- **Tasks:** 3 de 4 ejecutadas (Tasks 1 y 3 autónomas; Task 2 checkpoint humano COMPLETADO; Task 4 checkpoint humano PENDIENTE)
+- **Completed:** 2026-09-19 — publicación final de 0.3.0 verificada
+- **Tasks:** 4 de 4 (Tasks 1 y 3 autónomas; Tasks 2 y 4 checkpoints humanos COMPLETADOS por la persona)
 - **Files modified:** 3 (`pyproject.toml`, `uv.lock`, `CHANGELOG.md`)
 
 ## Accomplishments
@@ -77,7 +79,7 @@ completed: 2026-09-19
   → **1124 passed, 38 deselected**.
 - `pyproject.toml` → `version = "0.3.0rc1"`; `uv lock`; `uv lock --check` → exit 0.
 - `CHANGELOG.md`: `[Unreleased]` renombrado a `## [0.3.0rc1] - 2026-09-19` con nuevo `[Unreleased]` vacío.
-- `uv build` → `dist/encino_orm-0.3.0rc1-py3-none-any.whl` con `Version: 0.3.0rc1` (no publicado).
+- `uv build` → `dist/encino_orm-0.3.0rc1-py3-none-any.whl` con `Version: 0.3.0rc1` (no publicado en local).
 
 ### Task 2 — Publicación de 0.3.0rc1 (checkpoint humano, COMPLETADO por la persona)
 
@@ -103,17 +105,31 @@ Evidencia verificada por el orquestador:
 - Guards file-wide verdes con `[Unreleased]` vacío y heading renombrado:
   `tests/test_release_docs.py` + `tests/test_release_config.py` → **17 passed**.
 - `uv build` → `dist/encino_orm-0.3.0-py3-none-any.whl` (`Version: 0.3.0`) y
-  `dist/encino_orm-0.3.0.tar.gz` (`Version: 0.3.0`). No publicado.
+  `dist/encino_orm-0.3.0.tar.gz` (`Version: 0.3.0`). No publicado en local.
+
+### Task 4 — Publicación de 0.3.0 final (checkpoint humano, COMPLETADO por la persona)
+
+Evidencia verificada por el orquestador:
+
+- Tag anotado `v0.3.0` → `9eb3ea8` (`git rev-parse v0.3.0^{commit}` =
+  `9eb3ea87d4349d665ccdeef61e16e8cb24b453b5`, el commit de promoción), empujado a origin.
+- Workflow run **`35492821208`** ("Publish to PyPI", tag `v0.3.0`) = **SUCCESS**: los **10 jobs
+  reutilizables de CI verdes**, `Build and publish=success`; el log muestra
+  `Uploading encino_orm-0.3.0-py3-none-any.whl` y `Uploaded encino_orm-0.3.0.tar.gz`.
+- PyPI JSON API reporta `info.version = 0.3.0` y `0.3.0` presente; `0.3.0rc1` y `0.2.7` también
+  presentes → cadena ordenada `0.2.7` → `0.3.0rc1` → `0.3.0` confirmada, sin republicar `0.2.7`.
+- Publicación vía OIDC trusted publishing (sin `PYPI_API_TOKEN`) tras la aprobación del entorno `pypi`.
 
 ## Task Commits
 
 1. **Task 1: Verificar el gate de CI y cortar 0.3.0rc1** - `3fec2da` (chore)
 2. **Task 2: Publicar 0.3.0rc1 por OIDC** - sin commit (checkpoint humano; ejecutado por la persona)
 3. **Task 3: Promover a 0.3.0 (versión + lock + heading + dry-run)** - `9eb3ea8` (chore)
+4. **Task 4: Publicar 0.3.0 final por OIDC** - sin commit (checkpoint humano; ejecutado por la persona)
 
-**Plan metadata (props de checkpoint):** este SUMMARY y `STATE.md` (commit siguiente)
+**Plan metadata (cierre):** este SUMMARY + `STATE.md` + `ROADMAP.md` + `REQUIREMENTS.md` (commits siguientes)
 
-_Nota: Task 4 no se ha ejecutado (checkpoint humano pendiente)._
+_Nota: los checkpoints humanos (Tasks 2 y 4) no producen commits de código; su evidencia son los runs de GitHub Actions y la introspección de PyPI._
 
 ## Files Created/Modified
 
@@ -123,9 +139,8 @@ _Nota: Task 4 no se ha ejecutado (checkpoint humano pendiente)._
 
 ## Decisions Made
 
-- **Tasks 1–3 completas**: la Task 3 solo era alcanzable tras la publicación de rc1 (su verificación
-  hace `git diff v0.3.0rc1`, tag que ya existe); el orquestador confirmó la publicación y esta pasada
-  ejecutó la promoción. Task 4 se detiene en el checkpoint conforme a D-04.
+- **4/4 tasks completas**: la cadena de publicación humana (D-04) se cerró con los runs `35491961779`
+  (rc1) y `35492821208` (0.3.0), ambos OIDC y gateados por CI verde; REL-02 queda satisfecho.
 - **Fecha del heading**: `2026-09-19`, coherente con `[0.2.7]` y `[0.3.0rc1]` (calendario de release
   del mantenedor a -06:00; UTC ya marca 2026-09-20).
 - **Nota "Sin cambios de código respecto a 0.3.0rc1"**: la promoción rc→final es un cambio de versión
@@ -142,17 +157,17 @@ checkpoints humanos por diseño (no desviaciones).
   devuelve `Name: encino-orm` (orden del header: `Metadata-Version`, `Name`, `Version`). Se verificó el
   valor real filtrando las líneas `Name:`/`Version:` → `Version: 0.3.0` (wheel y sdist). Sin impacto
   (aceptación satisfecha).
+- La primera publicación de rc1 falló por configuración del trusted publisher en GitHub/PyPI y se
+  resolvió re-ejecutando el workflow (`35491961779` SUCCESS). Documentado como flujo normal de checkpoint.
 
 ## User Setup Required
 
-La publicación de `0.3.0` final la dispara la persona (D-04). Ver el checkpoint en la respuesta.
+Ninguno pendiente. La aprobación del entorno `pypi` se completó para ambos cortes (rc1 y final).
 
 ## Next Phase Readiness
 
-- `0.3.0` está construible y es idéntica en código a `0.3.0rc1`; la suite está verde en `9eb3ea8` y el
-  gate de publicación (`needs: [ci]` + entorno `pypi`) está confirmado.
-- Bloqueado hasta que la persona cree/empuje el tag anotado `v0.3.0` sobre `9eb3ea8` y apruebe el run
-  de `Publish to PyPI` (entorno `pypi`). Tras la publicación, REL-02 queda satisfecho y el plan cierra.
+- **Fase 8 COMPLETA (8/8 planes)**: 0.2.7 → 0.3.0rc1 → 0.3.0 publicados por OIDC; REL-02 satisfecho.
+- Sin bloqueos. El milestone `0.2.6 → 0.3.0` está listo para su verificación/cierre de milestone.
 
 ---
 
@@ -166,11 +181,12 @@ La publicación de `0.3.0` final la dispara la persona (D-04). Ver el checkpoint
 - FOUND: commit `3fec2da` (corte de rc1)
 - FOUND: commit `9eb3ea8` (promoción a 0.3.0)
 - VERIFIED: `git diff v0.3.0rc1 -- encino_orm` vacío
-- PENDING (por diseño): Task 4 es la publicación humana final (D-04); no se ha tageado `v0.3.0`.
+- VERIFIED: tag anotado `v0.3.0` → `9eb3ea87d4349d665ccdeef61e16e8cb24b453b5`
+- VERIFIED: run `35492821208` SUCCESS; PyPI `info.version = 0.3.0` con `0.3.0rc1` y `0.2.7` presentes
 
-## Self-Check: PASSED (Tasks 1–3; plan pausado en el checkpoint de publicación final)
+## Self-Check: PASSED (4/4 tasks)
 
 ---
 
 *Phase: 08-release-0-3-0*
-*Plan: 03 (PAUSADO en Task 4 — checkpoint humano de publicación final)*
+*Plan: 03 (COMPLETO — 4/4)*
