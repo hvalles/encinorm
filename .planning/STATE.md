@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-04-PLAN.md (REL-04 docs)
-last_updated: "2026-09-20T03:26:56.060Z"
+stopped_at: 08-02 tareas autonomas hechas (OIDC + guards); esperando checkpoint humano del entorno pypi/validacion TestPyPI (D-04)
+last_updated: "2026-09-20T03:29:52Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 8
@@ -276,6 +276,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T03:26:24.525Z
-Stopped at: Completed 08-04-PLAN.md (REL-04 docs)
-Resume file: None
+Last session: 2026-09-20T03:29:52Z
+Stopped at: 08-02 tareas autonomas hechas (OIDC en ambos workflows + guards); Task 3 (checkpoint humano) pendiente: entorno pypi, eliminar PYPI_API_TOKEN y validar OIDC en TestPyPI. REL-03 ABIERTO.
+Resume file: .planning/phases/08-release-0-3-0/08-02-PLAN.md (Task 3)
