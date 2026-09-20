@@ -79,7 +79,7 @@ Requisitos para el release 0.3.0. Cada uno se mapea a una fase del roadmap.
 - [ ] **REL-01**: Se publica 0.2.7 con `DeprecationWarning`s en runtime por cada ruptura de 0.3.0
 - [ ] **REL-02**: Se publica 0.3.0rc1 antes de 0.3.0
 - [ ] **REL-03**: La publicación usa OIDC trusted publishing; `PYPI_API_TOKEN` se elimina y el entorno `pypi` está protegido
-- [ ] **REL-04**: `CHANGELOG.md` enumera cada cambio incompatible con comportamiento viejo/nuevo y existe `MIGRATION-0.3.md` con ejemplos
+- [x] **REL-04**: `CHANGELOG.md` enumera cada cambio incompatible con comportamiento viejo/nuevo y existe `MIGRATION-0.3.md` con ejemplos
 - [ ] **REL-05**: El README incluye guía de pinning (`~=0.2.6`), warning de credenciales solo-desarrollo y se corrige el enlace muerto a `prompts/`
 
 ## v2 Requirements
@@ -180,7 +180,7 @@ Qué fase cubre cada requisito.
 | REL-01 | Phase 8 | Pending |
 | REL-02 | Phase 8 | Pending |
 | REL-03 | Phase 8 | Pending |
-| REL-04 | Phase 8 | Pending |
+| REL-04 | Phase 8 | Complete |
 | REL-05 | Phase 8 | Pending |
 
 **Coverage:**

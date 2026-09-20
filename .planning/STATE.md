@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-01-PLAN.md (0.2.7 published)
-last_updated: "2026-09-20T03:20:20.076Z"
+stopped_at: Completed 08-04-PLAN.md (REL-04 docs)
+last_updated: "2026-09-20T03:26:56.060Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 57
-  completed_plans: 48
+  completed_plans: 49
   percent: 75
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 8 (Release 0.3.0) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Last activity: 2026-09-20
 
-Progress: [████████░░] 84%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -108,6 +108,7 @@ Progress: [████████░░] 84%
 | Phase 07 P03 | - | 3 tasks | 6 files |
 | Phase 07 P04 | - | - | - |
 | Phase 08 P01 | 15min | 3 tasks | 4 files |
+| Phase 08 P04 | 3 min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -248,6 +249,7 @@ Recent decisions affecting current work:
 - [Phase 07]: Primera corrida del job `benchmarks` en CI (2026-09-19): batch_sizing mide ~2,65M (sigma 33,9K) en el runner ubuntu 2-vCPU frente a 10,5M locales — la unidad es aritmetica pura y su throughput escala con la frecuencia del core, no con el ancho de banda Python (las otras 5 unidades pasan sus pisos locales). Su piso se recalibra a 1,58M (2,65M x 0.6) en el MISMO commit (`ebb17e3`), segun la disciplina de calibracion del plan 07-02; el job resuelve ademas el error de coleccion que producia `uv sync --group dev` (sin extras http/security/graphql) al importar test_graphql.py et al. en la recoleccion: ahora ejecuta solo `tests/test_benchmarks.py` (`eee91c8`). Segunda corrida (5ebc844): CI 10/10 jobs verde, incl. Benchmarks y Lint.
 - [Phase ?]: 08-01: se publica 0.2.7 con los tres DeprecationWarning reales pinados (reset_on_release='commit', globales SECRET/GET_DB, last_id() post-hoc) y se documenta la ruptura fail-closed de identificadores como la que NO puede avisar sin degradar la seguridad; la allowlist tolerante a puntos se conserva intencional y blindada por test. — SemVer exige deprecar en un minor antes de romper; degradar una validacion fail-closed para poder avisar reabriria la superficie de inyeccion.
 - [Phase ?]: 08-01: tag anotado v0.2.7 sobre main en el commit de congelacion e984e78 (D-01, sin rama); publicacion real ejecutada por una persona via PYPI_API_TOKEN (D-04, migracion a OIDC en 08-02); REL-01 sigue ABIERTO: las retiradas viven en 08-06 y 08-08. — D-01/D-04 del contexto; REL-01 se reparte entre 08-01, 08-06 y 08-08 y no se cierra hasta las retiradas.
+- [Phase ?]: 08-04: [Unreleased] reescrito sin notas de ownership y con pares Viejo:/nuevo: explícitos en cada CAMBIO DE COMPORTAMIENTO; docs/MIGRATION-0.3.md (11 secciones, 24 pares Antes/Después) registrada en la nav de MkDocs; guard file-wide en tests/test_release_docs.py.
 
 ### Pending Todos
 
@@ -274,6 +276,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T03:19:03.731Z
-Stopped at: Completed 08-01-PLAN.md (0.2.7 published)
+Last session: 2026-09-20T03:26:24.525Z
+Stopped at: Completed 08-04-PLAN.md (REL-04 docs)
 Resume file: None
