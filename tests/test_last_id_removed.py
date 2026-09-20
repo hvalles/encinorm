@@ -1,9 +1,9 @@
 """Ausencia de la API post-hoc `last_id()` y camino feliz de `execute_insert`.
 
-REL-01 (retirada de 0.3.0): `Db.last_id()`/`PoolDb.last_id()` y el helper
-centralizado de warning ya no existen. El id se obtiene con `execute_insert(qry)`
-o con el retorno de `Model.insert()`. Los nombres retirados se escriben en este
-fichero porque es el guard de su ausencia.
+REL-01 (retirada de 0.3.0): la API post-hoc `last_id()` de `Db`/`PoolDb` y el
+helper centralizado de warning ya no existen. El id se obtiene con
+`execute_insert(qry)` o con el retorno de `Model.insert()`. Los nombres retirados
+se escriben en este fichero porque es el guard de su ausencia.
 """
 
 import pytest
@@ -14,7 +14,7 @@ from encino_orm.pool import PoolDb
 
 
 def test_db_last_id_retirado():
-    """`Db.last_id()` y el helper de warning ya no son atributos de `base`."""
+    """La API post-hoc `last_id()` y el helper ya no son atributos de `base`."""
     assert not hasattr(base.Db, "last_id")
     with pytest.raises(AttributeError):
         _ = base.Db.last_id
@@ -22,7 +22,7 @@ def test_db_last_id_retirado():
 
 
 def test_pool_db_last_id_retirado():
-    """`PoolDb.last_id()` ya no existe en la línea 0.3.0."""
+    """La API post-hoc `last_id()` de `PoolDb` ya no existe en la línea 0.3.0."""
     assert not hasattr(PoolDb, "last_id")
     with pytest.raises(AttributeError):
         _ = PoolDb.last_id
