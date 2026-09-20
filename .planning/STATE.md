@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-08-PLAN.md (retirada de last_id() post-hoc en Db/PoolDb + helper; tests de pool y seis motores migrados; REL-01)
-last_updated: "2026-09-20T04:45:26.541Z"
+stopped_at: Completed 08-02-PLAN.md (OIDC trusted publishing + entorno pypi protegido; PYPI_API_TOKEN eliminado; REL-03)
+last_updated: "2026-09-20T05:11:34.239Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 8
@@ -113,6 +113,7 @@ Progress: [██████████] 95%
 | Phase 08 P06 | 9 min | 3 tasks | 13 files |
 | Phase 08-release-0-3-0 P07 | 2 min | 2 tasks | 10 files |
 | Phase 08-release-0-3-0 P08 | 5 min | 3 tasks | 12 files |
+| Phase 08 P02 | 2min + config | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -260,6 +261,7 @@ Recent decisions affecting current work:
 - [Phase 08-07]: 08-07: REL-05 se marca COMPLETO al quedar ambas mitades entregadas (README por 08-05 + docs/** por 08-07) — REL-05 exige pinning/warning en README y enlace prompts/ corregido; con 08-05 y 08-07 ejecutados, REQUIREMENTS.md deja de estar en falso.
 - [Phase ?]: 08-08: se retira la API publica post-hoc last_id() de Db/PoolDb y el helper centralizado _warn_last_id_deprecated; el id se obtiene con execute_insert(qry) o el retorno de Model.insert(). El hook privado _last_id_value() y el campo PooledConnection.last_id se conservan como detalle interno. — Retirar los seis adaptadores quedaba fuera del umbral de alcance del plan; el hook privado no es API publica ni ruptura enumerada.
 - [Phase ?]: 08-08 (Rule 3): la retirada del helper en base.py dejaba a pool.py importando un nombre inexistente, asi que PoolDb.last_id() se elimino en el mismo commit de la Task 1 para mantener el paquete importable y ruff-clean; la Task 2 migro los tests de pool y afirmo la ausencia. — El plan separaba base.py (Task 1) y pool.py (Task 2), pero la remocion del helper rompia la importacion del paquete; el fix bloqueante se aplico en la Task 1.
+- [Phase 08-02]: REL-03: OIDC trusted publishing activo (id-token: write + uv publish --trusted-publishing always) en release.yml y publish-testpypi.yml, congelado por tests/test_release_config.py; entorno pypi protegido (branch main + tag v*) y PYPI_API_TOKEN/TEST_PYPI_API_TOKEN eliminados de Actions — Elimina el token de larga vida (menor superficie supply-chain) y hace del entorno protegido la via unica de publicacion; la validacion OIDC end-to-end en TestPyPI se difiere a 0.3.0rc1 en 08-03
 
 ### Pending Todos
 
@@ -286,6 +288,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T04:45:26.531Z
-Stopped at: Completed 08-08-PLAN.md (retirada de last_id() post-hoc en Db/PoolDb + helper; tests de pool y seis motores migrados; REL-01)
+Last session: 2026-09-20T05:11:33.823Z
+Stopped at: Completed 08-02-PLAN.md (OIDC trusted publishing + entorno pypi protegido; PYPI_API_TOKEN eliminado; REL-03)
 Resume file: None
