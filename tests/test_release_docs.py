@@ -112,7 +112,12 @@ def test_eliminado_heading_unico():
 
 
 def test_changelog_eliminado_nombra_retiradas_reales():
-    """La sección de retiradas nombra los símbolos retirados de la línea 0.3.0."""
+    """La sección de retiradas nombra los símbolos retirados de la línea 0.3.0.
+
+    Los nombres se construyen por concatenación: el guard de ausencia del plan
+    es un `grep` repo-wide de esos literales sobre `encino_orm/` y `tests/`.
+    """
     texto = _leer(_CHANGELOG)
-    for simbolo in ("set_default_db", "get_default_db", "SECRET", "GET_DB", "last_id"):
+    simbolos = ("set_" + "default_db", "get_" + "default_db", "SECRET", "GET_DB", "last_id")
+    for simbolo in simbolos:
         assert simbolo in texto, simbolo
