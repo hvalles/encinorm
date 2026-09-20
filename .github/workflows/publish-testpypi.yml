@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write          # para trusted publishing (OIDC)
 
 jobs:
   publish-test:
@@ -22,20 +23,12 @@ jobs:
       - name: Build
         run: uv build
 
-      # Publica a TestPyPI usando un token (secret TEST_PYPI_API_TOKEN).
-      # El token se crea en https://test.pypi.org/manage/account/token/
-      # (es una cuenta aparte; los tokens de PyPI no sirven aquí).
-      #
       # Nota: TestPyPI rechaza subir una versión ya publicada. Si falla con
       # "already exists", sube la versión en pyproject.toml antes de volver a
       # publicar.
       #
-      # Alternativa sin token: Trusted Publishing (OIDC) sobre TestPyPI:
-      #   1. En TestPyPI > Settings > Publishing, añade el repo hvalles/encinorm
-      #      con el workflow "publish-testpypi.yml".
-      #   2. Añade `id-token: write` a `permissions` y sustituye este paso por:
-      #      run: uv publish --publish-url https://test.pypi.org/legacy/ --trusted-publishing always
+      # Publica por Trusted Publishing (OIDC): sin token de larga vida. El
+      # trusted publisher (repo hvalles/encinorm, workflow
+      # "publish-testpypi.yml") se registra en TestPyPI > Settings > Publishing.
       - name: Publish to TestPyPI
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        run: uv publish --publish-url https://test.pypi.org/legacy/
+        run: uv publish --publish-url https://test.pypi.org/legacy/ --trusted-publishing always

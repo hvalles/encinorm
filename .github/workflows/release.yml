@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write          # para trusted publishing (OIDC) si se usa
+  id-token: write          # para trusted publishing (OIDC)
 
 jobs:
   # CI-08: `needs:` no puede cruzar ficheros de workflow, asi que se llama a
@@ -22,6 +22,12 @@ jobs:
     needs: [ci]
     name: Build and publish
     runs-on: ubuntu-latest
+    # D-02: el entorno `pypi` es la unica via de publicacion. Sus protecciones
+    # (deployment branch `main`, required status checks sobre los jobs de
+    # `ci.yml` y aprobacion de revisores) se configuran en GitHub > Settings >
+    # Environments, NO en este YAML.
+    environment:
+      name: pypi
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -37,21 +43,12 @@ jobs:
       - name: Build
         run: uv build
 
-      # Publica a PyPI usando un token (secret PYPI_API_TOKEN).
-      # Alternativa sin token: Trusted Publishing (OIDC):
-      #   1. En PyPI > Settings > Publishing, añade el repo hvalles/encinorm
-      #      con el workflow "release.yml".
-      #   2. Sustituye este paso por: run: uv publish --trusted-publishing always
-      #      y elimina el env con el token.
+      # Publica a PyPI por Trusted Publishing (OIDC): sin token de larga vida
+      # que reutilizar fuera del workflow. El trusted publisher (repo
+      # hvalles/encinorm, workflow "release.yml", environment "pypi") se
+      # registra en PyPI > Settings > Publishing.
       - name: Publish to PyPI
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: uv publish
+        run: uv publish --trusted-publishing always
 
-      # Para probar contra TestPyPI de forma manual:
-      #   gh workflow run "Publish to PyPI" -f ... (o usa el botón "Run workflow")
-      # y comenta el paso anterior, descomentando:
-      # - name: Publish to TestPyPI
-      #   env:
-      #     UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
-      #   run: uv publish --publish-url https://test.pypi.org/legacy/
+      # Nota: la validacion previa contra TestPyPI la ejecuta el workflow manual
+      # "Publish to TestPyPI" (publish-testpypi.yml), tambien por OIDC.
