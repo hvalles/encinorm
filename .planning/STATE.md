@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 08-06-PLAN.md (retiradas reales de config/seguridad: set_default_db/get_default_db, SECRET/GET_DB, _legacy_config; CHANGELOG ### Eliminado + MIGRATION-0.3)"
-last_updated: "2026-09-20T04:26:13.325Z"
+stopped_at: Completed 08-07-PLAN.md (docs/** sin enlaces muertos a prompts/ + guard tests/test_docs_links.py; REL-05 completo)
+last_updated: "2026-09-20T04:36:22.914Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 57
-  completed_plans: 52
+  completed_plans: 53
   percent: 75
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 8 (Release 0.3.0) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
 Last activity: 2026-09-20
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -111,6 +111,7 @@ Progress: [█████████░] 91%
 | Phase 08 P04 | 3 min | 3 tasks | 4 files |
 | Phase 08-release-0-3-0 P05 | 2 min | 3 tasks | 3 files |
 | Phase 08 P06 | 9 min | 3 tasks | 13 files |
+| Phase 08-release-0-3-0 P07 | 2 min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -254,6 +255,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 08-04: [Unreleased] reescrito sin notas de ownership y con pares Viejo:/nuevo: explícitos en cada CAMBIO DE COMPORTAMIENTO; docs/MIGRATION-0.3.md (11 secciones, 24 pares Antes/Después) registrada en la nav de MkDocs; guard file-wide en tests/test_release_docs.py.
 - [Phase 08]: 08-05: REL-05 se marca PARCIAL; 08-05 entrega README + credenciales dev y la parte docs/** la cierra 08-07 (ambos declaran REL-05), por lo que no se ejecuta requirements.mark-complete aqui. — Marcar REL-05 completo con 08-07 pendiente dejaria REQUIREMENTS.md en falso; el guard de 08-05 no barre docs/** para no dejar el test rojo entre planes.
 - [Phase 08]: 08-06: las retiradas reales de 0.3.0 eliminan set_default_db/get_default_db, los globales SECRET/GET_DB y _legacy_config; la seguridad y el default solo se configuran vía ConnectionRegistry y SecurityConfig/security_dependencies — REL-01 exige que los globales no solo estén deprecados; el fallo cerrado (AuthenticationError sin config) cierra el vector de elevación de privilegio por global mutable
+- [Phase 08-release-0-3-0]: 08-07: las 9 paginas de docs/ reescriben sus citas a prompts/ como prosa rastreada (analisis tecnico interno no distribuido) en vez de borrar la referencia, y un guard parametrizado barre SOLO docs/**/*.md — El contenido de prompts/ esta gitignored/no disponible; borrar la cita perderia la affordance para el usuario mientras que la prosa conserva el sentido. El guard se mantiene disjunto del de 08-05 (README) para no crear deadlock en la misma wave.
+- [Phase 08-07]: 08-07: REL-05 se marca COMPLETO al quedar ambas mitades entregadas (README por 08-05 + docs/** por 08-07) — REL-05 exige pinning/warning en README y enlace prompts/ corregido; con 08-05 y 08-07 ejecutados, REQUIREMENTS.md deja de estar en falso.
 
 ### Pending Todos
 
@@ -280,6 +283,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T04:26:13.315Z
-Stopped at: Completed 08-06-PLAN.md (retiradas reales de config/seguridad: set_default_db/get_default_db, SECRET/GET_DB, _legacy_config; CHANGELOG ### Eliminado + MIGRATION-0.3)
+Last session: 2026-09-20T04:36:22.885Z
+Stopped at: Completed 08-07-PLAN.md (docs/** sin enlaces muertos a prompts/ + guard tests/test_docs_links.py; REL-05 completo)
 Resume file: None

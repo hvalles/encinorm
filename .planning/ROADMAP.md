@@ -402,7 +402,7 @@ Plans:
 
 - [x] 08-05-PLAN.md — README con pinning `~=0.2.6` (no `>=`), aviso de credenciales solo-desarrollo y `.env.example` rastreado, con guard de higiene del README — REL-05
 - [x] 08-06-PLAN.md — Retirada de APIs deprecadas: `set_default_db`/`get_default_db`, globales mutables `SECRET`/`GET_DB` y fallback legacy; documentación de todas las retiradas (`### Eliminado`) en CHANGELOG + MIGRATION-0.3 y resolución de la nota de ownership — REL-01, REL-04
-- [ ] 08-07-PLAN.md — Limpieza de enlaces muertos a `prompts/` en `docs/**` y guard parametrizado de enlaces — REL-05
+- [x] 08-07-PLAN.md — Limpieza de enlaces muertos a `prompts/` en `docs/**` y guard parametrizado de enlaces — REL-05
 
 **Wave 4** *(08-08 retira `last_id()`; depende de 08-06 para no dejar pines de warning obsoletos)*
 
@@ -498,7 +498,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
 | 6. Config & Optional-Layer Hygiene | 5/5 | Complete    | 2026-09-19 |
 | 7. Performance & Benchmarks | 0/4 | Not started | - |
-| 8. Release 0.3.0 | 5/8 | In Progress|  |
+| 8. Release 0.3.0 | 6/8 | In Progress|  |
 
 **Coverage:** 47/47 v1 requirements mapped ✓ (no orphans, no duplicates)
 
