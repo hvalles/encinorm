@@ -323,9 +323,11 @@ class TestOracleParity:
         assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
-    async def test_last_id_deprecated(self, oracle_connected_db):
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            await oracle_connected_db.last_id()
+    async def test_last_id_retirado(self, oracle_connected_db):
+        # REL-01 (0.3.0): la API post-hoc `last_id()` se retiró.
+        assert not hasattr(oracle_connected_db, "last_id")
+        with pytest.raises(AttributeError):
+            _ = oracle_connected_db.last_id
 
     @pytest.mark.asyncio
     async def test_model_insert_replace_no_rompe_el_merge(self, oracle_connected_db):

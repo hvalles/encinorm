@@ -435,16 +435,13 @@ class TestPostgresParity:
         assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
-    async def test_last_id_deprecated(self, pg_connected_db):
-        # `_last_id_value` de PostgreSQL usa `lastval()`, que exige un `nextval`
-        # previo en la sesión: se hace un INSERT real antes de pedir el id.
-        db = pg_connected_db
-        await _reset(
-            db, "usuarios", "CREATE TABLE usuarios (id SERIAL PRIMARY KEY, nombre VARCHAR(50))"
-        )
-        await db.execute(db.insert("usuarios", {"nombre": "x"}))
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            await db.last_id()
+    async def test_last_id_retirado(self, pg_connected_db):
+        # REL-01 (0.3.0): la API post-hoc `last_id()` se retiró; el id se obtiene
+        # con `execute_insert` (caracterizado arriba). Sin `lastval()` que
+        # ejercitar, el test es una assertion de ausencia pura.
+        assert not hasattr(pg_connected_db, "last_id")
+        with pytest.raises(AttributeError):
+            _ = pg_connected_db.last_id
 
     @pytest.mark.asyncio
     async def test_model_insert_replace_con_pk_natural(self, pg_connected_db):

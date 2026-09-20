@@ -425,12 +425,12 @@ class TestSqliteParity:
         assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
-    async def test_last_id_deprecated(self, connected_db):
-        # Task 3 / B2: la deprecación se prueba sobre un `SqliteDb` REAL, no un
-        # fake que sobrescriba `last_id`. El camino nuevo (`execute_insert`) no
-        # emite warning y ya está cubierto por los tests de arriba.
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            await connected_db.last_id()
+    async def test_last_id_retirado(self, connected_db):
+        # REL-01 (0.3.0): la API post-hoc `last_id()` se retiró; el id se obtiene
+        # con `execute_insert` (caracterizado arriba).
+        assert not hasattr(connected_db, "last_id")
+        with pytest.raises(AttributeError):
+            _ = connected_db.last_id
 
 
 class _Unico(Model):

@@ -246,9 +246,11 @@ class TestMariadbParity:
         assert await db.execute_insert(q2) == 2
 
     @pytest.mark.asyncio
-    async def test_last_id_deprecated(self, mariadb_connected_db):
-        with pytest.warns(DeprecationWarning, match="deprecado"):
-            await mariadb_connected_db.last_id()
+    async def test_last_id_retirado(self, mariadb_connected_db):
+        # REL-01 (0.3.0): la API post-hoc `last_id()` se retiró.
+        assert not hasattr(mariadb_connected_db, "last_id")
+        with pytest.raises(AttributeError):
+            _ = mariadb_connected_db.last_id
 
     @pytest.mark.asyncio
     async def test_model_upsert_on_duplicate_key(self, mariadb_connected_db):
