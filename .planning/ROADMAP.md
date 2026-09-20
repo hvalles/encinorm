@@ -497,7 +497,7 @@ Phases 2 and 3 may execute in parallel (disjoint modules). Phase 6 may run paral
 | 4. Pool Correctness & Concurrency | 6/6 | Complete    | 2026-09-19 |
 | 5. Resilience | 4/4 | Complete    | 2026-09-19 |
 | 6. Config & Optional-Layer Hygiene | 5/5 | Complete    | 2026-09-19 |
-| 7. Performance & Benchmarks | 0/4 | Not started | - |
+| 7. Performance & Benchmarks | 4/4 | Complete    | 2026-09-20 |
 | 8. Release 0.3.0 | 8/8 | Complete    | 2026-09-20 |
 
 **Coverage:** 47/47 v1 requirements mapped ✓ (no orphans, no duplicates)
