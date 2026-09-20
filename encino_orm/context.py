@@ -19,7 +19,6 @@ no acepta un registry directamente; usa `db=` o el enlace ambiente
 """
 
 import contextvars
-import warnings
 from contextlib import contextmanager
 
 from .exceptions import ConnectionError
@@ -78,32 +77,6 @@ class ConnectionRegistry:
 
 # Registry por defecto del proceso: único punto que guarda el default implícito.
 _registry = ConnectionRegistry()
-
-
-def set_default_db(db) -> None:
-    """Registra la conexión o pool por defecto del proceso.
-
-    Deprecado: usa un `ConnectionRegistry` explícito y su método `set_default()`.
-    """
-    warnings.warn(
-        "set_default_db() está deprecado; usa un ConnectionRegistry explícito",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    _registry.set_default(db)
-
-
-def get_default_db():
-    """Devuelve la conexión/pool por defecto del proceso, o `None`.
-
-    Deprecado: usa `ConnectionRegistry.get_default()` sobre un registry explícito.
-    """
-    warnings.warn(
-        "get_default_db() está deprecado; usa ConnectionRegistry.get_default()",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _registry.get_default()
 
 
 @contextmanager

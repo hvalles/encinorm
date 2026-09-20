@@ -9,7 +9,6 @@ from encino_orm import (
     create_db,
     resolve_db,
     session,
-    set_default_db,
 )
 from encino_orm.context import _registry
 from encino_orm.model import Model
@@ -29,8 +28,7 @@ class User(Model):
 class TestDefaultDb:
     @pytest.mark.asyncio
     async def test_model_resolves_default_db(self, connected_db):
-        with pytest.warns(DeprecationWarning, match="set_default_db"):
-            set_default_db(connected_db)
+        _registry.set_default(connected_db)
         await User(connected_db).create_table()
 
         u = User(name="ana")
@@ -43,16 +41,14 @@ class TestDefaultDb:
 
     @pytest.mark.asyncio
     async def test_insert_many_without_db(self, connected_db):
-        with pytest.warns(DeprecationWarning, match="set_default_db"):
-            set_default_db(connected_db)
+        _registry.set_default(connected_db)
         await User(connected_db).create_table()
         await User.insert_many(rows=[{"name": "a"}, {"name": "b"}])
         assert await User().count() == 2
 
     @pytest.mark.asyncio
     async def test_explicit_db_wins(self, connected_db):
-        with pytest.warns(DeprecationWarning, match="set_default_db"):
-            set_default_db(connected_db)
+        _registry.set_default(connected_db)
         assert User(connected_db)._get_db() is connected_db
 
     @pytest.mark.asyncio
@@ -72,8 +68,7 @@ class TestBind:
 
     @pytest.mark.asyncio
     async def test_bind_wins_over_default(self, connected_db):
-        with pytest.warns(DeprecationWarning, match="set_default_db"):
-            set_default_db(connected_db)
+        _registry.set_default(connected_db)
         other = await create_db("sqlite", database=":memory:")
         try:
             with bind(other):

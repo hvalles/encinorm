@@ -1,5 +1,5 @@
 from .base import Db
-from .context import ConnectionRegistry, bind, get_default_db, resolve_db, set_default_db
+from .context import ConnectionRegistry, bind, resolve_db
 from .engine import (
     Engine,
     engine_of,
@@ -76,7 +76,6 @@ __all__ = [
     "create_db",
     "current_trace_id",
     "engine_of",
-    "get_default_db",
     "is_mariadb",
     "is_mssql",
     "is_mysql",
@@ -89,6 +88,5 @@ __all__ = [
     "resolve_migration",
     "rollback_migration",
     "session",
-    "set_default_db",
     "trace_id",
 ]

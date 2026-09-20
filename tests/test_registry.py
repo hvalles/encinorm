@@ -9,9 +9,7 @@ from encino_orm import (
     ConnectionRegistry,
     bind,
     create_db,
-    get_default_db,
     resolve_db,
-    set_default_db,
 )
 from encino_orm.context import _registry
 
@@ -45,22 +43,11 @@ def test_registry_sin_default_lanza_connection_error():
 async def test_resolve_db_sin_argumentos_usa_el_registry_de_modulo():
     db_a = await create_db("sqlite", database=":memory:")
     try:
-        with pytest.warns(DeprecationWarning, match="set_default_db"):
-            set_default_db(db_a)
+        # El default de módulo se fija por el registry; sin shim no hay warning.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _registry.set_default(db_a)
         assert resolve_db() is db_a
-    finally:
-        _registry.set_default(None)
-        await db_a.close()
-
-
-@pytest.mark.asyncio
-async def test_shim_deprecado_avisa():
-    db_a = await create_db("sqlite", database=":memory:")
-    try:
-        with pytest.warns(DeprecationWarning, match="set_default_db"):
-            set_default_db(db_a)
-        with pytest.warns(DeprecationWarning, match="get_default_db"):
-            assert get_default_db() is db_a
     finally:
         _registry.set_default(None)
         await db_a.close()
