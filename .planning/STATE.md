@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-02-PLAN.md (OIDC trusted publishing + entorno pypi protegido; PYPI_API_TOKEN eliminado; REL-03)
-last_updated: "2026-09-20T05:11:34.239Z"
-last_activity: 2026-09-20
+stopped_at: Paused at 08-03 Task 2 (checkpoint humano: publicar 0.3.0rc1); Task 1 (corte de 0.3.0rc1) commiteada en 3fec2da
+last_updated: "2026-09-20T05:18:01.000Z"
+last_activity: 2026-09-19
 progress:
   total_phases: 8
   completed_phases: 6
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 8 (Release 0.3.0) — EXECUTING
-Plan: 8 of 8
-Status: Ready to execute
-Last activity: 2026-09-20
+Plan: 08-03 (paused at Task 2 — publish 0.3.0rc1 checkpoint; Task 1 committed 3fec2da)
+Status: Paused at human checkpoint (publication)
+Last activity: 2026-09-19
 
 Progress: [██████████] 95%
 
@@ -262,6 +262,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 08-08: se retira la API publica post-hoc last_id() de Db/PoolDb y el helper centralizado _warn_last_id_deprecated; el id se obtiene con execute_insert(qry) o el retorno de Model.insert(). El hook privado _last_id_value() y el campo PooledConnection.last_id se conservan como detalle interno. — Retirar los seis adaptadores quedaba fuera del umbral de alcance del plan; el hook privado no es API publica ni ruptura enumerada.
 - [Phase ?]: 08-08 (Rule 3): la retirada del helper en base.py dejaba a pool.py importando un nombre inexistente, asi que PoolDb.last_id() se elimino en el mismo commit de la Task 1 para mantener el paquete importable y ruff-clean; la Task 2 migro los tests de pool y afirmo la ausencia. — El plan separaba base.py (Task 1) y pool.py (Task 2), pero la remocion del helper rompia la importacion del paquete; el fix bloqueante se aplico en la Task 1.
 - [Phase 08-02]: REL-03: OIDC trusted publishing activo (id-token: write + uv publish --trusted-publishing always) en release.yml y publish-testpypi.yml, congelado por tests/test_release_config.py; entorno pypi protegido (branch main + tag v*) y PYPI_API_TOKEN/TEST_PYPI_API_TOKEN eliminados de Actions — Elimina el token de larga vida (menor superficie supply-chain) y hace del entorno protegido la via unica de publicacion; la validacion OIDC end-to-end en TestPyPI se difiere a 0.3.0rc1 en 08-03
+- [Phase 08-03]: 0.3.0rc1 cortada en el commit 3fec2da (pyproject + uv.lock a 0.3.0rc1, `[Unreleased]` promovido a `[0.3.0rc1]` con nuevo `[Unreleased]` vacío); suite completa verde (1124 passed) y wheel `Version: 0.3.0rc1` construida. El plan queda PAUSADO en la Task 2 (checkpoint humano de publicación, D-04): la promoción a 0.3.0 (Task 3) depende del tag `v0.3.0rc1` que crea la persona. — El plan tiene checkpoints de publicación humanas por diseño (`autonomous: false`); Tasks 3–4 no son alcanzables sin la publicación de rc1.
 
 ### Pending Todos
 
@@ -288,6 +289,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T05:11:33.823Z
-Stopped at: Completed 08-02-PLAN.md (OIDC trusted publishing + entorno pypi protegido; PYPI_API_TOKEN eliminado; REL-03)
-Resume file: None
+Last session: 2026-09-20T05:18:01.000Z
+Stopped at: Paused at 08-03 Task 2 (checkpoint humano: publicar 0.3.0rc1). Task 1 (corte de 0.3.0rc1) commiteada en 3fec2da; Tasks 3–4 pendientes tras la publicación.
+Resume file: .planning/phases/08-release-0-3-0/08-03-SUMMARY.md
