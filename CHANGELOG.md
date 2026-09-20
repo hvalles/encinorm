@@ -8,7 +8,9 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
 
 ## [Unreleased]
 
-## [0.3.0rc1] - 2026-09-19
+## [0.3.0] - 2026-09-19
+
+Sin cambios de código respecto a `0.3.0rc1`.
 
 ### Añadido
 
