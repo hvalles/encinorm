@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-07-PLAN.md (docs/** sin enlaces muertos a prompts/ + guard tests/test_docs_links.py; REL-05 completo)
-last_updated: "2026-09-20T04:36:22.914Z"
+stopped_at: Completed 08-08-PLAN.md (retirada de last_id() post-hoc en Db/PoolDb + helper; tests de pool y seis motores migrados; REL-01)
+last_updated: "2026-09-20T04:45:26.541Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 57
-  completed_plans: 53
+  completed_plans: 54
   percent: 75
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 ## Current Position
 
 Phase: 8 (Release 0.3.0) — EXECUTING
-Plan: 6 of 8
+Plan: 8 of 8
 Status: Ready to execute
 Last activity: 2026-09-20
 
-Progress: [█████████░] 93%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -112,6 +112,7 @@ Progress: [█████████░] 93%
 | Phase 08-release-0-3-0 P05 | 2 min | 3 tasks | 3 files |
 | Phase 08 P06 | 9 min | 3 tasks | 13 files |
 | Phase 08-release-0-3-0 P07 | 2 min | 2 tasks | 10 files |
+| Phase 08-release-0-3-0 P08 | 5 min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -257,6 +258,8 @@ Recent decisions affecting current work:
 - [Phase 08]: 08-06: las retiradas reales de 0.3.0 eliminan set_default_db/get_default_db, los globales SECRET/GET_DB y _legacy_config; la seguridad y el default solo se configuran vía ConnectionRegistry y SecurityConfig/security_dependencies — REL-01 exige que los globales no solo estén deprecados; el fallo cerrado (AuthenticationError sin config) cierra el vector de elevación de privilegio por global mutable
 - [Phase 08-release-0-3-0]: 08-07: las 9 paginas de docs/ reescriben sus citas a prompts/ como prosa rastreada (analisis tecnico interno no distribuido) en vez de borrar la referencia, y un guard parametrizado barre SOLO docs/**/*.md — El contenido de prompts/ esta gitignored/no disponible; borrar la cita perderia la affordance para el usuario mientras que la prosa conserva el sentido. El guard se mantiene disjunto del de 08-05 (README) para no crear deadlock en la misma wave.
 - [Phase 08-07]: 08-07: REL-05 se marca COMPLETO al quedar ambas mitades entregadas (README por 08-05 + docs/** por 08-07) — REL-05 exige pinning/warning en README y enlace prompts/ corregido; con 08-05 y 08-07 ejecutados, REQUIREMENTS.md deja de estar en falso.
+- [Phase ?]: 08-08: se retira la API publica post-hoc last_id() de Db/PoolDb y el helper centralizado _warn_last_id_deprecated; el id se obtiene con execute_insert(qry) o el retorno de Model.insert(). El hook privado _last_id_value() y el campo PooledConnection.last_id se conservan como detalle interno. — Retirar los seis adaptadores quedaba fuera del umbral de alcance del plan; el hook privado no es API publica ni ruptura enumerada.
+- [Phase ?]: 08-08 (Rule 3): la retirada del helper en base.py dejaba a pool.py importando un nombre inexistente, asi que PoolDb.last_id() se elimino en el mismo commit de la Task 1 para mantener el paquete importable y ruff-clean; la Task 2 migro los tests de pool y afirmo la ausencia. — El plan separaba base.py (Task 1) y pool.py (Task 2), pero la remocion del helper rompia la importacion del paquete; el fix bloqueante se aplico en la Task 1.
 
 ### Pending Todos
 
@@ -283,6 +286,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T04:36:22.885Z
-Stopped at: Completed 08-07-PLAN.md (docs/** sin enlaces muertos a prompts/ + guard tests/test_docs_links.py; REL-05 completo)
+Last session: 2026-09-20T04:45:26.531Z
+Stopped at: Completed 08-08-PLAN.md (retirada de last_id() post-hoc en Db/PoolDb + helper; tests de pool y seis motores migrados; REL-01)
 Resume file: None
