@@ -53,9 +53,7 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   conserva el comportamiento histórico. La precedencia `bind`/`session`/
   transacción del pool no cambia. Viejo: un único default de proceso; nuevo:
   default inyectable por registry. La **retirada** de los globales (no solo su
-  deprecación) es `REL-01` (Fase 8). Nota de ownership: esta entrada es ADITIVA y
-  no prejuzga la enumeración de cambios incompatibles del milestone, que posee la
-  Fase 8 (`08-04`).
+  deprecación) es `REL-01` (Fase 8).
 - **CAMBIO DE COMPORTAMIENTO (CFG-02: configuración de seguridad inmutable).**
   `SecurityConfig` (dataclass `frozen`) + `security_dependencies(config)`
   reemplazan los globales mutables `SECRET`/`GET_DB`: los guards se construyen
@@ -66,26 +64,21 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   aplicación. Cap de `PyJWT` subido de `>=2.8,<2.13` a `>=2.8,<2.15` (resuelto a
   2.14.0), con `uv audit` (feed OSV) y `pip-audit` (feed PyPA) verdes **sin
   ignores** y `tests/test_security.py` verde; en consecuencia se retiraron los 5
-  `--ignore GHSA-*` del job `deps` de `ci.yml`. Nota de ownership: esta entrada es
-  ADITIVA y no prejuzga la enumeración de cambios incompatibles del milestone, que
-  posee la Fase 8 (`08-04`).
+  `--ignore GHSA-*` del job `deps` de `ci.yml`.
 - **CFG-03 (codegen sin `exec()`).** Los handlers REST `get`/`put`/`delete` y los
   resolvers GraphQL `get`/`update`/`delete` se construyen con closures y una
   `__signature__` explícita en vez de `exec()`; el contrato OpenAPI y la SDL son
   **IDÉNTICOS** (cambio de implementación, no de contrato). Viejo: código generado
-  y compilado en caliente; nuevo: introspección de firmas con `inspect`. Nota de
-  ownership: ADITIVA; no prejuzga la enumeración del milestone (`08-04`).
+  y compilado en caliente; nuevo: introspección de firmas con `inspect`.
 - **CFG-04 (namespace GraphQL por build).** `build_schema` usa un namespace
   sintético por build y deja de mutar el namespace del módulo
   `encino_orm.graphql.schema`; dos builds sucesivos dejan de interferir entre sí.
   Viejo: los tipos generados se acumulaban en el módulo real; nuevo: namespace
-  aislado y efímero por build. Nota de ownership: ADITIVA; no prejuzga la
-  enumeración del milestone (`08-04`).
+  aislado y efímero por build.
 - **CFG-05 (fronteras de confianza documentadas).** Las fronteras de confianza de
   `Filter.raw`, `Query` y `db.fn.*` quedan documentadas con ejemplos seguros e
   inseguros en `docs/trust-boundaries.md`; `Filter.raw` sigue reemitiendo el
-  fragmento verbatim (sin cambio de comportamiento). Nota de ownership: ADITIVA;
-  no prejuzga la enumeración del milestone (`08-04`).
+  fragmento verbatim (sin cambio de comportamiento).
 
 - **CAMBIO DE COMPORTAMIENTO (formato de clave de caché).** La clave de caché de
   `CachedModel` ahora incluye la huella del `scope()` activo:
@@ -97,9 +90,10 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   clave no cambia respecto al formato anterior.
   Al ser un cambio de formato, un backend compartido entre versiones puede
   conservar claves del formato viejo como entradas huérfanas hasta que expire su
-  TTL; el nuevo formato no las sirve. Nota de ownership: esta entrada es ADITIVA y
-  no prejuzga la enumeración de cambios incompatibles del milestone, que posee la
-  Fase 8 (`08-04`).
+  TTL; el nuevo formato no las sirve. Viejo: la clave era
+  `sha1(tabla:[pk=...])`, sin huella de tenant; nuevo:
+  `sha1(tabla:[pk=...]|scope=<huella>)` (sin `scope()` activo, idéntica a la
+  anterior).
 - **CAMBIO DE COMPORTAMIENTO (resiliencia de conexiones directas).** Una
   desconexión fuera de transacción se clasifica con `is_disconnect_error` y
   reconecta **exactamente una vez** (sin bucle ni backoff); dentro de una
@@ -108,10 +102,10 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   criterio de la fase): las LECTURAS se re-ejecutan tras reconectar; una
   ESCRITURA cuya sentencia nunca llegó al driver (`ConnectionError` de la
   librería) se ejecuta; una ESCRITURA que murió mid-statement reconecta pero
-  **relanza sin re-ejecutar** (nunca duplica en silencio). Antes, una desconexión
-  salía cruda del driver y la conexión directa quedaba inutilizable. Nota de
-  ownership: esta entrada es ADITIVA y no prejuzga la enumeración completa del
-  milestone, que posee la Fase 8 (`08-04`).
+  **relanza sin re-ejecutar** (nunca duplica en silencio). Viejo: una desconexión
+  salía cruda del driver y la conexión directa quedaba inutilizable; nuevo: la
+  desconexión se clasifica con `is_disconnect_error`, reconecta una vez fuera de
+  transacción y relanza dentro de ella.
 
 ### Corregido
 
@@ -124,9 +118,9 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   `acquire()` y al salir de `release()`, sin daemon de fondo); con
   `idle_timeout=None` el reaper está desactivado. Un handle liberado con el pool
   cerrado —o de una generación anterior tras un ciclo close/reconnect— se cierra
-  en vez de volver a la cola. Nota de ownership: esta entrada es ADITIVA y no
-  prejuzga la enumeración de cambios incompatibles del milestone, que posee la
-  Fase 8 (`08-04`).
+  en vez de volver a la cola. Viejo: `close()` cerraba también las conexiones en
+  uso y no había reaper; nuevo: `close()` es idempotente, solo cierra las ociosas
+  y el reaper cierra el sobrante por encima de `min_size` tras `idle_timeout`.
 - **CAMBIO DE COMPORTAMIENTO (semántica de liberación del pool).** `PoolDb`
   cierra ahora la transacción **explícitamente** en `execute`/`_run` (commit en
   éxito, rollback en error) antes de devolver la conexión al pool, y `release()`
@@ -137,9 +131,10 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   accidental. La política es configurable con `PoolDb(..., reset_on_release=...)`:
   `"rollback"` (default) revierte; `"commit"` restaura el comportamiento viejo y
   queda **DEPRECADO** (emite `DeprecationWarning` al construir el pool). Un valor
-  distinto de esos dos lanza `ValueError`. Nota de ownership: esta entrada es
-  ADITIVA y no prejuzga la enumeración de cambios incompatibles del milestone,
-  que posee la Fase 8 (`08-04`).
+  distinto de esos dos lanza `ValueError`. Viejo: `release()` no tocaba la
+  transacción y un sobrante se confirmaba por accidente; nuevo: `release()`
+  revierte por defecto (`"rollback"`) y `execute`/`_run` cierran la transacción
+  explícitamente (commit en éxito, rollback en error).
 - El id de una inserción se captura **dentro** de la sentencia que lo produce y
   por conexión/tarea: nuevo `Db.execute_insert(qry)` y `Db.insert(...,
   returning=<col>)` opt-in (`cursor.lastrowid` en SQLite/MySQL/MariaDB,
@@ -148,9 +143,10 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   (emite `DeprecationWarning`) porque devolvía el id de OTRA fila sin error bajo
   concurrencia, y el cache de id a nivel de pool se elimina. Antes: PostgreSQL
   usaba `lastval()` (session-scoped, no transaction-scoped) y MSSQL usaba
-  `@@IDENTITY` (session-scoped y contaminable por triggers). Nota de ownership:
-  esta entrada es ADITIVA y no prejuzga la enumeración completa del milestone,
-  que posee la Fase 8 (`08-04`).
+  `@@IDENTITY` (session-scoped y contaminable por triggers). Viejo: el id se leía
+  **después** de la sentencia (`last_id()`), devolviendo el de otra fila bajo
+  concurrencia; nuevo: se captura **dentro** de la sentencia que lo produce
+  (`execute_insert`/`returning=`).
 - Oracle: `Model.insert(replace=True)` deja de fallar con **ORA-38104** (el
   `WHEN MATCHED THEN UPDATE SET` del `MERGE` excluye las columnas del `ON`, como
   ya hacía `build_upsert` con `update_cols`), de modo que la sentencia es
@@ -164,10 +160,10 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   `PooledConnection` (handle con `driver`, `last_used`, `generation`, `checked_out`
   y `owner_task`), no un `Db`. Usa `handle.driver` para el `Db` crudo; `release()`
   acepta tanto el handle como el `Db`. El handle se re-exporta desde
-  `encino_orm` (`from encino_orm import PooledConnection`). Antes `acquire()`
-  devolvía directamente el `Db` y el estado por conexión vivía repartido. Nota de
-  ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
-  que posee la Fase 8 (`08-04`).
+  `encino_orm` (`from encino_orm import PooledConnection`). Viejo: `acquire()`
+  devolvía directamente el `Db` y el estado por conexión vivía repartido; nuevo:
+  devuelve el handle `PooledConnection` y `release()` acepta tanto el handle como
+  el `Db`.
 - **CAMBIO DE COMPORTAMIENTO (MSSQL `replace=True` con una sola columna de
   datos).** El arreglo de ORA-38104 excluye las columnas del `ON` del
   `WHEN MATCHED THEN UPDATE SET` y **falla cerrado** si no queda ninguna columna
@@ -175,25 +171,25 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   (`{"nombre": ...}`), `Model.insert(replace=True)` ahora lanza
   `ValueError("MERGE sin columnas actualizables...")` en MSSQL (antes emitía un
   MERGE de sintaxis válida pero sin columnas que actualizar). Oracle ya lo
-  rechazaba. Nota de ownership: esta entrada es ADITIVA y no prejuzga la
-  enumeración del milestone, que posee la Fase 8 (`08-04`).
+  rechazaba. Viejo: MSSQL ejecutaba un MERGE sin columnas que actualizar; nuevo:
+  falla cerrado con `ValueError`.
 
 - La invalidación post-escritura de `CachedModel` es fail-open incluso cuando una PK
   tiene un valor no hashable (`list`/`dict`, que pydantic y `_from_db` admiten):
   `_union` deduplica por una huella `repr` y la unión de sondas va envuelta en
   `try/except`, de modo que un fallo de la invalidación nunca propaga una excepción
   después del commit (WR-R3-02). Antes, un `TypeError` en la unión podía reportar
-  como fallida una escritura ya persistida. Nota de ownership: esta entrada es
-  ADITIVA y no prejuzga la enumeración del milestone, que posee la Fase 8 (`08-04`).
+  como fallida una escritura ya persistida; ahora la invalidación degrada a la
+  concatenación de sondas y no propaga.
 - `indexes_ddl` valida las columnas de índice no mapeadas con la allowlist
   estricta: un spec que no es un campo del modelo ni un identificador simple
   (p. ej. `"a; DROP TABLE x --"`) antes se interpolaba tal cual en la DDL y ahora
   lanza `ValueError` (fail-closed); un identificador simple (`Index("no_existe")`)
   sigue aceptándose. Además, el nombre de columna por defecto (el campo pydantic)
   se valida al construir el mapa de columnas, de modo que `to_ddl` e
-  `insert_many` rechazan identificadores no válidos. Nota de ownership: esta
-  entrada es ADITIVA y no prejuzga la enumeración de cambios incompatibles del
-  milestone, que posee la Fase 8 (`08-04`).
+  `insert_many` rechazan identificadores no válidos. Viejo: un spec de índice no
+  mapeado se interpolaba tal cual en la DDL; nuevo: la allowlist estricta lanza
+  `ValueError` (fail-closed) antes de generar SQL.
 - `QueryBuilder.all()`, `first()` y `exists()` dejan de emitir un `LIMIT` en
   línea: la paginación la aplica el adaptador (`fetch_many`/`fetch_one`), de modo
   que la consulta es válida en los seis motores (SQL Server y Oracle usan
@@ -216,15 +212,12 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   descubiertos al añadir cobertura de `Model.insert(replace=True)`): SQL Server
   exige que `MERGE` termine en `;` y Oracle exige `FROM dual` en el subquery del
   `USING`. Se aplican SOLO al SQL que va al driver, sin alterar el SQL que producen
-  los builders/adaptadores (golden strings y snapshots intactos). Nota de
-  ownership: aditiva, igual que la anterior; la Fase 8 (`08-04`) posee la
-  enumeración del milestone.
+  los builders/adaptadores (golden strings y snapshots intactos).
 - `Query` aplica el contrato de cardinalidad sin carve-outs: pasar valores a una
   plantilla sin `{n}` ahora lanza `ValueError` (antes los valores se descartaban en
   silencio) y `{00}` se normaliza a `parameter_0000` en vez de dejar una clave que
-  el adaptador no resuelve. El camino compatible `Query(sql, [])` se conserva. Nota
-  de ownership: esta entrada es ADITIVA y no prejuzga la enumeración de cambios
-  incompatibles del milestone, que posee la Fase 8 (`08-04`).
+  el adaptador no resuelve. El camino compatible `Query(sql, [])` se conserva.
+  Viejo: los valores sobrantes se descartaban en silencio; nuevo: `ValueError`.
 - `QueryBuilder` valida el nombre de tabla del modelo (constructor) y el de cada
   destino de `join()` con la allowlist estricta, de modo que un `_table` no
   identificador (p. ej. de un modelo dinámico o generado por codegen) lanza
@@ -255,8 +248,7 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   a ejecutar su `up` (antes la fila `{name}` sobrevivía y el re-apply era un no-op
   silencioso). CAMBIO INCOMPATIBLE: quien consultara filas con sufijo `:down` en
   `migrate_status()` ya no las verá; el ledger solo lista migraciones realmente
-  aplicadas. Nota de ownership: esta entrada es ADITIVA y no prejuzga la enumeración
-  de cambios incompatibles del milestone, que posee la Fase 8 (`08-04`).
+  aplicadas.
 - `migrate()` pasa a un flujo de dos fases: la fila se inserta como `pending` **antes**
   de ejecutar el DDL y se promueve a `applied` **después**. En los motores con commit
   implícito de DDL (MySQL/MariaDB/Oracle) un fallo entre ambos pasos deja un `pending`,
@@ -265,15 +257,18 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   `resolve_migration(db, name, applied=...)`, donde `applied` significa "¿debe quedar
   registrada como aplicada?". La tabla de migraciones gana una columna `status`
   (`pending`/`applied`/`rolling_back`), con `ALTER TABLE` idempotente para
-  instalaciones existentes. Antes el registro se insertaba tras el DDL y un fallo
-  parcial dejaba el esquema cambiado sin registro (el ledger mentía).
+  instalaciones existentes. Viejo: el registro se insertaba tras el DDL y un fallo
+  parcial dejaba el esquema cambiado sin registro (el ledger mentía); nuevo: la
+  fila `pending` se inserta antes del DDL, se promueve a `applied` después y un
+  `pending` huérfano se detecta con `reconcile_migrations()`.
 - `CachedModel` invalida la clave afectada tras `update`, `delete` y `upsert` (y con
   `insert_many(cache=...)`), **después** del commit y de forma **fail-open**: un fallo
-  de invalidación registra un warning y no revierte la escritura. Antes la caché nunca
-  se invalidaba, así que una lectura posterior podía servir una fila obsoleta hasta que
-  expirara el TTL. La invalidación es local al proceso: no hay pub/sub distribuido, de
-  modo que en despliegues multi-proceso las entradas obsoletas quedan acotadas por el
-  TTL. Nota de ownership: ADITIVA, no prejuzga la enumeración del milestone (`08-04`).
+  de invalidación registra un warning y no revierte la escritura. Viejo: la caché
+  nunca se invalidaba, así que una lectura posterior podía servir una fila obsoleta
+  hasta que expirara el TTL; nuevo: `update`/`delete`/`upsert` (y
+  `insert_many(cache=...)`) invalidan la clave afectada después del commit. La
+  invalidación es local al proceso: no hay pub/sub distribuido, de modo que en
+  despliegues multi-proceso las entradas obsoletas quedan acotadas por el TTL.
 - El dominio de la caché de `CachedModel` pasa a ser la **PK de la fila** (canónico):
   `load(keys=<no-PK>)` consulta la BD, aprende la PK y recachea bajo ella en vez de
   cachear bajo la clave de lectura, y `update`/`delete`/`upsert` resuelven la PK real
@@ -282,22 +277,21 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   Antes, un write por una clave distinta de la PK (`update(keys=['rfc'])` /
   `upsert(conflict=['rfc'])`) dejaba obsoleta la entrada cacheada bajo la PK y una
   lectura posterior podía servir la fila vieja hasta el TTL (CR-01). CAMBIO DE
-  COMPORTAMIENTO: una lectura no-PK deja de acierto en caché. Nota de ownership: esta
-  entrada es ADITIVA y no prejuzga la enumeración completa del milestone, que posee la
-  Fase 8 (`08-04`).
+  COMPORTAMIENTO: una lectura no-PK deja de acierto en caché. Viejo: el dominio de
+  la caché era la clave de lectura (podía ser no-PK); nuevo: el dominio es
+  siempre la PK canónica de la fila.
 - `MemoryCacheBackend` pasa a estar acotado con LRU (`max_size=1024` por defecto,
   configurable) y se documenta como backend **dev/test-only**; para producción se usa
-  `RedisCacheBackend`. Antes era un `dict` sin cota y las claves nunca releídas se
-  acumulaban indefinidamente. Nota de ownership: ADITIVA, no prejuzga la enumeración
-  del milestone (`08-04`).
+  `RedisCacheBackend`. Viejo: un `dict` sin cota en el que las claves nunca
+  releídas se acumulaban indefinidamente; nuevo: LRU con `max_size=1024` por
+  defecto (configurable).
 - `CachedModel` ahora invalida la entrada de caché de **TODAS las filas afectadas**
   por una escritura, no solo de una: `update`/`delete`/`upsert` con claves de
   escritura no-PK (`update(keys=["grupo"])`) afectan a todas las filas que casan y
   antes se resolvía e invalidaba una sola PK (la de una fila arbitraria), de modo
   que las demás servían datos obsoletos hasta el TTL (CR-01). La resolución
-  reutiliza un `SELECT` ligado, scope-aware y con `include_deleted=True`. Nota de
-  ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
-  que posee la Fase 8 (`08-04`).
+  reutiliza un `SELECT` ligado, scope-aware y con `include_deleted=True`; ahora se
+  invalidan las entradas de **todas** las filas que casan con la clave de escritura.
 - La compensación pre-DDL del runner de migraciones borra la fila del ledger por
   la **identidad de la fila** que ESTA llamada insertó (`{id: ledger_id}`,
   capturado best-effort con `last_id()`), no por `{name, status='pending'}`: el
@@ -305,9 +299,7 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   tras nuestro rollback (WR-01 residual). Si `last_id()` falla (o no expone un id
   utilizable), se cae al compare-and-delete documentado, residual estrecho asignado
   a la Fase 4 (`04-02`, POOL-03). Además, un fallo de la
-  compensación ya no enmascara la excepción original del DDL (IN-01). Nota de
-  ownership: esta entrada es ADITIVA y no prejuzga la enumeración del milestone,
-  que posee la Fase 8 (`08-04`).
+  compensación ya no enmascara la excepción original del DDL (IN-01).
 - **CAMBIO DE COMPORTAMIENTO (taxonomía de errores y traducción de excepciones).**
   Se publica una taxonomía — `ConnectionLostError(ConnectionError)`,
   `OperationalError(EncinoOrmError)`, `IntegrityError(QueryError)` y
@@ -324,9 +316,10 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   justificada por ASVS V7). Nota HTTP: `IntegrityError`/`ProgrammingError`
   derivan de `QueryError` → **400**; `OperationalError` (fallo de
   INFRAESTRUCTURA, no de la consulta) deriva de `EncinoOrmError` → **500**;
-  `ConnectionLostError` hereda de `ConnectionError` → **500**. Nota de ownership:
-  esta entrada es ADITIVA y no prejuzga la enumeración completa del milestone,
-  que posee la Fase 8 (`08-04`).
+  `ConnectionLostError` hereda de `ConnectionError` → **500**. Viejo: la excepción
+  del driver salía cruda y un `except sqlite3.IntegrityError:` la capturaba; nuevo:
+  `Db._translate_exception` la SUSTITUYE por la de la librería (la causa original
+  se preserva en `__cause__` vía `raise ... from exc`).
 - **CAMBIO DE COMPORTAMIENTO (reciclado opt-in de conexiones directas).** Nuevos
   kwargs de `connect()` — `pre_ping` (default `False`) y
   `max_connection_lifetime` (default `None`) — para que una conexión directa
@@ -335,8 +328,11 @@ en `0.x`, **no hay garantía de estabilidad** (ver `README.md`).
   la sonda falla; `max_connection_lifetime` recicla por **edad** de conexión
   (`time.monotonic`), no por inactividad. El reciclado a nivel de pool es
   `RELI-03` (v2). SQLite `:memory:` **rechaza** reconectar (crearía una base
-  vacía y perdería los datos) lanzando `ConnectionLostError`. Nota de ownership:
-  esta entrada es ADITIVA y no prejuzga la enumeración del milestone (`08-04`).
+  vacía y perdería los datos) lanzando `ConnectionLostError`. Viejo: una conexión
+  directa inactiva moría sin recuperación; nuevo: `pre_ping=True` sondea
+  `is_alive()` antes de cada operación y reconecta al instante si falla, y
+  `max_connection_lifetime` recicla por edad (ambos opt-in, default
+  `False`/`None`).
 
 ## [0.2.7] - 2026-09-19
 
