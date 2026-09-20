@@ -24,8 +24,8 @@ cada prueba se alimentan por variables de entorno `ENCINO_ORM_*` (ver
 | Redis | `redis:latest` | 6379 | ~30 MB | Para `RedisCacheBackend` (extra `cache`). |
 
 > Los tamaños son los **comprimidos** medidos con `docker manifest inspect`
-> (linux/amd64); el consumo en disco es mayor. Detalle completo en
-> `prompts/analisys-12.md`.
+> (linux/amd64); el consumo en disco es mayor. Detalle completo en el análisis
+> técnico interno (no distribuido) del proyecto.
 
 ---
 

@@ -7,7 +7,7 @@ habilitar los CRUD (`http`) y las operaciones GraphQL sin esquemas repetitivos.
 
 > Complementa `docs/design/1-model.md` (ORM), `docs/design/4-crud.md` (CRUD REST) y
 > `docs/design/3-graphql.md` (GraphQL). No modifica `Db`, `Model`, `Query` ni
-> `PoolDb`. Se apoya en el análisis `prompts/analisys-04.md`.
+> `PoolDb`. Se apoya en el análisis técnico interno (no distribuido).
 
 ---
 
@@ -34,7 +34,7 @@ endpoint. La seguridad se descompone en dos capas ortogonales:
 
 ## 2. Veredicto del análisis
 
-Ver `prompts/analisys-04.md`. Resumen:
+Ver el análisis técnico interno (no distribuido). Resumen:
 
 - **RBAC**: viable y de alto valor; las tablas de seguridad son `Model` del ORM.
 - **JWT**: se **envuelve** PyJWT; **no** se reimplementa el estándar ni el hashing

@@ -1,6 +1,6 @@
 # Documento de Diseño — `has_many` filtrado (relaciones 1:N)
 
-> Fecha: 2026-09-08 · Precedente: `prompts/analisys-14.md` y `prompts/27.md`.
+> Fecha: 2026-09-08 · Precedente: el análisis técnico interno (no distribuido).
 > Estado actual: las relaciones 1:N se cargan **completas** por clave foránea;
 > este documento diseña la **carga filtrada** (y paginada/ordenada) previa a la
 > consulta, sin traer a memoria la colección entera.

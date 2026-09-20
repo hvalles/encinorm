@@ -1,6 +1,6 @@
 # Documento de Diseño — Conexión por defecto / ambiente (`db` implícito en el `Model`)
 
-Este documento analiza las recomendaciones **B** de `prompts/analisys-07.md` y
+Este documento analiza las recomendaciones **B** del análisis técnico interno y
 diseña un mecanismo que **elimina la necesidad de pasar `db` a cada instancia**
 del `Model`, resolviendo la barrera de adopción "`db` por constructor" (analisys-07
 §2.3). El patrón se apoya en `contextvars` (mismo mecanismo que `scope()` y el

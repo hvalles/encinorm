@@ -14,8 +14,8 @@ de inteligencia artificial:
 ## DeepSeek V4 Pro
 
 - **Modelo:** `deepseek/deepseek-v4-pro`
-- **Rol:** modelo de lenguaje que impulsa la generación de código, el análisis de
-  los documentos `prompts/analisys-*.md` y la redacción de `docs/*.md`.
+- **Rol:** modelo de lenguaje que impulsa la generación de código, el análisis
+  técnico interno (no distribuido) y la redacción de `docs/*.md`.
 
 ## Dependencias y ecosistema
 

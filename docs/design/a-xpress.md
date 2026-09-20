@@ -6,7 +6,7 @@ documentado en `docs/engines.md`: **MariaDB** (compatibilidad de protocolo MySQL
 reusa `MysqlDb`), **Microsoft SQL Server Express** (T-SQL, driver `aioodbc`) y
 **Oracle XE 21c** (PL/SQL, driver `oracledb` en modo *thin* asíncrono).
 
-> Deriva de `prompts/analisys-12.md`. Precedentes de diseño: `docs/design/0-design.md`
+> Deriva del análisis técnico interno (no distribuido). Precedentes de diseño: `docs/design/0-design.md`
 > (contrato `Db`), `docs/design/8-pk.md` (PK/DLL por motor), `docs/design/7-missing.md`
 > (upsert/bulk por motor). Es **aditivo**: `sqlite`/`mysql`/`postgresql` no cambian.
 
@@ -666,7 +666,7 @@ MSSQL_CONFIG = {
 >
 > **Credenciales especiales** (no conexión, sino arranque del contenedor):
 > `ACCEPT_EULA=Y` + `MSSQL_SA_PASSWORD` (SQL Server) y `ORACLE_PASSWORD` (Oracle).
-> Ninguna llave de acceso adicional (ver `prompts/analisys-12.md` §4).
+> Ninguna llave de acceso adicional (ver el análisis técnico interno).
 
 ---
 

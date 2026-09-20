@@ -1,7 +1,7 @@
 # Documento de Diseño — funcionalidades faltantes (encino_orm)
 
 Este documento consolida el **diseño de las funcionalidades omitidas** en el alcance
-actual, identificadas y ponderadas en `prompts/analisys-06.md`. Cubre: migraciones
+actual, identificadas y ponderadas en el análisis técnico interno. Cubre: migraciones
 de esquema, operaciones masivas/upsert, tipos `Decimal` y `JSON`, relaciones
 `has_many`, alcance por fila (multi-tenant), observabilidad, CLI de codegen,
 agregados `avg`/`min`/`max` y borrado lógico automático. La capa **GraphQL** se

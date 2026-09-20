@@ -1,6 +1,6 @@
 # Documento de Diseño — Claves primarias (compuestas / naturales) en `load` y CRUD
 
-Este documento analiza las recomendaciones **C** de `prompts/analisys-07.md` y
+Este documento analiza las recomendaciones **C** del análisis técnico interno y
 detalla el diseño de una **clave primaria configurable** (simple, natural o
 **compuesta**) y de **claves foráneas compuestas**, que se utilicen de forma
 coherente en `load`, `search`, `update`, `delete`, `save`, `upsert`, relaciones

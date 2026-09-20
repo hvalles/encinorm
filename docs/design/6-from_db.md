@@ -9,7 +9,7 @@ preset del vocabulario se usa ese preset; si **no** está en el conjunto, el mod
 aplica un `make_constraint(...)` directo al campo.
 
 > Complementa `docs/design/1-model.md` (ORM), `docs/design/2-constraint.md`
-> (`Constraint`/`make_constraint`). Se apoya en `prompts/analisys-05.md`. No
+> (`Constraint`/`make_constraint`). Se apoya en el análisis técnico interno. No
 > modifica `Db` ni `Constraint`; es la **contraparte inversa** de `to_ddl()`.
 
 ---
@@ -33,7 +33,7 @@ descubrir sus tablas y generar modelos editables, en lugar de escribirlos a mano
 
 ## 2. Veredicto del análisis
 
-Ver `prompts/analisys-05.md`. Resumen:
+Ver el análisis técnico interno. Resumen:
 
 - **(A) Vocabulario de tipos** — viable, alto valor, bajo riesgo: es instanciar
   `make_constraint` con presets en un módulo nuevo.
