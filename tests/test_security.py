@@ -245,14 +245,7 @@ class TestGuardIntegration:
 
 
 class TestSecurityConfig:
-    """CFG-02 (Success Criterion 2): config frozen, guards desde config y
-    mutación de los globales sin efecto."""
-
-    @pytest.fixture(autouse=True)
-    def _restore_security_globals(self):
-        previous = (guard.SECRET, guard.GET_DB)
-        yield
-        guard.SECRET, guard.GET_DB = previous
+    """CFG-02 (Success Criterion 2): config frozen y guards desde config."""
 
     def test_config_es_frozen(self):
         valor = "otro"
@@ -317,60 +310,23 @@ class TestSecurityConfig:
             r_bad = await client.get("/agentes/", headers={"Authorization": "Bearer invalido"})
             assert r_bad.status_code == 401
 
-    @pytest.mark.asyncio
-    async def test_mutar_globales_no_cambia_el_comportamiento(self, sec_db):
-        await _seed_permissions(sec_db)
-
-        async def get_db():
-            async with session(sec_db) as conn:
-                yield conn
-
-        cfg = SecurityConfig(_SIGNING_MATERIAL, get_db)
-        _, require_dep = security_dependencies(cfg)
-
-        app = FastAPI()
-
-        @app.get("/agentes/")
-        async def listar(
-            _user: Annotated[None, Depends(require_dep("agentes", "read"))],
-        ):
-            return {"ok": True}
-
-        token = emit_token("42", _SIGNING_MATERIAL)
-        transport = ASGITransport(app=app)
-
-        async def _assert_contract():
-            async with AsyncClient(transport=transport, base_url="http://test") as client:
-                r_ok = await client.get("/agentes/", headers={"Authorization": f"Bearer {token}"})
-                assert r_ok.status_code == 200
-                assert (await client.get("/agentes/")).status_code == 403
-                r_bad = await client.get("/agentes/", headers={"Authorization": "Bearer invalido"})
-                assert r_bad.status_code == 401
-
-        await _assert_contract()
-
-        # Mutar los globales NO debe cambiar el comportamiento de los guards ya
-        # construidos desde `cfg`.
-        valor = "otro-secreto"
-        guard.SECRET = valor
-        guard.GET_DB = None
-        await _assert_contract()
-
-    def test_fallback_legacy_avisa_una_vez(self):
-        guard.SECRET = _SIGNING_MATERIAL
-        guard.GET_DB = _noop_get_db
-        with pytest.warns(DeprecationWarning, match="deprecad") as record:
-            get_current_user()
-        assert len(record) == 1
-        assert _SIGNING_MATERIAL not in str(record[0].message)
-
     def test_camino_explicito_no_avisa(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             get_current_user(secret=_SIGNING_MATERIAL, get_db=_noop_get_db)
 
-    def test_fallback_sin_globales_falla_cerrado(self):
-        guard.SECRET = None
-        guard.GET_DB = None
+    def test_sin_config_falla_cerrado(self):
         with pytest.raises(AuthenticationError):
             get_current_user()
+
+
+class TestSecurityGlobalsRetirados:
+    """0.3.0: los globales mutables y su fallback ya no existen en `guard`."""
+
+    def test_guard_no_expone_globales(self):
+        assert not hasattr(guard, "SECRET")
+        assert not hasattr(guard, "GET_DB")
+
+    def test_require_sin_config_falla_cerrado(self):
+        with pytest.raises(AuthenticationError):
+            require("agentes", "read")

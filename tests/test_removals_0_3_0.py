@@ -17,9 +17,16 @@ import encino_orm
 import encino_orm.context
 from encino_orm import ConnectionRegistry, PoolDb, create_db
 from encino_orm.context import _registry
+from encino_orm.security import (
+    AuthenticationError,
+    SecurityConfig,
+    guard,
+    security_dependencies,
+)
 
 _SET_DEFAULT = "set_" + "default_db"
 _GET_DEFAULT = "get_" + "default_db"
+_LEGACY_CONFIG = "_legacy" + "_config"
 
 
 def _import_from(module_name, symbol):
@@ -78,3 +85,32 @@ def test_reset_on_release_commit_sigue_avisando():
     """Reemplaza el pin de 0.2.7: `reset_on_release='commit'` sigue vigente."""
     with pytest.warns(DeprecationWarning, match="reset_on_release='commit'"):
         PoolDb("sqlite", reset_on_release="commit")
+
+
+def test_globales_seguridad_retirados():
+    """Los globales mutables de seguridad ya no son atributos de `guard`."""
+    assert not hasattr(guard, "SECRET")
+    assert not hasattr(guard, "GET_DB")
+
+
+def test_fallback_legacy_retirado():
+    """El fallback legacy de configuración de seguridad ya no existe."""
+    assert not hasattr(guard, _LEGACY_CONFIG)
+
+
+def test_get_current_user_sin_config_falla_cerrado():
+    """Sin config explícita no hay fallback: `AuthenticationError` accionable."""
+    with pytest.raises(AuthenticationError):
+        guard.get_current_user()
+
+
+def test_security_config_happy_path():
+    """`security_dependencies(SecurityConfig(...))` sigue siendo la única vía."""
+
+    async def get_db():
+        raise NotImplementedError  # nunca se invoca: solo se construyen factories
+
+    config = SecurityConfig("clave-de-firma-de-prueba-32-bytes-o-mas!", get_db)
+    get_current_user, require = security_dependencies(config)
+    assert callable(get_current_user)
+    assert callable(require)

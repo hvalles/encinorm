@@ -5,12 +5,12 @@ nunca al importar `encino_orm.security`, para que el núcleo no dependa de FastA
 
 La configuración viaja en un `SecurityConfig` inmutable que la aplicación
 construye y entrega a `security_dependencies(config)`, que devuelve factorías de
-guards cerradas sobre esa config. Los globales `SECRET`/`GET_DB` sobreviven como
-atributos de módulo normales solo por compatibilidad y alimentan el fallback
-deprecado; una vez construido un guard desde config, mutarlos no lo afecta.
+guards cerradas sobre esa config. Los globales mutables `SECRET`/`GET_DB` y su
+fallback se retiraron en `0.3.0`: sin configuración explícita los guards fallan
+cerrado con `AuthenticationError`, que dirige a
+`security_dependencies(SecurityConfig(...))`.
 """
 
-import warnings
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -18,10 +18,6 @@ from .config import SecurityConfig
 from .exceptions import AuthenticationError, AuthorizationError
 from .jwt import verify_token
 from .permissions import PermissionSet
-
-# Configuración global DEPRECADA que la aplicación sobreescribe en su arranque:
-SECRET: str | None = None  # p. ej. os.environ["SECRET_KEY"]
-GET_DB = None  # dependency de conexión (session(pool) de docs/design/4-crud.md)
 
 
 @dataclass
@@ -31,36 +27,25 @@ class CurrentUser:
 
 
 def _resolve(secret, get_db):
-    """Completa la configuración con los globales si falta algún valor (fail-closed)."""
-    secret = secret if secret is not None else SECRET
+    """Valida la configuración explícita; fail-closed, sin globales.
+
+    El mensaje nombra el reemplazo (`SecurityConfig` +
+    `security_dependencies`) y nunca el valor del secreto.
+    """
     if not secret:
-        raise AuthenticationError("SECRET no configurado para la dependency de seguridad")
-    db_dep = get_db if get_db is not None else GET_DB
-    if db_dep is None:
-        raise AuthenticationError("get_db no configurado para la dependency de seguridad")
-    return secret, db_dep
+        raise AuthenticationError(
+            "SECRET no configurado: usa security_dependencies(SecurityConfig(secret, get_db))"
+        )
+    if get_db is None:
+        raise AuthenticationError(
+            "get_db no configurado: usa security_dependencies(SecurityConfig(secret, get_db))"
+        )
+    return secret, get_db
 
 
 def _explicit_config(secret, get_db) -> SecurityConfig:
     """Camino explícito: sin warning (Assumption A4)."""
     secret, db_dep = _resolve(secret, get_db)
-    return SecurityConfig(secret, db_dep)
-
-
-def _legacy_config() -> SecurityConfig:
-    """Fallback a los globales: emite EXACTAMENTE un `DeprecationWarning`.
-
-    El mensaje nombra los NOMBRES de los globales y su reemplazo, nunca sus
-    valores (Pitfall 12). Se valida primero para seguir fallando cerrado sin
-    avisar cuando no hay configuración.
-    """
-    secret, db_dep = _resolve(None, None)
-    warnings.warn(
-        "los globales SECRET/GET_DB están deprecados; usa SecurityConfig y "
-        "security_dependencies(config)",
-        DeprecationWarning,
-        stacklevel=2,
-    )
     return SecurityConfig(secret, db_dep)
 
 
@@ -115,13 +100,16 @@ def security_dependencies(config: SecurityConfig):
 def get_current_user(secret: str | None = None, get_db=None):
     """Dependency: resuelve la identidad desde el header `Authorization: Bearer`.
 
-    Firma legacy preservada: con argumentos explícitos no emite warning; sin
-    argumentos cae al fallback deprecado de los globales.
+    La configuración es explícita (firma preservada). Sin argumentos se lanza
+    `AuthenticationError` accionable que dirige a
+    `security_dependencies(SecurityConfig(...))`: ya no hay fallback a globales.
     """
-    if secret is not None or get_db is not None:
-        config = _explicit_config(secret, get_db)
-    else:
-        config = _legacy_config()
+    if secret is None and get_db is None:
+        raise AuthenticationError(
+            "get_current_user() sin configuración: usa "
+            "security_dependencies(SecurityConfig(secret, get_db))"
+        )
+    config = _explicit_config(secret, get_db)
     get_current_user_factory, _ = security_dependencies(config)
     return get_current_user_factory()
 
@@ -131,11 +119,14 @@ def require(modelo: str, op: str, secret: str | None = None, get_db=None):
 
     Devuelve una dependency de FastAPI que resuelve al usuario vía
     `get_current_user` y exige el permiso `op` sobre `modelo`; lanza `403`
-    (vía `HTTPException`) si no puede. Firma legacy preservada.
+    (vía `HTTPException`) si no puede. La configuración es explícita: sin
+    argumentos se lanza `AuthenticationError` accionable que dirige a
+    `security_dependencies(SecurityConfig(...))`.
     """
-    if secret is not None or get_db is not None:
-        config = _explicit_config(secret, get_db)
-    else:
-        config = _legacy_config()
+    if secret is None and get_db is None:
+        raise AuthenticationError(
+            "require() sin configuración: usa security_dependencies(SecurityConfig(secret, get_db))"
+        )
+    config = _explicit_config(secret, get_db)
     _, require_factory = security_dependencies(config)
     return require_factory(modelo, op)
