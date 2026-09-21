@@ -1,7 +1,7 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2.6
-milestone_name: milestone
+milestone: v0.3.0
+milestone_name: Production Hardening
 status: Awaiting next milestone
 stopped_at: Phase 8 complete (8/8) — 0.3.0 published
 last_updated: "2026-09-21T01:30:10.220Z"
@@ -18,11 +18,11 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-17)
+See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** El ORM debe ser confiable en producción sobre cualquiera de los seis motores — correcto bajo concurrencia, seguro frente a inyección y configuraciones erróneas, y predecible en rendimiento.
-**Current focus:** Phase 08 — release 0 3 0
-**Milestone:** encino_orm 0.2.6 → 0.3.0 (production hardening)
+**Current focus:** Planning next milestone
+**Milestone:** encino_orm — v0.3.0 shipped (2026-09-20); next milestone not yet defined
 
 ## Current Position
 
