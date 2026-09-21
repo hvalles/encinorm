@@ -2,7 +2,7 @@
 
 ## What This Is
 
-`encino_orm` es un ORM asíncrono de interfaz unificada para seis motores de base de datos (SQLite, MySQL, MariaDB, PostgreSQL, SQL Server y Oracle), construido sobre `pydantic` v2. Ofrece un modelo declarativo, CRUD tipado, relaciones, consultas componibles, migraciones y capas opcionales de producto (REST, GraphQL, RBAC/JWT y codegen). Está en fase experimental (`v0.2.6`) y su objetivo actual es alcanzar fiabilidad de nivel producción para uso interno y publicación en PyPI.
+`encino_orm` es un ORM asíncrono de interfaz unificada para seis motores de base de datos (SQLite, MySQL, MariaDB, PostgreSQL, SQL Server y Oracle), construido sobre `pydantic` v2. Ofrece un modelo declarativo, CRUD tipado, relaciones, consultas componibles, migraciones y capas opcionales de producto (REST, GraphQL, RBAC/JWT y codegen). Está en fase experimental (`v0.3.0`, publicada en PyPI) y ha completado el milestone de hardening **Production Hardening 0.2.6 → 0.3.0**: contrato de fiabilidad de nivel producción establecido sobre los seis motores. El foco del siguiente ciclo es consolidar estabilidad y superficie pública antes de 1.0.
 
 ## Core Value
 
@@ -52,17 +52,25 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - ✓ CFG-03: handlers REST/GraphQL generados con `exec()` sustituidos por closures + `__signature__`, con snapshot OpenAPI/SDL antes/después byte-idéntico — Validated in Phase 6
 - ✓ CFG-04: `build_schema` usa un namespace por build sin mutar el módulo ni filtrar `sys.modules` — Validated in Phase 6
 - ✓ CFG-05: fronteras de confianza de `Filter.raw`/`Query`/`db.fn.*` documentadas con ejemplos seguros/inseguros — Validated in Phase 6
+- ✓ PERF-03: línea base de profiling reproducible (`benchmarks/profile_workload.py` + artefactos cProfile/manual fechados) comprometida ANTES de cualquier optimización — Validated in Phase 7
+- ✓ PERF-02: harness de benchmarks zero-dep (`time.perf_counter`, mediana/p95/σ) con pisos numéricos y job CI `benchmarks` que falla ante una regresión 2× — Validated in Phase 7
+- ✓ PERF-01: `copy_table` inserta por lotes multi-fila (`build_multi_insert`: multi-VALUES en 5 dialectos, `INSERT ALL` en Oracle) con tamaño por dialecto (`min(MAX_PARAMS // n, MAX_ROWS)`), degradación segura en bordes y equivalencia fila a fila — Validated in Phase 7
+- ✓ PERF-04: `QueryTracer._latencies` acotado (`deque(maxlen=latency_window)`) y caches de `Model` con `WeakKeyDictionary` (sin retención de clases) — Validated in Phase 7
+- ✓ REL-01: 0.2.7 publicada con `DeprecationWarning`s de runtime por cada ruptura warnable y la ruptura fail-closed de identificadores documentada (tag `v0.2.7` → `e984e78`) — Validated in Phase 8
+- ✓ Retiradas reales de 0.3.0 ejecutadas: `set_default_db`/`get_default_db`, globales mutables `SECRET`/`GET_DB` (+`_legacy_config`) y `last_id()` post-hoc eliminados — Validated in Phase 8
+- ✓ REL-02/REL-03: `0.3.0rc1` publicada antes de `0.3.0`, ambas por OIDC trusted publishing sin `PYPI_API_TOKEN`, con el entorno `pypi` protegido (branch `main` + tag `v*` + approval) y gate `publish: needs: [ci]` — Validated in Phase 8
+- ✓ REL-04: `CHANGELOG.md` enumera cada cambio incompatible con comportamiento viejo/nuevo y `docs/MIGRATION-0.3.md` con ejemplos Antes/Después — Validated in Phase 8
+- ✓ REL-05: README con pinning `~=0.2.6`, aviso de credenciales solo-desarrollo, `.env.example` de los seis motores y enlace muerto `prompts/` corregido — Validated in Phase 8
 
 ### Active
 
-<!-- Alcance actual: hardening hacia 0.3.0. Son hipótesis hasta que se implementen y verifiquen. -->
+<!-- Alcance post-0.3.0: residuales documentados y deuda asignada al siguiente milestone. Son hipótesis hasta implementarse y verificarse. -->
 
 **Corrección de bugs conocidos**
 - [ ] `upsert` con claves de conflicto globales no se acota por `scope()` (residual documentado; mitigación: unicidad multi-tenant `(tenant, clave)`)
 
 **Seguridad**
 - [x] La configuración de JWT/secretos deja de depender de globales mutables; se prefiere inyección explícita por dependencia — Validated in Phase 6 (`SecurityConfig`)
-- [ ] Las credenciales de desarrollo (`docker-compose.yml`) están marcadas como solo-desarrollo y los workflows de release migran a trusted publishing/OIDC
 - [x] Documentación explícita de superficies de confianza (`Filter.raw`, `Query`, fragmentos `db.fn.*`) — Validated in Phase 6 (`docs/trust-boundaries.md`)
 
 **Concurrencia y pool**
@@ -73,12 +81,7 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 - [x] El job `engine-heavy` (MSSQL + Oracle) tuvo su primer run verde en CI (2026-09-18); el fallo previo era el piso de cobertura global aplicado a una pata parcial, resuelto con `--cov-fail-under=0`
 
 **Rendimiento**
-- [ ] `copy_table` inserta por lotes en lugar de una fila por round-trip
 - [ ] La traducción de placeholders se precompila/cachea en lugar de re-parsear con regex en cada ejecución
-- [ ] Suite de benchmarks con objetivos numéricos medibles en CI
-
-**Release**
-- [ ] `CHANGELOG.md` documenta todos los cambios incompatibles introducidos en 0.3.0
 
 ### Out of Scope
 
@@ -109,6 +112,8 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 
 **Estado tras Fase 2 (2026-09-18):** el seam `dialects/` es el único punto de validación de identificadores y construcción DML; `Query` es inmutable; los 7 sitios del bug `COUNT(*)` corregidos; `list_tables(name=)` funciona en los seis motores; y hay snapshots de SQL por dialecto más matriz CI con MariaDB/Redis requeridos y job `engine-heavy` para MSSQL/Oracle. La fase necesitó **3 rondas de gap closure** (12 planes) porque las revisiones descubrieron, uno tras otro, vectores hermanos del mismo defecto: el alias de `QueryBuilder`, luego `_table`, luego `upsert`/`last_id`. Lección: un "choke point" declarado no es un choke point hasta que se barren TODAS las posiciones de interpolación. La suite pasó de 553 a **790 tests**. Pendiente de verificación humana/CI: primer run verde del job `engine-heavy`. Deuda con dueño asignado: captura real de `last_id` en MERGE (`OUTPUT INSERTED.id`) y el `SET` del MERGE de Oracle (ORA-38104) → Fase 4 / `04-02` / POOL-03.
 
+**Estado tras cierre de v0.3.0 (2026-09-20):** el milestone **Production Hardening (0.2.6 → 0.3.0)** quedó completo — 8 fases, 57 planes, con verificación PASS 4/4 en la Fase 8 y code-review resuelto en la Fase 7. Se publicaron en PyPI `0.2.7` (deprecaciones), `0.3.0rc1` y `0.3.0` por OIDC trusted publishing (sin token de larga vida), con el entorno `pypi` protegido y `publish: needs: [ci]` gateando cada release. Las retiradas reales de 0.3.0 (shims de conexión, globales mutables de seguridad, `last_id()`) están aplicadas y cubiertas por tests de ausencia. La suite pasó de ~507 a **1124** funciones de prueba; `encino_orm` ~10.170 LOC Python. Deuda diferida y residuales registrados en `STATE.md` (`## Deferred Items`, `## Active`).
+
 **Entorno técnico:** Python 3.10+, `pydantic>=2.13.4`, `asyncio` de un solo hilo con estado por tarea en `contextvars`. Desarrollo en Windows con `uv`.
 
 ## Constraints
@@ -124,14 +129,17 @@ El ORM debe ser **confiable en producción sobre cualquiera de los seis motores*
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Objetivo de release 0.3.0 con rupturas documentadas | Permite corregir diseño y seguridad sin arrastrar compatibilidad rota | — Pending |
-| No congelar la API en 1.0 todavía | El proyecto sigue experimental; el hardening es prerrequisito | — Pending |
-| Excluir nuevos motores del alcance | Concentrar esfuerzo en la fiabilidad de los seis motores actuales | — Pending |
-| Exigir test de regresión por cada bug corregido | Evita reaparición y da evidencia objetiva de "done" | — Pending |
-| Cobertura multi-motor como criterio de done | El bug de `COUNT(*)` demuestra que el sesgo a SQLite oculta fallos dialectales | — Pending |
+| Objetivo de release 0.3.0 con rupturas documentadas | Permite corregir diseño y seguridad sin arrastrar compatibilidad rota | ✓ Good (v0.3.0 publicada) |
+| No congelar la API en 1.0 todavía | El proyecto sigue experimental; el hardening es prerrequisito | ✓ Good (v0.3.0, sigue 0.x) |
+| Excluir nuevos motores del alcance | Concentrar esfuerzo en la fiabilidad de los seis motores actuales | ✓ Good (v0.3.0) |
+| Exigir test de regresión por cada bug corregido | Evita reaparición y da evidencia objetiva de "done" | ✓ Good (v0.3.0) |
+| Cobertura multi-motor como criterio de done | El bug de `COUNT(*)` demuestra que el sesgo a SQLite oculta fallos dialectales | ✓ Good (v0.3.0) |
 | Seam de dialectos como único propietario del SQL de INSERT (Fase 7) | Todo SQL generado para INSERT (fila, multi-VALUES, `INSERT ALL` de Oracle, `ignore_duplicated`/`replace`/upsert) vive en `encino_orm/dialects/` con estrategia por motor; los adaptadores ejecutan `Query` sin más ramas SQL nuevas fuera del seam. Relevant para PHASE 7 | — Shipped (Fase 7) |
 | `batch_size` como fórmula de producción pública y canario en CI (Fase 7) | El gate de benchmarks mide la función real (`encino_orm/transfer.batch_size`), no una copia literal; un cambio de fórmula parpadearía el floor (LR-02) | — Shipped (Fase 7) |
 | `copy_table` degrada con SQL específico por dialecto en bordes (Fase 7) | `target_cols == []` → fila DEFAULT por dialecto (MR-01); `per_row == 0` → insert de fila única (LR-01). Correcto sobre el valor de producción | — Shipped (Fase 7) |
+| OIDC trusted publishing validado primero en TestPyPI y activo en PyPI desde 0.3.0rc1 (Fase 8, D-03) | Elimina el token de larga vida; TestPyPI como ensayo sin riesgo de producción | ✓ Good (v0.3.0) |
+| Entorno `pypi` protegido con regla de tags `v*` + approval + gate CI (Fase 8, D-02) | Sin la regla de tags el gate bloquearía la publicación por tag; con approval + `needs: [ci]`, publicar con CI rojo es imposible | ✓ Good (v0.3.0) |
+| 0.2.7 recortada desde `main` endurecido (warning-only), no desde la línea 0.2.6 (Fase 8, D-01) | Simplicidad (`branching:none`) a costa de desviarse del "v0.2.6 maintenance line" del ROADMAP; override W-01 registrado en `08-VERIFICATION.md` | ⚠ Revisit (si se necesita una línea 0.2.x real) |
 
 ## Evolution
 
@@ -151,4 +159,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-19 after Phase 6 completion and Phase 7 completion*
+*Last updated: 2026-09-20 after v0.3.0 milestone completion*

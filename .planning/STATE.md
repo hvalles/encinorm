@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.2.6
 milestone_name: milestone
-status: planning
+status: Awaiting next milestone
 stopped_at: Phase 8 complete (8/8) — 0.3.0 published
-last_updated: "2026-09-20T23:53:24.688Z"
-last_activity: 2026-09-20
+last_updated: "2026-09-21T01:30:10.220Z"
+last_activity: 2026-09-21 — Milestone v0.3.0 completed and archived
 progress:
   total_phases: 8
   completed_phases: 8
@@ -26,12 +26,10 @@ See: .planning/PROJECT.md (updated 2026-09-17)
 
 ## Current Position
 
-Phase: 08
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-09-20
-
-Progress: [██████████] 100%
+Phase: Milestone v0.3.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-09-21 — Milestone v0.3.0 completed and archived
 
 ## Performance Metrics
 
@@ -291,8 +289,21 @@ Items acknowledged and carried forward from previous milestone close:
 | Performance | DATA-07 — `Query` placeholder caching (TS-37) | Deferred to v2, pending profiler evidence | 2026-09-17 (roadmap) |
 | Observability | OBSV-01…05, RELI-01…05, DATA-05/06 | Deferred to 0.3.x / 0.4+ | 2026-09-17 (roadmap) |
 
+Items acknowledged and deferred at milestone close on 2026-09-20:
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat | 01-HUMAN-UAT.md | resolved — 0 open scenarios |
+| verification | 01-VERIFICATION.md — CI-08 real-tag gate test | human_needed — riesgo bajo; el gate está en producción (`publish: needs: [ci]` + entorno `pypi` protegido, verificado en el release 0.3.0) |
+| verification | 03-VERIFICATION.md | superseded_by 03-VERIFICATION-FINAL2.md (gaps cerrados) |
+| verification | 03-VERIFICATION-FINAL.md | superseded_by 03-VERIFICATION-FINAL2.md (status `passed`, 5/5) |
+
 ## Session Continuity
 
 Last session: 2026-09-20T05:59:55.933Z
 Stopped at: Phase 8 complete (8/8) — 0.3.0 published
 Resume file: None
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
